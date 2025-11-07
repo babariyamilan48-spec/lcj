@@ -1,0 +1,27 @@
+{
+  "completed_steps": [
+    "tests",
+    "dimensions",
+    "questions_bigfive",
+    "questions_vark",
+    "questions_svs",
+    "questions_riasec",
+    "questions_intelligence",
+    "questions_decision",
+    "questions_life-situation",
+    "questions_mbti"
+  ],
+  "last_run": "2025-09-13T18:35:12.917711",
+  "data_hashes": {
+    "tests": "f7e82b5888c1258ba6b7025dcf8445a1",
+    "dimensions": "99914b932bd37a50b983c5e7c90ae93b",
+    "questions_bigfive": "644b265df5dced5772fbbebc19c9ba68",
+    "questions_vark": "a77dabb78b196a6d39784c263fe2149d",
+    "questions_svs": "9e79609f29459286fea69b815bde24a3",
+    "questions_riasec": "2acab62e18d5a95993503c61bf892073",
+    "questions_intelligence": "9377b6938777f8c6b5f3d078c45b097a",
+    "questions_decision": "516f758fa3f086c6ed3f4771b1c4ee1c",
+    "questions_life-situation": "30796321143ebe44ae331acbb4a1381d",
+    "questions_mbti": "681e8f71a84539571c491049520a144e"
+  }
+}

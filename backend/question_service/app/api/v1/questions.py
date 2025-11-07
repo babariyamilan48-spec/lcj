@@ -1,0 +1,130 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.orm import Session
+from typing import List, Optional, Any
+from core.database import get_db
+from core.app_factory import resp
+from question_service.app.deps.auth import get_current_user
+# Removed: from app.models.user import User
+from question_service.app.schemas.question import QuestionCreate, QuestionUpdate, QuestionResponse, QuestionListResponse
+from question_service.app.services.question_service import QuestionService
+from core.rate_limit import limiter
+
+router = APIRouter()
+
+@router.get("/")
+@limiter.limit("100/minute")
+async def get_questions(
+    request: Request,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    test_id: Optional[int] = None,
+    section_id: Optional[int] = None,
+    is_active: Optional[bool] = None,
+    db: Session = Depends(get_db)
+):
+    """Get all questions with pagination and filtering"""
+    try:
+        service = QuestionService(db)
+        questions, total = service.get_questions(
+            skip=skip, 
+            limit=limit, 
+            test_id=test_id,
+            section_id=section_id,
+            is_active=is_active
+        )
+        
+        result = QuestionListResponse(
+            questions=questions,
+            total=total,
+            page=skip // limit + 1,
+            size=limit
+        )
+        
+        return resp(result, True, None, "Questions retrieved successfully")
+    except Exception as e:
+        return resp(None, False, str(e), "Failed to retrieve questions", 500)
+
+@router.get("/{question_id}")
+@limiter.limit("100/minute")
+async def get_question(
+    request: Request,
+    question_id: int, 
+    db: Session = Depends(get_db)
+):
+    """Get a specific question by ID"""
+    try:
+        service = QuestionService(db)
+        question = service.get_question(question_id)
+        if not question:
+            return resp(None, False, "Question not found", "Question not found", 404)
+        
+        return resp(question, True, None, "Question retrieved successfully")
+    except Exception as e:
+        return resp(None, False, str(e), "Failed to retrieve question", 500)
+
+@router.post("/")
+@limiter.limit("10/minute")
+async def create_question(
+    request: Request,
+    question_data: QuestionCreate, 
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_user)
+):
+    """Create a new question (Admin only)"""
+    try:
+        # Check if user has admin privileges
+        if not getattr(current_user, "is_admin", False):
+            return resp(None, False, "Insufficient permissions", "Admin access required", 403)
+        
+        service = QuestionService(db)
+        question = service.create_question(question_data)
+        return resp(question, True, None, "Question created successfully", 201)
+    except Exception as e:
+        return resp(None, False, str(e), "Failed to create question", 500)
+
+@router.put("/{question_id}")
+@limiter.limit("10/minute")
+async def update_question(
+    request: Request,
+    question_id: int, 
+    question_data: QuestionUpdate, 
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_user)
+):
+    """Update a question (Admin only)"""
+    try:
+        # Check if user has admin privileges
+        if not getattr(current_user, "is_admin", False):
+            return resp(None, False, "Insufficient permissions", "Admin access required", 403)
+        
+        service = QuestionService(db)
+        question = service.update_question(question_id, question_data)
+        if not question:
+            return resp(None, False, "Question not found", "Question not found", 404)
+        
+        return resp(question, True, None, "Question updated successfully")
+    except Exception as e:
+        return resp(None, False, str(e), "Failed to update question", 500)
+
+@router.delete("/{question_id}")
+@limiter.limit("10/minute")
+async def delete_question(
+    request: Request,
+    question_id: int, 
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_user)
+):
+    """Delete a question (Admin only)"""
+    try:
+        # Check if user has admin privileges
+        if not getattr(current_user, "is_admin", False):
+            return resp(None, False, "Insufficient permissions", "Admin access required", 403)
+        
+        service = QuestionService(db)
+        success = service.delete_question(question_id)
+        if not success:
+            return resp(None, False, "Question not found", "Question not found", 404)
+        
+        return resp(None, True, None, "Question deleted successfully")
+    except Exception as e:
+        return resp(None, False, str(e), "Failed to delete question", 500)

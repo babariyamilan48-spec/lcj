@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: lcj_db
+      POSTGRES_USER: lcj_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lcj_user -d lcj_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend Services
+  auth-service:
+    build:
+      context: ./backend/auth_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://lcj_user:${POSTGRES_PASSWORD}@postgres:5432/lcj_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+
+  question-service:
+    build:
+      context: ./backend/question_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://lcj_user:${POSTGRES_PASSWORD}@postgres:5432/lcj_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8002:8000"
+
+  results-service:
+    build:
+      context: ./backend/results_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://lcj_user:${POSTGRES_PASSWORD}@postgres:5432/lcj_db
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8003:8000"
+
+  contact-service:
+    build:
+      context: ./backend/contact_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://lcj_user:${POSTGRES_PASSWORD}@postgres:5432/lcj_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8004:8000"
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    environment:
+      - DATABASE_URL=postgresql://lcj_user:${POSTGRES_PASSWORD}@postgres:5432/lcj_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python start_celery_worker.py
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    environment:
+      - DATABASE_URL=postgresql://lcj_user:${POSTGRES_PASSWORD}@postgres:5432/lcj_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python start_celery_beat.py
+
+  # Celery Flower (Monitoring)
+  celery-flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "5555:5555"
+    command: python start_celery_flower.py
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - question-service
+      - results-service
+      - contact-service
+
+  # API Gateway (Nginx)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8000:8000"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - auth-service
+      - question-service
+      - results-service
+      - contact-service
+      - frontend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    driver: bridge

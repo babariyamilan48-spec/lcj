@@ -1,0 +1,21 @@
+{
+  "completed_steps": [
+    "mbti_results",
+    "bigfive_results",
+    "intelligence_results",
+    "decision_results",
+    "riasec_results",
+    "vark_results",
+    "life_situation_results"
+  ],
+  "last_run": "2025-09-23 18:30:51.367647",
+  "data_hashes": {
+    "mbti_results": "a3fe7c2e90318b29ed9acb871166e3ee",
+    "bigfive_results": "819e7ae825dd7fc25119cead1869fc12",
+    "intelligence_results": "58310241c152574a7c4ba75c275dd559",
+    "decision_results": "56f4a9cb0a4616626123795e290c8dac",
+    "riasec_results": "895e8e3f92344f8057ff4973e32d42e4",
+    "vark_results": "d094a90730584bded905736956c8b90b",
+    "life_situation_results": "fe9365221a96380d338bcfaca8cfd8e2"
+  }
+}

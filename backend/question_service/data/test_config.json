@@ -1,0 +1,124 @@
+{
+  "availableTests": [
+    {
+      "id": "mbti",
+      "name": "મારા સ્વભાવની ઓળખ",
+      "english": "MBTI Career Test",
+      "description": "Personality type assessment for career guidance",
+      "icon": "User",
+      "color": "#3498db",
+      "questions": 20,
+      "duration": "5-7 મિનિટ",
+      "sections": [
+        { "id": "ei", "name": "E vs I - બહિર્મુખી vs આંતર્મુખી", "gujarati": "Extrovert vs Introvert" },
+        { "id": "sn", "name": "S vs N - અનુભવ vs કલ્પના", "gujarati": "Sensing vs Intuition" },
+        { "id": "tf", "name": "T vs F - વિચાર vs લાગણી", "gujarati": "Thinking vs Feeling" },
+        { "id": "jp", "name": "J vs P - આયોજન vs ઓપન", "gujarati": "Judging vs Perceiving" }
+      ]
+    },
+    {
+      "id": "intelligence",
+      "name": "મારી બુદ્ધિની ઓળખ",
+      "english": "Multiple Intelligences Test",
+      "description": "Assessment of different types of intelligence",
+      "icon": "Lightbulb",
+      "color": "#f39c12",
+      "questions": 45,
+      "duration": "12-15 મિનિટ",
+      "sections": [
+        { "id": "musical", "name": "સંગીત બુદ્ધિ", "gujarati": "Musical Intelligence" },
+        { "id": "logical", "name": "તાર્કિક-ગાણિતિક બુદ્ધિ", "gujarati": "Logical-Mathematical Intelligence" },
+        { "id": "intrapersonal", "name": "આંતરવ્યક્તિગત બુદ્ધિ", "gujarati": "Intrapersonal Intelligence" },
+        { "id": "bodily", "name": "શારીરિક-કાયિક બુદ્ધિ", "gujarati": "Bodily-Kinesthetic Intelligence" },
+        { "id": "naturalistic", "name": "પ્રાકૃતિક બુદ્ધિ", "gujarati": "Naturalistic Intelligence" },
+        { "id": "visual", "name": "દૃષ્ટિ-અવકાશી બુદ્ધિ", "gujarati": "Visual-Spatial Intelligence" },
+        { "id": "linguistic", "name": "ભાષાકીય બુદ્ધિ", "gujarati": "Linguistic Intelligence" },
+        { "id": "interpersonal", "name": "આંતરવ્યક્તિગત બુદ્ધિ", "gujarati": "Interpersonal Intelligence" },
+        { "id": "existential", "name": "અસ્તિત્વવાદી બુદ્ધિ", "gujarati": "Existential Intelligence" }
+      ]
+    },
+    {
+      "id": "bigfive",
+      "name": "મારા વ્યક્તિત્વની ઓળખ",
+      "english": "Big Five Personality Test",
+      "description": "Assessment of five core personality dimensions",
+      "icon": "Users",
+      "color": "#e74c3c",
+      "questions": 25,
+      "duration": "7-8 મિનિટ",
+      "sections": [
+        { "id": "openness", "name": "ખૂલ્લુંપન", "gujarati": "Openness" },
+        { "id": "conscientiousness", "name": "જવાબદારી", "gujarati": "Conscientiousness" },
+        { "id": "extraversion", "name": "બહિર્મુખતા", "gujarati": "Extraversion" },
+        { "id": "agreeableness", "name": "સહમતિ", "gujarati": "Agreeableness" },
+        { "id": "neuroticism", "name": "ચિંતા", "gujarati": "Neuroticism" }
+      ]
+    },
+    {
+      "id": "riasec",
+      "name": "મારા રસ-રુચિ ની ઓળખ",
+      "english": "RIASEC Career Test",
+      "description": "Assessment of career interests and work preferences",
+      "icon": "Heart",
+      "color": "#f39c12",
+      "questions": 30,
+      "duration": "10-12 મિનિટ",
+      "sections": [
+        { "id": "realistic", "name": "વાસ્તવિક", "gujarati": "Realistic" },
+        { "id": "investigative", "name": "સંશોધનાત્મક", "gujarati": "Investigative" },
+        { "id": "artistic", "name": "કલાત્મક", "gujarati": "Artistic" },
+        { "id": "social", "name": "સામાજિક", "gujarati": "Social" },
+        { "id": "enterprising", "name": "ઉદ્યોગી", "gujarati": "Enterprising" },
+        { "id": "conventional", "name": "પરંપરાગત", "gujarati": "Conventional" }
+      ]
+    },
+    {
+      "id": "decision",
+      "name": "મારી નિર્ણય શૈલીની ઓળખ",
+      "english": "Decision-Making Style Test",
+      "description": "Assessment of decision-making preferences and styles",
+      "icon": "Target",
+      "color": "#9c27b0",
+      "questions": 25,
+      "duration": "7-8 મિનિટ",
+      "sections": [
+        { "id": "rational", "name": "તાર્કિક", "gujarati": "Rational" },
+        { "id": "intuitive", "name": "અંતઃપ્રેરણાત્મક", "gujarati": "Intuitive" },
+        { "id": "dependent", "name": "અવલંબી", "gujarati": "Dependent" },
+        { "id": "avoidant", "name": "ટાળવાત્મક", "gujarati": "Avoidant" },
+        { "id": "spontaneous", "name": "આકસ્મિક", "gujarati": "Spontaneous" }
+      ]
+    },
+    {
+      "id": "vark",
+      "name": "મારી શીખવાની શૈલીની ઓળખ",
+      "english": "VARK Learning Style Test",
+      "description": "Assessment of learning preferences and styles",
+      "icon": "BookOpen",
+      "color": "#673ab7",
+      "questions": 20,
+      "duration": "5-7 મિનિટ",
+      "sections": [
+        { "id": "visual", "name": "દૃષ્ટિ", "gujarati": "Visual" },
+        { "id": "aural", "name": "શ્રવણ", "gujarati": "Aural" },
+        { "id": "read-write", "name": "વાંચન-લેખન", "gujarati": "Read-Write" },
+        { "id": "kinesthetic", "name": "સ્પર્શ-અનુભવ", "gujarati": "Kinesthetic" }
+      ]
+    },
+    {
+      "id": "life-situation",
+      "name": "મારી જીવન પરિસ્થિતિની ઓળખ",
+      "english": "Life Situation Assessment",
+      "description": "Assessment of current life circumstances and challenges",
+      "icon": "Home",
+      "color": "#795548",
+      "questions": 15,
+      "duration": "5-7 મિનિટ",
+      "sections": [
+        { "id": "family", "name": "સામાજિક પરિસ્થિતિ", "gujarati": "Social Situation" },
+        { "id": "financial", "name": "આર્થિક પરિસ્થિતિ", "gujarati": "Economic Situation" },
+        { "id": "career", "name": "ભૌગોલિક પરિસ્થિતિ", "gujarati": "Geographical Situation" }
+      ]
+    }
+  ]
+}

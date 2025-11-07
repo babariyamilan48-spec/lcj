@@ -1,0 +1,206 @@
+{
+  "testId": "riasec",
+  "testName": "મારા રસ-રુચિ ની ઓળખ",
+  "testNameEnglish": "RIASEC Career Test",
+  "description": "RIASEC એટલે શું?",
+  "interestTypes": {
+    "realistic": {
+      "id": "realistic",
+      "name": "વાસ્તવિક",
+      "englishName": "Realistic",
+      "code": "R",
+      "description": "વાસ્તવિક / હાથથી કામ કરનાર",
+      "characteristics": [
+        "હસ્તકલા",
+        "મશીની",
+        "ઓટોકેર કામ",
+        "ટેકનિકલ હિસ્સા",
+        "વિજ્ઞાન",
+        "નિર્માણકામ",
+        "સંતાનપ્રજનન"
+      ],
+      "careerSuggestions": [
+        "મિકેનિક",
+        "એન્જિનિયર",
+        "આર્કિટેક્ટ",
+        "ફાર્મર",
+        "કાર્પેન્ટર",
+        "ઇલેક્ટ્રિશિયન",
+        "પાઇલટ"
+      ],
+      "workEnvironment": "હાથથી કામ, મશીનો, ટૂલ્સ, બાહરનું કામ"
+    },
+    "investigative": {
+      "id": "investigative", 
+      "name": "સંશોધનાત્મક",
+      "englishName": "Investigative",
+      "code": "I",
+      "description": "અનુસંધાનકર્તા / વિચારક",
+      "characteristics": [
+        "વિજ્ઞાન",
+        "વિશ્લેષણ",
+        "સંશોધન",
+        "પ્રયોગ",
+        "ગણિત",
+        "સમસ્યા ઉકેલવી"
+      ],
+      "careerSuggestions": [
+        "વૈજ્ઞાનિક",
+        "ડૉક્ટર",
+        "સંશોધક",
+        "ગણિતશાસ્ત્રી",
+        "મનોવૈજ્ઞાનિક",
+        "લેબ ટેકનિશિયન"
+      ],
+      "workEnvironment": "લેબોરેટરી, સંશોધન કેન્દ્ર, હોસ્પિટલ"
+    },
+    "artistic": {
+      "id": "artistic",
+      "name": "કલાત્મક", 
+      "englishName": "Artistic",
+      "code": "A",
+      "description": "કલાત્મક",
+      "characteristics": [
+        "સર્જનાત્મકતા",
+        "કલા",
+        "સંગીત",
+        "લેખન",
+        "ડિઝાઇન",
+        "અભિવ્યક્તિ"
+      ],
+      "careerSuggestions": [
+        "કલાકાર",
+        "સંગીતકાર",
+        "લેખક",
+        "ડિઝાઇનર",
+        "અભિનેતા",
+        "ફોટોગ્રાફર"
+      ],
+      "workEnvironment": "સ્ટુડિયો, થિયેટર, ગેલેરી, ક્રિએટિવ સ્પેસ"
+    },
+    "social": {
+      "id": "social",
+      "name": "સામાજિક",
+      "englishName": "Social", 
+      "code": "S",
+      "description": "સામાજિક / સહાયક",
+      "characteristics": [
+        "લોકોની મદદ",
+        "શિક્ષણ",
+        "કાઉન્સેલિંગ",
+        "સેવા",
+        "સામુદાયિક કાર્ય"
+      ],
+      "careerSuggestions": [
+        "શિક્ષક",
+        "કાઉન્સેલર",
+        "નર્સ",
+        "સામાજિક કાર્યકર",
+        "મનોવૈજ્ઞાનિક"
+      ],
+      "workEnvironment": "શાળા, હોસ્પિટલ, કમ્યુનિટી સેન્ટર"
+    },
+    "enterprising": {
+      "id": "enterprising",
+      "name": "ઉદ્યોગી",
+      "englishName": "Enterprising",
+      "code": "E", 
+      "description": "વ્યવસાયિક / નેતૃત્વકર્તા",
+      "characteristics": [
+        "નેતૃત્વ",
+        "વેચાણ",
+        "વ્યવસાય",
+        "સંચાલન",
+        "પ્રભાવ"
+      ],
+      "careerSuggestions": [
+        "બિઝનેસમેન",
+        "મેનેજર",
+        "સેલ્સ પર્સન",
+        "મેર્કેટિંગ",
+        "રાજકારણી",
+        "વકીલ"
+      ],
+      "workEnvironment": "ઓફિસ, બિઝનેસ સેન્ટર, કોર્પોરેટ"
+    },
+    "conventional": {
+      "id": "conventional",
+      "name": "પરંપરાગત",
+      "englishName": "Conventional",
+      "code": "C",
+      "description": "પરંપરાગત / વ્યવસ્થિત",
+      "characteristics": [
+        "ડેટા એન્ટ્રી",
+        "ફાઇલિંગ",
+        "એકાઉન્ટિંગ",
+        "ઓફિસ વર્ક",
+        "વ્યવસ્થા"
+      ],
+      "careerSuggestions": [
+        "એકાઉન્ટન્ટ",
+        "બેંકર",
+        "ક્લાર્ક",
+        "સેક્રેટરી",
+        "ડેટા એન્ટ્રી ઓપરેટર"
+      ],
+      "workEnvironment": "ઓફિસ, બેંક, એકાઉન્ટિંગ ફર્મ"
+    }
+  },
+  "hollandCodes": {
+    "description": "RIASEC કોડ કોમ્બિનેશન તમારા કેરિયર પ્રકાર દર્શાવે છે",
+    "topCombinations": [
+      {
+        "code": "RIA",
+        "name": "Realistic-Investigative-Artistic",
+        "careers": ["એન્જિનિયર", "આર્કિટેક્ટ", "ઇન્ડસ્ટ્રિયલ ડિઝાઇનર"]
+      },
+      {
+        "code": "IAS", 
+        "name": "Investigative-Artistic-Social",
+        "careers": ["મનોવૈજ્ઞાનિક", "આર્ટ થેરાપિસ્ટ", "સંશોધક"]
+      },
+      {
+        "code": "ASE",
+        "name": "Artistic-Social-Enterprising", 
+        "careers": ["મીડિયા પ્રોડ્યુસર", "પબ્લિક રિલેશન્સ", "ઇવેન્ટ મેનેજર"]
+      },
+      {
+        "code": "SEC",
+        "name": "Social-Enterprising-Conventional",
+        "careers": ["HR મેનેજર", "ટ્રેનિંગ મેનેજર", "એડમિનિસ્ટ્રેટર"]
+      },
+      {
+        "code": "ECR",
+        "name": "Enterprising-Conventional-Realistic", 
+        "careers": ["બિઝનેસ મેનેજર", "ઓપરેશન્સ મેનેજર", "પ્રોજેક્ટ મેનેજર"]
+      },
+      {
+        "code": "CRI",
+        "name": "Conventional-Realistic-Investigative",
+        "careers": ["ડેટા એનાલિસ્ટ", "ક્વોલિટી કન્ટ્રોલ", "ટેકનિકલ રાઇટર"]
+      }
+    ]
+  },
+  "scoringRanges": {
+    "veryHigh": {
+      "range": "80-100",
+      "description": "ખૂબ ઉચ્ચ - આ ક્ષેત્રમાં તમારી રુચિ ખૂબ જ મજબૂત છે"
+    },
+    "high": {
+      "range": "60-79",
+      "description": "ઉચ્ચ - આ ક્ષેત્રમાં તમારી સારી રુચિ છે"
+    },
+    "medium": {
+      "range": "40-59", 
+      "description": "મધ્યમ - આ ક્ષેત્રમાં તમારી સરેરાશ રુચિ છે"
+    },
+    "low": {
+      "range": "20-39",
+      "description": "નીચું - આ ક્ષેત્રમાં તમારી ઓછી રુચિ છે"
+    },
+    "veryLow": {
+      "range": "0-19",
+      "description": "ખૂબ નીચું - આ ક્ષેત્રમાં તમારી રુચિ ખૂબ જ ઓછી છે"
+    }
+  }
+}

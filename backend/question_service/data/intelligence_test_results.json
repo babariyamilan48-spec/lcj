@@ -1,0 +1,120 @@
+{
+  "testId": "intelligence",
+  "testName": "મારી બુદ્ધિની ઓળખ",
+  "testNameEnglish": "Multiple Intelligences Test",
+  "intelligenceTypes": {
+    "linguistic": {
+      "id": "linguistic",
+      "name": "ભાષાકીય બુદ્ધિ",
+      "englishName": "Linguistic Intelligence",
+      "description": "ભાષા અને શબ્દોના ઉપયોગ જાણવી શક્તિ - લખવામાં, વાંચવામાં, બોલવામાં નિપુણ",
+      "characteristics": ["કવિ", "લેખક", "વકીલ", "વક્તા"],
+      "careerSuggestions": ["લેખક", "પત્રકાર", "વકીલ", "શિક્ષક", "કવિ", "અનુવાદક"],
+      "strengths": ["વાંચન", "લેખન", "વાતચીત", "ભાષા શીખવી"]
+    },
+    "logical": {
+      "id": "logical",
+      "name": "તાર્કિક-ગાણિતિક બુદ્ધિ",
+      "englishName": "Logical-Mathematical Intelligence", 
+      "description": "તર્ક, ગણિત, અંકશાસ્ત્ર લગાવવી, સંખ્યાકીય ઉકેલવા માં નિપુણ",
+      "characteristics": ["વૈજ્ઞાનિક", "ગણિતશાસ્ત્રી", "એન્જિનિયર", "એકાઉન્ટન્ટ"],
+      "careerSuggestions": ["વૈજ્ઞાનિક", "ગણિતશાસ્ત્રી", "એન્જિનિયર", "એકાઉન્ટન્ટ", "પ્રોગ્રામર"],
+      "strengths": ["સમસ્યા ઉકેલવી", "તર્કશાસ્ત્ર", "ગણિત", "વિશ્લેષણ"]
+    },
+    "musical": {
+      "id": "musical",
+      "name": "સંગીત બુદ્ધિ",
+      "englishName": "Musical Intelligence",
+      "description": "તાલ, સ્વર, સંગીતને સમજવું અને તેની સાથે કામ કરે",
+      "characteristics": ["સંગીતકાર", "ગાયક", "સંગીત શિક્ષક"],
+      "careerSuggestions": ["સંગીતકાર", "ગાયક", "સંગીત શિક્ષક", "સંગીત નિર્દેશક", "ઇન્સ્ટ્રુમેન્ટ પ્લેયર"],
+      "strengths": ["સંગીત સમજવું", "તાલ", "સ્વર", "સંગીત રચના"]
+    },
+    "bodily": {
+      "id": "bodily",
+      "name": "શારીરિક-કાયિક બુદ્ધિ",
+      "englishName": "Bodily-Kinesthetic Intelligence",
+      "description": "શરીરનું કાબૂ અને સમન્વય ખૂબ સારી રીતે હોય છે",
+      "characteristics": ["નૃત્યકાર", "રમતવીર", "સર્જન (ડૉક્ટર)", "અભિનેતા"],
+      "careerSuggestions": ["એથ્લેટ", "નૃત્યકાર", "સર્જન", "અભિનેતા", "યોગ શિક્ષક"],
+      "strengths": ["શારીરિક કૌશલ્ય", "હાથની કારીગરી", "સંતુલન", "લવચીકતા"]
+    },
+    "visual": {
+      "id": "visual",
+      "name": "દૃષ્ટિ-અવકાશી બુદ્ધિ",
+      "englishName": "Visual-Spatial Intelligence",
+      "description": "દૃશ્યમાન વાતો સમજવી, નકશા, દિશા, અંતર, રંગ કલ્પનામાં બનાવી શકે",
+      "characteristics": ["કલાવિદ", "ડિઝાઇનર", "ફેશન ડિઝાઇનર", "બિલ્ડિંગ આર્કિટેક્ટ"],
+      "careerSuggestions": ["આર્કિટેક્ટ", "ડિઝાઇનર", "કલાકાર", "ફોટોગ્રાફર", "પાઇલટ"],
+      "strengths": ["દૃશ્ય કલ્પના", "અવકાશી સમજ", "રંગ સંવેદના", "ડિઝાઇન"]
+    },
+    "spatial": {
+      "id": "spatial",
+      "name": "દૃષ્ટિ-અવકાશી બુદ્ધિ",
+      "englishName": "Visual-Spatial Intelligence",
+      "description": "દૃશ્યમાન વાતો સમજવી, નકશા, દિશા, અંતર, રંગ કલ્પનામાં બનાવી શકે",
+      "characteristics": ["કલાવિદ", "ડિઝાઇનર", "ફેશન ડિઝાઇનર", "બિલ્ડિંગ આર્કિટેક્ટ"],
+      "careerSuggestions": ["આર્કિટેક્ટ", "ડિઝાઇનર", "કલાકાર", "ફોટોગ્રાફર", "પાઇલટ"],
+      "strengths": ["દૃશ્ય કલ્પના", "અવકાશી સમજ", "રંગ સંવેદના", "ડિઝાઇન"]
+    },
+    "bodily-kinesthetic": {
+      "id": "bodily-kinesthetic",
+      "name": "શારીરિક-કાયિક બુદ્ધિ",
+      "englishName": "Bodily-Kinesthetic Intelligence",
+      "description": "શરીરનું કાબૂ અને સમન્વય ખૂબ સારી રીતે હોય છે",
+      "characteristics": ["નૃત્યકાર", "રમતવીર", "સર્જન (ડૉક્ટર)", "અભિનેતા"],
+      "careerSuggestions": ["એથ્લેટ", "નૃત્યકાર", "સર્જન", "અભિનેતા", "યોગ શિક્ષક"],
+      "strengths": ["શારીરિક કૌશલ્ય", "હાથની કારીગરી", "સંતુલન", "લવચીકતા"]
+    },
+    "interpersonal": {
+      "id": "interpersonal",
+      "name": "આંતરવ્યક્તિગત બુદ્ધિ",
+      "englishName": "Interpersonal Intelligence",
+      "description": "અન્ય લોકોની લાગણી, વલણ અને જરૂરિયાતો સમજવી શકે",
+      "characteristics": ["શિક્ષક", "લીડર", "પોલિટિશિયન", "કાઉન્સેલર"],
+      "careerSuggestions": ["શિક્ષક", "કાઉન્સેલર", "સેલ્સ પર્સન", "મેનેજર", "રાજકારણી"],
+      "strengths": ["સામાજિક કૌશલ્ય", "નેતૃત્વ", "સંવાદ", "સહાનુભૂતિ"]
+    },
+    "intrapersonal": {
+      "id": "intrapersonal",
+      "name": "આંતરવ્યક્તિગત બુદ્ધિ",
+      "englishName": "Intrapersonal Intelligence",
+      "description": "પોતાની જાતને સારી રીતે સમજવી - પોતાની લાગણી, ભાવનાઓ, જરૂરિયાતો, મજબૂતી - નબળાઈ ઓળખવી",
+      "characteristics": ["દાર્શનિક", "લેખક", "આત્મવિકાસક"],
+      "careerSuggestions": ["મનોવૈજ્ઞાનિક", "લેખક", "દાર્શનિક", "કાઉન્સેલર", "યોગી"],
+      "strengths": ["આત્મજ્ઞાન", "આત્મનિરીક્ષણ", "લાગણીનું નિયંત્રણ", "વ્યક્તિગત વિકાસ"]
+    },
+    "naturalistic": {
+      "id": "naturalistic",
+      "name": "પ્રાકૃતિક બુદ્ધિ",
+      "englishName": "Naturalistic Intelligence",
+      "description": "પ્રકૃતિ અને તેના ઘટકો સાથે નજીકનો સંબંધ હોય છે",
+      "characteristics": ["કૃષિવિજ્ઞાની", "વનસ્પતિશાસ્ત્રી", "પશુપાલક", "વેદરમેન કી ડૉક્ટર"],
+      "careerSuggestions": ["બાયોલોજિસ્ટ", "પર્યાવરણવિદ", "કૃષિવિજ્ઞાની", "વેટરનેરિયન", "બોટેનિસ્ટ"],
+      "strengths": ["પ્રકૃતિ સમજ", "પર્યાવરણ જાગૃતિ", "જીવવિજ્ઞાન", "કૃષિ"]
+    },
+    "existential": {
+      "id": "existential", 
+      "name": "અસ્તિત્વવાદી બુદ્ધિ",
+      "englishName": "Existential Intelligence",
+      "description": "અસ્તિત્વ બુદ્ધિ ધરાવનાર માટે કાર્યક્ષેત્ર વિકલ્પો",
+      "characteristics": ["ધર્મગુરુ", "આધ્યાત્મિક માર્ગદર્શક", "તત્વજ્ઞાની", "પંડિત", "ફિલોસોફર", "યોગ શિક્ષક"],
+      "careerSuggestions": ["ધર્મગુરુ", "દાર્શનિક", "આધ્યાત્મિક માર્ગદર્શક", "યોગ શિક્ષક", "મેડિટેશન ગુરુ"],
+      "strengths": ["આધ્યાત્મિક વિચારણા", "જીવનના મૂળભૂત પ્રશ્નો", "અર્થ શોધવો", "તત્વજ્ઞાન"]
+    }
+  },
+  "scoringRanges": {
+    "high": {
+      "range": "80-100",
+      "description": "ઉચ્ચ સ્તર - આ બુદ્ધિમાં તમે ખૂબ જ મજબૂત છો"
+    },
+    "medium": {
+      "range": "60-79", 
+      "description": "મધ્યમ સ્તર - આ બુદ્ધિમાં તમે સારા છો"
+    },
+    "low": {
+      "range": "0-59",
+      "description": "નીચું સ્તર - આ બુદ્ધિમાં વિકાસની જરૂર છે"
+    }
+  }
+}

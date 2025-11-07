@@ -1,0 +1,7 @@
+Use this Alembic setup to manage migrations across services.
+Example commands (run from backend/):
+
+alembic revision --autogenerate -m "init"
+alembic upgrade head
+
+

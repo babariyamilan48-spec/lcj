@@ -1,0 +1,445 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowLeft,
+  Download,
+  Share2,
+  Sparkles,
+  Brain,
+  Target,
+  AlertCircle,
+  Briefcase,
+  Users,
+  Lightbulb,
+  Heart,
+  Rocket,
+  Eye
+} from 'lucide-react';
+import { aiInsightsService } from '@/services/aiInsightsService';
+import { aiInsightsAsyncService, TaskStatusResponse } from '@/services/aiInsightsAsyncService';
+import ComprehensiveAIInsightsComponent from '@/components/ComprehensiveAIInsights';
+
+interface TestResult {
+  test_id: string;
+  test_name: string;
+  analysis: any;
+  score: number;
+  percentage: number;
+  dimensions_scores: any;
+  recommendations: string[];
+  timestamp: string;
+  completed_at: string;
+}
+
+interface CompletionStatus {
+  allCompleted: boolean;
+  completedTests: string[];
+  missingTests: string[];
+  totalTests: number;
+  completionPercentage: number;
+}
+
+const ComprehensiveReportPage = () => {
+  const [completionStatus, setCompletionStatus] = useState<CompletionStatus | null>(null);
+  const [allTestResults, setAllTestResults] = useState<Record<string, TestResult>>({});
+  const [comprehensiveInsights, setComprehensiveInsights] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<'completion' | 'ai_generation' | 'data_fetch'>('completion');
+  const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [progressMessage, setProgressMessage] = useState<string>('');
+  const [progressPercentage, setProgressPercentage] = useState<number>(0);
+
+  // Test type icons mapping
+  const testIcons = {
+    'mbti': Brain,
+    'bigfive': Users,
+    'vark': Eye,
+    'decision': Target,
+    'multiple-intelligence': Lightbulb,
+    'riasec': Briefcase,
+    'svs': Heart,
+    'life-situation': Rocket
+  };
+
+  // Test type colors mapping
+  const testColors = {
+    'mbti': 'from-purple-500 to-indigo-600',
+    'bigfive': 'from-blue-500 to-cyan-600',
+    'vark': 'from-green-500 to-emerald-600',
+    'decision': 'from-orange-500 to-red-600',
+    'multiple-intelligence': 'from-yellow-500 to-orange-600',
+    'riasec': 'from-pink-500 to-rose-600',
+    'svs': 'from-teal-500 to-blue-600',
+    'life-situation': 'from-violet-500 to-purple-600'
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const userId = localStorage.getItem('userId') || '11dc4aec-2216-45f9-b045-60edac007262';
+
+      // Fetch completion status
+      const status = await aiInsightsService.checkAllTestsCompleted(userId);
+      setCompletionStatus(status);
+
+      if (!status.allCompleted) {
+        setError(`કૃપા કરીને સંપૂર્ણ રિપોર્ટ જોવા માટે બધા ટેસ્ટ પૂર્ણ કરો.
+        પૂર્ણ: ${status.completedTests?.length || 0}/${status.totalTests || 7} ટેસ્ટ`);
+        setErrorType('completion');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch all test results
+      const results = await aiInsightsService.getAllTestResults(userId);
+      const testResults = results.all_test_results || results || {};
+      setAllTestResults(testResults);
+
+      // Generate comprehensive insights using async service
+      setGeneratingInsights(true);
+      setProgressMessage('રિપોર્ટ તૈયાર કરી રહ્યું છે...');
+      setProgressPercentage(0);
+
+      try {
+        const insightsResponse = await aiInsightsAsyncService.generateComprehensiveInsightsAsync(
+          results,
+          (progress: TaskStatusResponse) => {
+            // Update progress in real-time
+            const message = aiInsightsAsyncService.getProgressMessage(progress);
+            const percentage = progress.progress?.progress || 0;
+
+            setProgressMessage(message);
+            setProgressPercentage(percentage);
+          }
+        );
+
+        if (insightsResponse && insightsResponse.success && insightsResponse.insights) {
+          // Check if this is a redirect response (AI insights already exist)
+          if (insightsResponse.insights.redirect_to_history) {
+            // Redirect to profile page with test history tab
+            window.location.href = '/profile?tab=history&highlight=ai-insights';
+            return;
+          }
+          
+          setComprehensiveInsights(insightsResponse.insights);
+          setProgressMessage('રિપોર્ટ તૈયાર થઈ ગઈ!');
+          setProgressPercentage(100);
+        } else if (insightsResponse && insightsResponse.error) {
+          // Show the error message from the backend
+          setError(insightsResponse.error);
+          setErrorType('ai_generation');
+        } else {
+          setError('AI insights are currently unavailable. Please try again later.');
+          setErrorType('ai_generation');
+        }
+      } catch (insightError) {
+        console.error('Failed to generate insights:', insightError);
+        setError('AI insights service is temporarily unavailable. Please try again in a few minutes.');
+        setErrorType('ai_generation');
+      }
+      setGeneratingInsights(false);
+
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('ડેટા લોડ કરવામાં ભૂલ આવી છે.');
+      setErrorType('data_fetch');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setErrorType('completion');
+    setComprehensiveInsights(null);
+    fetchData();
+  };
+
+  const handleDownloadReport = () => {
+    // Set unique filename for comprehensive report
+    const originalTitle = document.title;
+    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Set document title for PDF filename
+    document.title = `Comprehensive_Personality_Report_${timestamp}.pdf`;
+    
+    // Print the document
+    window.print();
+    
+    // Restore original title after a short delay
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 1000);
+  };
+
+  const handleShareReport = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'મારી સંપૂર્ણ કારકિર્દી મૂલ્યાંકન રિપોર્ટ',
+          text: 'મારા વિગતવાર કારકિર્દી મૂલ્યાંકન પરિણામો જુઓ!',
+          url: window.location.href,
+        });
+      } catch (error) {
+        console.error('Error sharing:', error);
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert('રિપોર્ટ લિંક કોપી થઈ ગઈ!');
+    }
+  };
+
+  if (loading || generatingInsights) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center bg-white/90 backdrop-blur-xl rounded-3xl p-12 shadow-2xl border border-orange-200 max-w-lg mx-auto"
+        >
+          <div className="relative mb-8">
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-orange-200 border-t-orange-500 mx-auto"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-orange-500 animate-pulse" />
+            </div>
+          </div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
+            {loading ? 'રિપોર્ટ તૈયાર કરી રહ્યું છે' : 'AI વિશ્લેષણ કરી રહ્યું છે'}
+          </h2>
+          <p className="text-gray-600 text-lg mb-4">
+            {loading ? 'તમારા પરીક્ષણ પરિણામોનું વિશ્લેષણ કરી રહ્યું છે...' : progressMessage}
+          </p>
+          
+          {generatingInsights && (
+            <div className="mb-6">
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                <div 
+                  className="bg-gradient-to-r from-orange-500 to-amber-500 h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercentage}%` }}
+                ></div>
+              </div>
+              <p className="text-sm text-gray-500">{progressPercentage}% પૂર્ણ</p>
+            </div>
+          )}
+          
+          <div className="flex justify-center space-x-2 mt-6">
+            <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"></div>
+            <div className="w-3 h-3 bg-amber-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+            <div className="w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (error || !completionStatus?.allCompleted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md mx-auto text-center bg-white/90 backdrop-blur-xl rounded-3xl p-10 shadow-2xl border border-orange-200"
+        >
+          <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-orange-500" />
+          </div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
+            {errorType === 'completion' ? 'પ્રવેશ પ્રતિબંધિત' : 
+             errorType === 'ai_generation' ? 'AI રિપોર્ટ બનાવવામાં સમસ્યા' : 
+             'ડેટા લોડ કરવામાં સમસ્યા'}
+          </h2>
+          <p className="text-gray-600 mb-8 leading-relaxed">
+            {error || 'સંપૂર્ણ રિપોર્ટ જોવા માટે કૃપા કરીને બધા ટેસ્ટ પૂર્ણ કરો.'}
+          </p>
+          
+          {errorType === 'completion' ? (
+            <motion.button
+              onClick={() => window.location.href = '/test-selection'}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-amber-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              ટેસ્ટ પૂર્ણ કરો
+            </motion.button>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <motion.button
+                onClick={handleRetry}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                ફરી પ્રયાસ કરો
+              </motion.button>
+              <motion.button
+                onClick={() => window.location.href = '/profile'}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-8 py-3 bg-gradient-to-r from-gray-500 to-slate-500 text-white rounded-xl font-semibold hover:from-gray-600 hover:to-slate-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                પ્રોફાઈલ પર પાછા જાઓ
+              </motion.button>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
+      {/* Modern Header */}
+      <div className="bg-white/90 backdrop-blur-xl border-b border-orange-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center space-x-4">
+              <motion.button
+                onClick={() => window.history.back()}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="p-3 hover:bg-orange-100 rounded-xl transition-all duration-300 group"
+              >
+                <ArrowLeft className="w-5 h-5 text-orange-600 group-hover:text-orange-700" />
+              </motion.button>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                  સંપૂર્ણ કારકિર્દી રિપોર્ટ
+                </h1>
+                <p className="text-sm text-gray-600">AI-આધારિત વ્યક્તિગત કારકિર્દી માર્ગદર્શન</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <motion.button
+                onClick={handleShareReport}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center px-4 py-2.5 text-orange-700 bg-orange-100 hover:bg-orange-200 rounded-xl transition-all duration-300 font-medium"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                શેર કરો
+              </motion.button>
+
+              <motion.button
+                onClick={handleDownloadReport}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center px-6 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 rounded-xl transition-all duration-300 font-medium shadow-lg hover:shadow-xl"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                PDF ડાઉનલોડ
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* AI Insights Section */}
+        <AnimatePresence>
+          {generatingInsights ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="bg-white/90 backdrop-blur-xl rounded-3xl p-12 shadow-2xl border border-orange-200 text-center"
+            >
+              <div className="relative mb-8">
+                <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-200 border-t-orange-500 mx-auto"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Brain className="w-6 h-6 text-orange-500 animate-pulse" />
+                </div>
+              </div>
+              <h3 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
+                AI વિશ્લેષણ તૈયાર કરી રહ્યું છે
+              </h3>
+              <p className="text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed mb-6">
+                {progressMessage || 'અમારું અદ્યતન AI તમારા તમામ પરીક્ષણ પરિણામોનું વિશ્લેષણ કરીને વ્યક્તિગત કારકિર્દી માર્ગદર્શન તૈયાર કરી રહ્યું છે...'}
+              </p>
+
+              {/* Progress Bar */}
+              <div className="w-full max-w-md mx-auto mb-6">
+                <div className="flex justify-between text-sm text-gray-500 mb-2">
+                  <span>પ્રગતિ</span>
+                  <span>{progressPercentage}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercentage}%` }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-center space-x-2 mt-4">
+                <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"></div>
+                <div className="w-3 h-3 bg-amber-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              </div>
+            </motion.div>
+          ) : comprehensiveInsights ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <ComprehensiveAIInsightsComponent insights={comprehensiveInsights} />
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white/90 backdrop-blur-xl rounded-3xl p-12 shadow-2xl border border-orange-200 text-center"
+            >
+              <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-10 h-10 text-orange-500" />
+              </div>
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
+                AI વિશ્લેષણ અનુપલબ્ધ
+              </h3>
+              <p className="text-gray-600 mb-8 text-lg leading-relaxed max-w-2xl mx-auto">
+                અમને અત્યારે તમારા AI વિશ્લેષણ બનાવવામાં મુશ્કેલી આવી રહી છે. કૃપા કરીને ફરીથી પ્રયાસ કરો.
+              </p>
+              <motion.button
+                onClick={fetchData}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-amber-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                ફરીથી પ્રયાસ કરો
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Footer */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="text-center mt-16 py-8 border-t border-orange-200"
+        >
+          <p className="text-gray-500 text-sm">
+            આ રિપોર્ટ {new Date().toLocaleDateString('gu-IN')} ના રોજ જનરેટ કરવામાં આવ્યો છે
+          </p>
+          <p className="text-orange-600 font-medium text-sm mt-2">
+            Life Changing Journey - તમારી કારકિર્દીનો સાથી
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
+export default ComprehensiveReportPage;

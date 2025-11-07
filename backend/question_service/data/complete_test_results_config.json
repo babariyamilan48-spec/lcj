@@ -1,0 +1,211 @@
+{
+  "testResultsConfig": {
+    "version": "1.0",
+    "lastUpdated": "2025-09-23",
+    "description": "Complete test results configuration for all psychological assessments",
+    "availableTests": [
+      {
+        "testId": "mbti",
+        "testName": "મારા સ્વભાવની ઓળખ",
+        "testNameEnglish": "MBTI Career Test",
+        "resultFile": "mbti_test_results.json",
+        "resultTypes": ["personality_type", "dimensions"],
+        "totalPersonalityTypes": 16,
+        "dimensions": 4,
+        "enabled": true
+      },
+      {
+        "testId": "intelligence",
+        "testName": "મારી બુદ્ધિની ઓળખ",
+        "testNameEnglish": "Multiple Intelligences Test",
+        "resultFile": "intelligence_test_results.json",
+        "resultTypes": ["intelligence_scores"],
+        "totalIntelligenceTypes": 9,
+        "enabled": true
+      },
+      {
+        "testId": "bigfive",
+        "testName": "મારા વ્યક્તિત્વની ઓળખ",
+        "testNameEnglish": "Big Five Personality Test",
+        "resultFile": "bigfive_test_results.json",
+        "resultTypes": ["personality_dimensions"],
+        "totalDimensions": 5,
+        "enabled": true
+      },
+      {
+        "testId": "riasec",
+        "testName": "મારા રસ-રુચિ ની ઓળખ",
+        "testNameEnglish": "RIASEC Career Test",
+        "resultFile": "riasec_test_results.json",
+        "resultTypes": ["interest_scores", "holland_codes"],
+        "totalInterestTypes": 6,
+        "enabled": true
+      },
+      {
+        "testId": "decision",
+        "testName": "મારી નિર્ણય શૈલીની ઓળખ",
+        "testNameEnglish": "Decision-Making Style Test",
+        "resultFile": "decision_test_results.json",
+        "resultTypes": ["decision_styles"],
+        "totalDecisionStyles": 5,
+        "enabled": true
+      },
+      {
+        "testId": "vark",
+        "testName": "મારી શીખવાની શૈલીની ઓળખ",
+        "testNameEnglish": "VARK Learning Style Test",
+        "resultFile": "vark_test_results.json",
+        "resultTypes": ["learning_styles", "multimodal_combinations"],
+        "totalLearningStyles": 4,
+        "enabled": true
+      },
+      {
+        "testId": "life-situation",
+        "testName": "મારી જીવન પરિસ્થિતિની ઓળખ",
+        "testNameEnglish": "Life Situation Assessment",
+        "resultFile": "life_situation_test_results.json",
+        "resultTypes": ["life_domain_scores", "assessment_areas"],
+        "totalLifeDomains": 3,
+        "totalAssessmentAreas": 5,
+        "enabled": true
+      }
+    ],
+    "databaseTables": {
+      "user_test_results": {
+        "description": "Main table storing user test completion records",
+        "fields": [
+          "id",
+          "user_id",
+          "test_id",
+          "completed_at",
+          "total_score",
+          "result_data",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "mbti_results": {
+        "description": "MBTI specific results",
+        "fields": [
+          "id",
+          "user_id",
+          "test_result_id",
+          "personality_type",
+          "e_i_score",
+          "s_n_score",
+          "t_f_score",
+          "j_p_score",
+          "created_at"
+        ]
+      },
+      "intelligence_results": {
+        "description": "Multiple Intelligence scores",
+        "fields": [
+          "id",
+          "user_id",
+          "test_result_id",
+          "linguistic_score",
+          "logical_score",
+          "musical_score",
+          "bodily_score",
+          "visual_score",
+          "interpersonal_score",
+          "intrapersonal_score",
+          "naturalistic_score",
+          "existential_score",
+          "created_at"
+        ]
+      },
+      "bigfive_results": {
+        "description": "Big Five personality dimension scores",
+        "fields": [
+          "id",
+          "user_id",
+          "test_result_id",
+          "openness_score",
+          "conscientiousness_score",
+          "extraversion_score",
+          "agreeableness_score",
+          "neuroticism_score",
+          "created_at"
+        ]
+      },
+      "riasec_results": {
+        "description": "RIASEC interest type scores",
+        "fields": [
+          "id",
+          "user_id",
+          "test_result_id",
+          "realistic_score",
+          "investigative_score",
+          "artistic_score",
+          "social_score",
+          "enterprising_score",
+          "conventional_score",
+          "holland_code",
+          "created_at"
+        ]
+      },
+      "decision_results": {
+        "description": "Decision-making style scores",
+        "fields": [
+          "id",
+          "user_id",
+          "test_result_id",
+          "rational_score",
+          "intuitive_score",
+          "dependent_score",
+          "avoidant_score",
+          "spontaneous_score",
+          "dominant_style",
+          "created_at"
+        ]
+      },
+      "vark_results": {
+        "description": "VARK learning style scores",
+        "fields": [
+          "id",
+          "user_id",
+          "test_result_id",
+          "visual_score",
+          "auditory_score",
+          "readwrite_score",
+          "kinesthetic_score",
+          "learning_style_combination",
+          "created_at"
+        ]
+      },
+      "life_situation_results": {
+        "description": "Life situation assessment scores",
+        "fields": [
+          "id",
+          "user_id",
+          "test_result_id",
+          "family_score",
+          "education_score",
+          "career_score",
+          "financial_score",
+          "health_score",
+          "overall_score",
+          "created_at"
+        ]
+      }
+    },
+    "resultInterpretation": {
+      "scoringSystem": "0-100 scale for most tests",
+      "interpretationLevels": {
+        "veryHigh": "80-100",
+        "high": "60-79",
+        "medium": "40-59",
+        "low": "20-39",
+        "veryLow": "0-19"
+      },
+      "specialCases": {
+        "mbti": "Categorical result (16 personality types)",
+        "riasec": "Top 3 interest areas determine Holland Code",
+        "decision": "Dominant style identification",
+        "vark": "Multimodal combinations possible"
+      }
+    }
+  }
+}
