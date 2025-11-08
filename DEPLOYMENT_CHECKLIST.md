@@ -31,7 +31,7 @@
 - [ ] Connect GitHub repository
 - [ ] Configure build settings:
   ```
-  Build Command: pip install -r requirements.prod.txt
+  Build Command: pip install -r requirements.txt
   Start Command: python start_production.py
   Environment: Python 3.11
   ```
@@ -217,7 +217,7 @@ python start_celery_production.py
 ## Support Contacts
 
 - **Render Support**: [render.com/support](https://render.com/support)
-- **Vercel Support**: [vercel.com/support](https://vercel.com/support)  
+- **Vercel Support**: [vercel.com/support](https://vercel.com/support)
 - **Supabase Support**: [supabase.com/support](https://supabase.com/support)
 - **Upstash Support**: [upstash.com/support](https://upstash.com/support)
 
