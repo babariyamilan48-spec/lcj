@@ -48,9 +48,11 @@ def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)
     print(f"[SIGNUP] Password length: {len(payload.password)}")
     
     try:
+        print(f"[SIGNUP] Calling register_user...")
         user = register_user(db, payload)
         print(f"[SIGNUP] User created successfully: {user.email}")
         
+        print(f"[SIGNUP] Creating UserOut response...")
         out = UserOut(
             id=str(user.id),
             email=user.email,
@@ -60,9 +62,15 @@ def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)
             providers=user.providers,
             role=user.role,
         )
-        return resp(out.model_dump(), message="Account created. Please verify your email.")
+        print(f"[SIGNUP] Returning success response...")
+        response = resp(out.model_dump(), message="Account created. Please verify your email.")
+        print(f"[SIGNUP] Response created successfully")
+        return response
     except Exception as e:
         print(f"[SIGNUP] Error during signup: {e}")
+        print(f"[SIGNUP] Exception type: {type(e)}")
+        import traceback
+        print(f"[SIGNUP] Full traceback: {traceback.format_exc()}")
         raise
 
 @router.post("/login")

@@ -29,6 +29,16 @@ def check_user_login_eligibility(user: User) -> None:
 def register_user(db: Session, payload: SignupInput) -> User:
     print(f"[REGISTER] Starting registration for email: {payload.email}")
     
+    # Test database connectivity
+    try:
+        print(f"[REGISTER] Testing database connectivity...")
+        db.execute("SELECT 1")
+        print(f"[REGISTER] Database connection OK")
+    except Exception as e:
+        print(f"[REGISTER] Database connection failed: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database connection failed")
+    
+    print(f"[REGISTER] Checking for existing user...")
     existing = get_user_by_email(db, payload.email)
     if existing:
         print(f"[REGISTER] Email already exists: {payload.email}")
@@ -41,6 +51,7 @@ def register_user(db: Session, payload: SignupInput) -> User:
     print(f"[REGISTER] Creating user with email: {payload.email}, username: {payload.username}")
     
     try:
+        print(f"[REGISTER] Creating User object...")
         user = User(
             email=payload.email,
             username=payload.username,
@@ -48,40 +59,64 @@ def register_user(db: Session, payload: SignupInput) -> User:
             providers=["password"],
             role="user",
         )
+        print(f"[REGISTER] Adding user to database...")
         db.add(user)
+        print(f"[REGISTER] Committing user to database...")
         db.commit()
+        print(f"[REGISTER] Refreshing user object...")
         db.refresh(user)
         print(f"[REGISTER] User created with ID: {user.id}")
     except Exception as e:
         print(f"[REGISTER] Database error during user creation: {e}")
+        print(f"[REGISTER] Exception type: {type(e)}")
+        import traceback
+        print(f"[REGISTER] Full traceback: {traceback.format_exc()}")
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
-    otp = EmailOTP(
-        user_id=user.id,
-        code=f"{secrets.randbelow(999999):06d}",
-        purpose="verify_email",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
-    )
-    db.add(otp)
-    db.commit()
+    print(f"[REGISTER] Creating OTP for user...")
+    try:
+        otp = EmailOTP(
+            user_id=user.id,
+            code=f"{secrets.randbelow(999999):06d}",
+            purpose="verify_email",
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        )
+        print(f"[REGISTER] Adding OTP to database...")
+        db.add(otp)
+        print(f"[REGISTER] Committing OTP...")
+        db.commit()
+        print(f"[REGISTER] OTP created: {otp.code}")
+    except Exception as e:
+        print(f"[REGISTER] Error creating OTP: {e}")
+        import traceback
+        print(f"[REGISTER] OTP traceback: {traceback.format_exc()}")
+        return user
+    
     # send verification email (mailer prints whether it was sent or skipped)
+    print(f"[REGISTER] Preparing to send verification email...")
     html = otp_email_html("Verify your email", otp.code, "This code expires in 10 minutes.")
     import anyio
     
+    print(f"[REGISTER] Checking email configuration...")
     if not is_email_configured():
         # Still create the user but warn about email configuration
         print(f"[AUTH] ⚠️ User {payload.email} registered but verification email not sent - SMTP not configured")
         print(f"[AUTH] 💡 Please set SMTP_USER, SMTP_PASSWORD, and SMTP_FROM environment variables")
         return user
     
+    print(f"[REGISTER] Email is configured, attempting to send...")
     try:
         email_sent = anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
+        print(f"[REGISTER] Email send result: {email_sent}")
         if not email_sent:
             print(f"[AUTH] ⚠️ User {payload.email} registered but verification email failed to send")
     except Exception as e:
         print(f"[AUTH] ⚠️ User {payload.email} registered but verification email error: {e}")
         print(f"[AUTH] 💡 Check your SMTP configuration, especially SMTP_FROM email address")
+        import traceback
+        print(f"[AUTH] Email error traceback: {traceback.format_exc()}")
     
+    print(f"[REGISTER] Registration process completed for {payload.email}")
     return user
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:

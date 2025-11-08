@@ -72,12 +72,19 @@ def is_email_configured() -> bool:
     password = getattr(settings, "SMTP_PASSWORD", None)
     mail_from = getattr(settings, "SMTP_FROM", None) or username
     
+    print(f"[EMAIL_CONFIG] SMTP_USER: {bool(username)} ({'***' if username else 'None'})")
+    print(f"[EMAIL_CONFIG] SMTP_PASSWORD: {bool(password)} ({'***' if password else 'None'})")
+    print(f"[EMAIL_CONFIG] SMTP_FROM: {bool(mail_from)} ({mail_from if mail_from else 'None'})")
+    
     # Check if all required fields are present and mail_from is valid
     if not username or not password or not mail_from:
+        print(f"[EMAIL_CONFIG] Missing required fields")
         return False
     
     # Basic email validation for mail_from
-    return "@" in str(mail_from)
+    is_valid = "@" in str(mail_from)
+    print(f"[EMAIL_CONFIG] Email validation result: {is_valid}")
+    return is_valid
 
 def otp_email_html(title: str, otp: str, note: Optional[str] = None) -> str:
     extra = f"<p style='color:#555;font-size:14px'>{note}</p>" if note else ""
