@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 
 class Token(BaseModel):
@@ -8,7 +8,7 @@ class Token(BaseModel):
 
 class SignupInput(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=6, description="Password must be at least 6 characters long")
     username: Optional[str] = None
 
 class LoginInput(BaseModel):
@@ -27,11 +27,11 @@ class ForgotPasswordInput(BaseModel):
 class ResetPasswordInput(BaseModel):
     email: EmailStr
     otp: str
-    new_password: str
+    new_password: str = Field(..., min_length=6, description="Password must be at least 6 characters long")
 
 class ChangePasswordInput(BaseModel):
     old_password: str
-    new_password: str
+    new_password: str = Field(..., min_length=6, description="Password must be at least 6 characters long")
 
 class VerifyEmailRequestInput(BaseModel):
     email: EmailStr

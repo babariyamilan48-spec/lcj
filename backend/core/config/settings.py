@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT
 
     # Security / Password policy
-    PASSWORD_MIN_LENGTH: int = 8
+    PASSWORD_MIN_LENGTH: int = 6
 
     # JWT (kept in env but exposed for convenience if needed elsewhere)
     SECRET_KEY: Optional[str] = None
