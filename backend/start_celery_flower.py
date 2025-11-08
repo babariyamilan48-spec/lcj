@@ -20,13 +20,16 @@ def start_celery_flower():
     if not os.getenv('PYTHONPATH'):
         os.environ['PYTHONPATH'] = str(backend_dir)
     
+    # Get Redis URL from environment or use default
+    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+    
     # Celery flower command
     cmd = [
         'celery',
         '-A', 'core.celery_app:celery_app',
         'flower',
         '--port=5555',
-        '--broker=redis://localhost:6379/0',
+        f'--broker={redis_url}',
         '--basic_auth=admin:admin123',  # Change these credentials in production
         '--url_prefix=flower'
     ]
