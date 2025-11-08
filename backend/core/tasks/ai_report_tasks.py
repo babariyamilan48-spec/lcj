@@ -76,6 +76,14 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
             try:
                 # Import here to avoid circular imports
                 import asyncio
+                import sys
+                import os
+                
+                # Add the backend directory to the Python path if not already there
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                if backend_dir not in sys.path:
+                    sys.path.append(backend_dir)
+                
                 from results_service.app.services.result_service import ResultService
                 
                 # Store the individual AI insights
@@ -185,6 +193,14 @@ def generate_comprehensive_ai_insights_task(self, request_data: Dict[str, Any]) 
             try:
                 # Import here to avoid circular imports
                 import asyncio
+                import sys
+                import os
+                
+                # Add the backend directory to the Python path if not already there
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                if backend_dir not in sys.path:
+                    sys.path.append(backend_dir)
+                
                 from results_service.app.services.result_service import ResultService
                 
                 # Store the AI insights
