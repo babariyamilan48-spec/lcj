@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic import EmailStr
 from core.config.settings import settings
+import asyncio
 
 def _build_mail_conf():
     # Lazy import to avoid validating config at import time
@@ -50,38 +51,118 @@ def _build_mail_conf():
             MAIL_SSL_TLS=mail_ssl_tls,
             USE_CREDENTIALS=True,
             VALIDATE_CERTS=True,
+            TIMEOUT=60,  # Increase timeout to 60 seconds
         )
     except Exception as e:
         print(f"[EMAIL] Failed to create mail configuration: {e}")
         return None
 
+async def send_email_with_config(subject: str, recipients: list[EmailStr], html: str, config: dict) -> bool:
+    """
+    Send email with a specific configuration.
+    """
+    from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+    
+    try:
+        smtp_port = config['port']
+        smtp_host = config['host']
+        
+        # Configure SSL/TLS based on port
+        if smtp_port == 465:
+            mail_starttls = False
+            mail_ssl_tls = True
+        else:
+            mail_starttls = True
+            mail_ssl_tls = False
+        
+        username = getattr(settings, "SMTP_USER", None)
+        password = getattr(settings, "SMTP_PASSWORD", None)
+        mail_from = getattr(settings, "SMTP_FROM", None) or username
+        
+        print(f"[EMAIL] Trying {smtp_host}:{smtp_port} (STARTTLS={mail_starttls}, SSL={mail_ssl_tls})")
+        
+        conn_config = ConnectionConfig(
+            MAIL_USERNAME=username,
+            MAIL_PASSWORD=password,
+            MAIL_FROM=mail_from,
+            MAIL_PORT=smtp_port,
+            MAIL_SERVER=smtp_host,
+            MAIL_STARTTLS=mail_starttls,
+            MAIL_SSL_TLS=mail_ssl_tls,
+            USE_CREDENTIALS=True,
+            VALIDATE_CERTS=True,
+            TIMEOUT=config.get('timeout', 60),
+        )
+        
+        message = MessageSchema(subject=subject, recipients=recipients, body=html, subtype="html")
+        fm = FastMail(conn_config)
+        
+        # Add timeout to the send operation
+        await asyncio.wait_for(fm.send_message(message), timeout=config.get('timeout', 60))
+        print(f"[EMAIL] ✅ Successfully sent '{subject}' to {recipients} via {smtp_host}:{smtp_port}")
+        return True
+        
+    except asyncio.TimeoutError:
+        print(f"[EMAIL] ⏱️ Timeout sending via {config['host']}:{config['port']}")
+        return False
+    except Exception as e:
+        print(f"[EMAIL] ❌ Failed via {config['host']}:{config['port']}: {e}")
+        return False
+
 async def send_email(subject: str, recipients: list[EmailStr], html: str) -> bool:
     """
-    Send email to recipients. Returns True if sent successfully, False otherwise.
+    Send email to recipients with fallback configurations. Returns True if sent successfully, False otherwise.
     """
-    conf = _build_mail_conf()
-    if conf is None:
-        # Email not configured; print for visibility in dev
-        try:
-            print(f"[EMAIL] ❌ SMTP not configured. Cannot send email to {recipients} (subject='{subject}')")
-            print("[EMAIL] 💡 Please configure SMTP_USER, SMTP_PASSWORD, and SMTP_FROM in your .env file")
-        except Exception:
-            pass
+    # Check if email is configured
+    username = getattr(settings, "SMTP_USER", None)
+    password = getattr(settings, "SMTP_PASSWORD", None)
+    mail_from = getattr(settings, "SMTP_FROM", None) or username
+    
+    if not username or not password or not mail_from:
+        print(f"[EMAIL] ❌ SMTP not configured. Cannot send email to {recipients} (subject='{subject}')")
+        print("[EMAIL] 💡 Please configure SMTP_USER, SMTP_PASSWORD, and SMTP_FROM in your .env file")
         return False
-
-    # Lazy import FastMail and MessageSchema
-    from fastapi_mail import FastMail, MessageSchema
-
-    message = MessageSchema(subject=subject, recipients=recipients, body=html, subtype="html")
-    fm = FastMail(conf)
-    try:
-        await fm.send_message(message)
-        print(f"[EMAIL] ✅ Successfully sent '{subject}' to {recipients}")
-        return True
-    except Exception as e:
-        print(f"[EMAIL] ❌ Failed to send '{subject}' to {recipients}: {e}")
-        print(f"[EMAIL] 💡 Check your SMTP configuration and credentials")
-        return False
+    
+    # Try multiple SMTP configurations in order of preference
+    smtp_configs = [
+        {
+            'name': 'Gmail STARTTLS (Port 587)',
+            'host': getattr(settings, "SMTP_HOST", "smtp.gmail.com"),
+            'port': int(getattr(settings, "SMTP_PORT", 587) or 587),
+            'timeout': 60
+        },
+        {
+            'name': 'Gmail SSL (Port 465)',
+            'host': 'smtp.gmail.com',
+            'port': 465,
+            'timeout': 60
+        }
+    ]
+    
+    # If user specified a custom port, try that first
+    custom_port = int(getattr(settings, "SMTP_PORT", 587) or 587)
+    if custom_port not in [587, 465]:
+        smtp_configs.insert(0, {
+            'name': f'Custom SMTP (Port {custom_port})',
+            'host': getattr(settings, "SMTP_HOST", "smtp.gmail.com"),
+            'port': custom_port,
+            'timeout': 60
+        })
+    
+    for config in smtp_configs:
+        print(f"[EMAIL] Attempting to send via {config['name']}...")
+        success = await send_email_with_config(subject, recipients, html, config)
+        if success:
+            return True
+        print(f"[EMAIL] Failed with {config['name']}, trying next configuration...")
+    
+    print(f"[EMAIL] ❌ All SMTP configurations failed for {recipients} (subject='{subject}')")
+    print("[EMAIL] 💡 Troubleshooting tips:")
+    print("[EMAIL]   1. Make sure you're using a Gmail App Password, not your regular password")
+    print("[EMAIL]   2. Check if your firewall/antivirus is blocking SMTP connections")
+    print("[EMAIL]   3. Try setting SMTP_PORT=465 in your .env file for SSL connection")
+    print("[EMAIL]   4. Verify your Gmail account has 2-Factor Authentication enabled")
+    return False
 
 def is_email_configured() -> bool:
     username = getattr(settings, "SMTP_USER", None)
