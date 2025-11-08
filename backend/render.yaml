@@ -4,8 +4,8 @@ services:
     name: lcj-backend
     env: python
     plan: starter
-    buildCommand: pip install -r requirements.prod.txt
-    startCommand: python start_server.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start_production.py
     envVars:
       - key: ENVIRONMENT
         value: production
