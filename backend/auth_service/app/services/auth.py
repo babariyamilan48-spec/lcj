@@ -32,7 +32,8 @@ def register_user(db: Session, payload: SignupInput) -> User:
     # Test database connectivity
     try:
         print(f"[REGISTER] Testing database connectivity...")
-        db.execute("SELECT 1")
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
         print(f"[REGISTER] Database connection OK")
     except Exception as e:
         print(f"[REGISTER] Database connection failed: {e}")
