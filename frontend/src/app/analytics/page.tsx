@@ -19,7 +19,7 @@ import { useAnalytics } from '@/hooks/useResultsService';
 
 export default function AnalyticsPage() {
   const { user } = useAuth();
-  const { analyticsData, loading, error } = useAnalytics(user?.id ? parseInt(user.id) : undefined);
+  const { analyticsData, loading, error } = useAnalytics(user?.id);
 
   if (loading) {
     return (

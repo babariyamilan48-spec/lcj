@@ -22,7 +22,7 @@ export const DownloadReportButton: React.FC<DownloadReportButtonProps> = ({
 
   const handleDownload = async () => {
     try {
-      await downloadReport(userId, format, includeAiInsights, testId);
+      await downloadReport(userId.toString(), format, includeAiInsights, testId);
     } catch (err) {
       console.error('Download failed:', err);
       // Error is already handled by the hook

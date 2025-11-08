@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
@@ -11,10 +11,10 @@ import clsx from 'clsx';
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
 
-export default function VerifyEmailPage() {
+function VerifyEmailPageContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const email = params.get('email') || '';
+  const email = params?.get('email') || '';
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
@@ -142,3 +142,14 @@ export default function VerifyEmailPage() {
   );
 }
 
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <VerifyEmailPageContent />
+    </Suspense>
+  );
+}

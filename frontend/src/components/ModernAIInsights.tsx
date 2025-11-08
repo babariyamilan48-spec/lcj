@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import '../styles/gujarati-fonts.css';
 import { AIInsights } from '@/services/aiInsightsService';
 import { 
   Brain, 
@@ -60,7 +61,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
     return (
       <div className="w-full max-w-6xl mx-auto">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-primary-500 to-orange-500 p-8">
+          <div className="bg-gradient-to-r from-blue-500 to-orange-500 p-8">
             <div className="flex items-center justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
               <span className="ml-4 text-white text-lg font-medium">
@@ -407,7 +408,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-orange-500 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-orange-500 rounded-xl flex items-center justify-center mx-auto mb-4">
             <Brain className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-slate-800 mb-2">
@@ -711,7 +712,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
                   <h4 className="text-xl font-bold text-gray-800 font-gujarati">મુખ્ય શક્તિઓ</h4>
                 </div>
                 <div className="space-y-4">
-                  {insights.result_analysis?.strengths?.slice(0, 3).map((strength: any, index: number) => (
+                  {insights?.result_analysis?.strengths?.slice(0, 3).map((strength: any, index: number) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 10 }}
@@ -753,7 +754,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
                   <h4 className="text-xl font-bold text-gray-800 font-gujarati">કારકિર્દી સૂચનાઓ</h4>
                 </div>
                 <div className="space-y-4">
-                  {insights.career_recommendations?.slice(0, 3).map((rec: any, index: number) => (
+                  {insights?.career_recommendations?.slice(0, 3).map((rec: any, index: number) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 10 }}
@@ -908,80 +909,6 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
     </div>
   );
 
-          <h3 className="text-2xl font-bold font-gujarati flex items-center">
-            <Briefcase className="w-8 h-8 mr-3" />
-            શ્રેષ્ઠ કારકિર્દી ક્ષેત્ર
-          </h3>
-          <div className="bg-white/20 px-4 py-2 rounded-full text-sm font-bold">
-            {insights.best_field?.match_percentage || 85}% મેચ
-          </div>
-        </div>
-        
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="text-xl font-semibold mb-3 font-gujarati">
-              {insights.best_field?.field || 'કારકિર્દી ક્ષેત્ર'}
-            </h4>
-            <p className="text-orange-100 leading-relaxed font-gujarati">
-              {insights.best_field?.reasoning || 'તમારા વ્યક્તિત્વ અને કુશળતા મુજબ શ્રેષ્ઠ કારકિર્દી ક્ષેત્ર'}
-            </p>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <h5 className="font-semibold mb-2 font-gujarati">અપેક્ષિત પગાર</h5>
-              <p className="text-orange-100 font-gujarati">
-                {insights.best_field?.salary_expectations || '₹3-8 લાખ/વર્ષ'}
-              </p>
-            </div>
-            <div>
-              <h5 className="font-semibold mb-2 font-gujarati">વૃદ્ધિ દર</h5>
-              <p className="text-orange-100 font-gujarati">
-                {insights.best_field?.growth_potential || '15-20% વાર્ષિક'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Career Options */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white rounded-2xl p-8 border border-gray-200"
-      >
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 font-gujarati flex items-center">
-          <Target className="w-8 h-8 text-orange-500 mr-3" />
-          કારકિર્દી વિકલ્પો
-        </h3>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {insights.career_recommendations?.slice(0, 6).map((option: any, index: number) => (
-            <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-2 font-gujarati">{option.job_role}</h4>
-              <p className="text-gray-600 text-sm font-gujarati mb-3">{option.explanation}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-orange-600 font-bold text-sm">
-                  {option.growth_potential || 'ઉચ્ચ'}
-                </span>
-                <ExternalLink className="w-4 h-4 text-gray-400" />
-              </div>
-              <div className="mt-2">
-                <span className="text-xs text-gray-500 font-gujarati">
-                  {option.salary_range || 'પગાર શ્રેણી'}
-                </span>
-              </div>
-            </div>
-          )) || (
-            <div className="col-span-full text-center py-8">
-              <p className="text-gray-500 font-gujarati">કારકિર્દી વિકલ્પો લોડ કરી રહ્યું છે...</p>
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </div>
-  );
 
   const renderSkillsTab = () => (
     <div className="space-y-6">
@@ -1000,7 +927,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
           <div>
             <h4 className="text-lg font-semibold text-gray-800 mb-4 font-gujarati">મુખ્ય શક્તિઓ</h4>
             <div className="space-y-3">
-              {insights.result_analysis?.strengths?.slice(0, 5).map((strength: any, index: number) => (
+              {insights?.result_analysis?.strengths?.slice(0, 5).map((strength: any, index: number) => (
                 <div key={index} className="flex items-start">
                   <div className="w-3 h-3 bg-green-500 rounded-full mr-3 mt-2 flex-shrink-0"></div>
                   <div>
@@ -1017,7 +944,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
           <div>
             <h4 className="text-lg font-semibold text-gray-800 mb-4 font-gujarati">વિકાસ ક્ષેત્રો</h4>
             <div className="space-y-3">
-              {insights.result_analysis?.weaknesses?.slice(0, 5).map((weakness: any, index: number) => (
+              {insights?.result_analysis?.weaknesses?.slice(0, 5).map((weakness: any, index: number) => (
                 <div key={index} className="flex items-start">
                   <div className="w-3 h-3 bg-orange-500 rounded-full mr-3 mt-2 flex-shrink-0"></div>
                   <div>
@@ -1050,7 +977,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
           <div>
             <h4 className="text-lg font-semibold text-gray-800 mb-4 font-gujarati">તકનીકી કુશળતાઓ</h4>
             <div className="grid md:grid-cols-2 gap-4">
-              {insights.skill_recommendations?.technical_skills?.slice(0, 4).map((skill: any, index: number) => (
+              {insights?.skill_recommendations?.technical_skills?.slice(0, 4).map((skill: any, index: number) => (
                 <div key={index} className="bg-white rounded-xl p-4 border border-blue-100">
                   <h5 className="font-semibold text-gray-900 mb-2 font-gujarati">{skill.skill}</h5>
                   <p className="text-gray-600 text-sm font-gujarati mb-2">{skill.importance} મહત્વ</p>
@@ -1074,7 +1001,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
           <div>
             <h4 className="text-lg font-semibold text-gray-800 mb-4 font-gujarati">સોફ્ટ સ્કિલ્સ</h4>
             <div className="grid md:grid-cols-2 gap-4">
-              {insights.skill_recommendations?.soft_skills?.slice(0, 4).map((skill: any, index: number) => (
+              {insights?.skill_recommendations?.soft_skills?.slice(0, 4).map((skill: any, index: number) => (
                 <div key={index} className="bg-white rounded-xl p-4 border border-blue-100">
                   <h5 className="font-semibold text-gray-900 mb-2 font-gujarati">{skill.skill}</h5>
                   <p className="text-gray-600 text-sm font-gujarati mb-2">{skill.importance} મહત્વ</p>
@@ -1107,7 +1034,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
         
         <div className="space-y-8">
           {/* Short Term */}
-          {insights.roadmap?.short_term && (
+          {insights?.roadmap?.short_term && (
             <div className="flex items-start">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">
@@ -1116,17 +1043,17 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
               </div>
               <div className="ml-6 flex-1">
                 <h4 className="text-lg font-semibold text-gray-900 mb-2 font-gujarati">ટૂંકા ગાળાની યોજના</h4>
-                <p className="text-gray-600 font-gujarati mb-3">{insights.roadmap.short_term.duration}</p>
+                <p className="text-gray-600 font-gujarati mb-3">{insights?.roadmap?.short_term?.duration}</p>
                 <div className="mb-4">
                   <h5 className="font-medium text-gray-800 mb-2 font-gujarati">લક્ષ્યો:</h5>
                   <ul className="list-disc list-inside text-gray-600 font-gujarati space-y-1">
-                    {insights.roadmap.short_term.goals?.map((goal: string, idx: number) => (
+                    {insights?.roadmap?.short_term?.goals?.map((goal: string, idx: number) => (
                       <li key={idx}>{goal}</li>
                     ))}
                   </ul>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {insights.roadmap.short_term.skills_to_develop?.map((skill: string, skillIndex: number) => (
+                  {insights?.roadmap?.short_term?.skills_to_develop?.map((skill: string, skillIndex: number) => (
                     <span key={skillIndex} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-gujarati">
                       {skill}
                     </span>
@@ -1137,7 +1064,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
           )}
           
           {/* Mid Term */}
-          {insights.roadmap?.mid_term && (
+          {insights?.roadmap?.mid_term && (
             <div className="flex items-start">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold">
@@ -1146,17 +1073,17 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
               </div>
               <div className="ml-6 flex-1">
                 <h4 className="text-lg font-semibold text-gray-900 mb-2 font-gujarati">મધ્યમ ગાળાની યોજના</h4>
-                <p className="text-gray-600 font-gujarati mb-3">{insights.roadmap.mid_term.duration}</p>
+                <p className="text-gray-600 font-gujarati mb-3">{insights?.roadmap?.mid_term?.duration}</p>
                 <div className="mb-4">
                   <h5 className="font-medium text-gray-800 mb-2 font-gujarati">લક્ષ્યો:</h5>
                   <ul className="list-disc list-inside text-gray-600 font-gujarati space-y-1">
-                    {insights.roadmap.mid_term.goals?.map((goal: string, idx: number) => (
+                    {insights?.roadmap?.mid_term?.goals?.map((goal: string, idx: number) => (
                       <li key={idx}>{goal}</li>
                     ))}
                   </ul>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {insights.roadmap.mid_term.skills_to_develop?.map((skill: string, skillIndex: number) => (
+                  {insights?.roadmap?.mid_term?.skills_to_develop?.map((skill: string, skillIndex: number) => (
                     <span key={skillIndex} className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-gujarati">
                       {skill}
                     </span>
@@ -1167,7 +1094,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
           )}
           
           {/* Long Term */}
-          {insights.roadmap?.long_term && (
+          {insights?.roadmap?.long_term && (
             <div className="flex items-start">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold">
@@ -1176,17 +1103,17 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
               </div>
               <div className="ml-6 flex-1">
                 <h4 className="text-lg font-semibold text-gray-900 mb-2 font-gujarati">લાંબા ગાળાની યોજના</h4>
-                <p className="text-gray-600 font-gujarati mb-3">{insights.roadmap.long_term.duration}</p>
+                <p className="text-gray-600 font-gujarati mb-3">{insights?.roadmap?.long_term?.duration}</p>
                 <div className="mb-4">
                   <h5 className="font-medium text-gray-800 mb-2 font-gujarati">લક્ષ્યો:</h5>
                   <ul className="list-disc list-inside text-gray-600 font-gujarati space-y-1">
-                    {insights.roadmap.long_term.goals?.map((goal: string, idx: number) => (
+                    {insights?.roadmap?.long_term?.goals?.map((goal: string, idx: number) => (
                       <li key={idx}>{goal}</li>
                     ))}
                   </ul>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {insights.roadmap.long_term.expertise_areas?.map((area: string, skillIndex: number) => (
+                  {insights?.roadmap?.long_term?.expertise_areas?.map((area: string, skillIndex: number) => (
                     <span key={skillIndex} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-gujarati">
                       {area}
                     </span>
@@ -1196,7 +1123,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
             </div>
           )}
           
-          {(!insights.roadmap?.short_term && !insights.roadmap?.mid_term && !insights.roadmap?.long_term) && (
+          {(!insights?.roadmap?.short_term && !insights?.roadmap?.mid_term && !insights?.roadmap?.long_term) && (
             <div className="text-center py-8">
               <p className="text-gray-500 font-gujarati">રોડમેપ લોડ કરી રહ્યું છે...</p>
             </div>
@@ -1217,7 +1144,7 @@ const ModernAIInsights: React.FC<ModernAIInsightsProps> = ({
         </h3>
         
         <div className="grid md:grid-cols-2 gap-4">
-          {insights.daily_habits?.slice(0, 6).map((habit: any, index: number) => (
+          {insights?.daily_habits?.slice(0, 6).map((habit: any, index: number) => (
             <div key={index} className="bg-white rounded-lg p-4 border border-green-100">
               <div className="flex items-start">
                 <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-1" />

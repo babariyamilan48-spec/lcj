@@ -12,7 +12,7 @@ import {
   MoreHorizontal,
   FileText
 } from 'lucide-react';
-import { getApiBaseUrl } from '../../../config/api';
+import { getApiBaseUrl } from '@/config/api';
 
 interface Test {
   id: number;
@@ -287,7 +287,7 @@ export default function TestsPage() {
               <h3 className="text-lg font-medium text-gray-900 mt-4">Delete Test</h3>
               <div className="mt-2 px-7 py-3">
                 <p className="text-sm text-gray-500">
-                  Are you sure you want to delete "{testToDelete.english_name}"? This action cannot be undone.
+                  Are you sure you want to delete &ldquo;{testToDelete.english_name}&rdquo;? This action cannot be undone.
                 </p>
               </div>
               <div className="flex justify-center space-x-4 mt-4">

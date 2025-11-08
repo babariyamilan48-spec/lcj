@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,7 +17,7 @@ const LoginSchema = Yup.object({
   password: Yup.string().required('Password is required'),
 });
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, isAuthenticated, user } = useAuth();
@@ -25,7 +25,7 @@ export default function LoginPage() {
   // Redirect if already authenticated (respect admin role)
   React.useEffect(() => {
     if (isAuthenticated) {
-      const redirectParam = searchParams.get('redirect');
+      const redirectParam = searchParams?.get('redirect');
       const destination = redirectParam || (user?.role === 'admin' ? '/admin' : '/home');
       router.replace(destination);
     }
@@ -58,7 +58,7 @@ export default function LoginPage() {
                   modernToast.auth.loginSuccess();
                   
                   // Check if user is admin and redirect accordingly
-                  const redirectTo = searchParams.get('redirect') || 
+                  const redirectTo = searchParams?.get('redirect') || 
                     (result.user?.role === 'admin' ? '/admin' : '/home');
                   
                   router.push(redirectTo);
@@ -119,3 +119,14 @@ export default function LoginPage() {
   );
 }
 
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
+  );
+}

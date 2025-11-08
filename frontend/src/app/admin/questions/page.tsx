@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { getApiBaseUrl } from '../../../config/api';
+import { getApiBaseUrl } from '@/config/api';
 
 interface Question {
   id: number;

@@ -100,7 +100,7 @@ const ComprehensiveReportPage = () => {
       // Fetch all test results
       const results = await aiInsightsService.getAllTestResults(userId);
       const testResults = results.all_test_results || results || {};
-      setAllTestResults(testResults);
+      setAllTestResults(testResults as Record<string, TestResult>);
 
       // Generate comprehensive insights using async service
       setGeneratingInsights(true);

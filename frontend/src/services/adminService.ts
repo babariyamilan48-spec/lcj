@@ -15,7 +15,7 @@ const createApiInstance = () => {
 };
 
 // Create initial instance
-let api = createApiInstance();
+const api = createApiInstance();
 
 // Add request interceptor to include auth token
 api.interceptors.request.use(

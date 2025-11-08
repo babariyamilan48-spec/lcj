@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import * as Yup from 'yup';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -16,14 +16,14 @@ const VerifySchema = Yup.object({
   otp: Yup.string().min(4).max(8).required('Verification code is required'),
 });
 
-export default function VerifyEmailPage() {
+function VerifyEmailPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isVerified, setIsVerified] = useState(false);
   
-  const email = searchParams.get('email') || '';
+  const email = searchParams?.get('email') || '';
 
   // Countdown timer for resend cooldown
   useEffect(() => {
@@ -227,5 +227,17 @@ export default function VerifyEmailPage() {
 
       <Toaster position="top-right" />
     </AuthCard>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <VerifyEmailPageContent />
+    </Suspense>
   );
 }

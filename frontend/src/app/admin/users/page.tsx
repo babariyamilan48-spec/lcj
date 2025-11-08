@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { getApiBaseUrl } from '../../../config/api';
+import { getApiBaseUrl } from '@/config/api';
 import {
   Plus, 
   Edit, 
@@ -236,24 +236,25 @@ const UsersManagementPage: React.FC = () => {
         console.log('Raw API response:', data);
         
         // Transform the nested object structure to array format
-        const resultsArray = [];
+        const resultsArray: any[] = [];
         if (data && typeof data === 'object') {
           for (const [testType, testData] of Object.entries(data)) {
             if (testData && typeof testData === 'object') {
+              const testResult = testData as any; // Type assertion to access properties
               resultsArray.push({
-                test_id: testData.test_id || testType,
-                test_name: testData.test_name || testType,
-                primary_result: testData.analysis?.code || testData.analysis?.type,
-                completion_percentage: testData.percentage || testData.percentage_score || 100,
-                time_taken_seconds: testData.duration_minutes ? testData.duration_minutes * 60 : null,
-                result_summary: testData.analysis?.description || testData.analysis?.gujarati_description,
-                created_at: testData.timestamp || testData.completed_at,
+                test_id: testResult.test_id || testType,
+                test_name: testResult.test_name || testType,
+                primary_result: testResult.analysis?.code || testResult.analysis?.type,
+                completion_percentage: testResult.percentage || testResult.percentage_score || 100,
+                time_taken_seconds: testResult.duration_minutes ? testResult.duration_minutes * 60 : null,
+                result_summary: testResult.analysis?.description || testResult.analysis?.gujarati_description,
+                created_at: testResult.timestamp || testResult.completed_at,
                 analysis: {
-                  traits: testData.analysis?.traits || [],
-                  strengths: testData.recommendations || [],
-                  code: testData.analysis?.code,
-                  type: testData.analysis?.type,
-                  description: testData.analysis?.description
+                  traits: testResult.analysis?.traits || [],
+                  strengths: testResult.recommendations || [],
+                  code: testResult.analysis?.code,
+                  type: testResult.analysis?.type,
+                  description: testResult.analysis?.description
                 }
               });
             }
@@ -661,7 +662,7 @@ const UsersManagementPage: React.FC = () => {
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">No test results</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  This user hasn't completed any tests yet.
+                  This user hasn&apos;t completed any tests yet.
                 </p>
               </div>
             ) : (

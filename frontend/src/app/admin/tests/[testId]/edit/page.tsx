@@ -23,17 +23,6 @@ export default function EditTestPage() {
   const params = useParams();
   const testId = params?.testId as string;
   
-  // Handle case when params is null
-  if (!params || !testId) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <p className="text-gray-500">Invalid test ID</p>
-        </div>
-      </div>
-    );
-  }
-  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<TestFormData>({

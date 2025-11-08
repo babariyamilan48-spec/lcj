@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import * as Yup from 'yup';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,10 +17,10 @@ const ResetSchema = Yup.object({
   new_password: Yup.string().min(6, 'Min 6 characters').required('New password is required'),
 });
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get('email') || '';
+  const email = searchParams?.get('email') || '';
 
   return (
     <AuthCard
@@ -158,5 +158,17 @@ export default function ResetPasswordPage() {
 
       <Toaster position="top-right" />
     </AuthCard>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <ResetPasswordPageContent />
+    </Suspense>
   );
 }
