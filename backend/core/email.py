@@ -25,15 +25,31 @@ def _build_mail_conf():
         return None
 
     try:
+        smtp_port = int(getattr(settings, "SMTP_PORT", 587) or 587)
+        smtp_host = getattr(settings, "SMTP_HOST", "smtp.gmail.com")
+        
+        # Configure SSL/TLS based on port
+        if smtp_port == 465:
+            # Use SSL for port 465
+            mail_starttls = False
+            mail_ssl_tls = True
+        else:
+            # Use STARTTLS for port 587 (default)
+            mail_starttls = True
+            mail_ssl_tls = False
+        
+        print(f"[EMAIL] Configuring SMTP: {smtp_host}:{smtp_port} (STARTTLS={mail_starttls}, SSL={mail_ssl_tls})")
+        
         return ConnectionConfig(
             MAIL_USERNAME=username,
             MAIL_PASSWORD=password,
             MAIL_FROM=mail_from,
-            MAIL_PORT=int(getattr(settings, "SMTP_PORT", 587) or 587),
-            MAIL_SERVER=getattr(settings, "SMTP_HOST", "smtp.gmail.com"),
-            MAIL_STARTTLS=True,
-            MAIL_SSL_TLS=False,
+            MAIL_PORT=smtp_port,
+            MAIL_SERVER=smtp_host,
+            MAIL_STARTTLS=mail_starttls,
+            MAIL_SSL_TLS=mail_ssl_tls,
             USE_CREDENTIALS=True,
+            VALIDATE_CERTS=True,
         )
     except Exception as e:
         print(f"[EMAIL] Failed to create mail configuration: {e}")
