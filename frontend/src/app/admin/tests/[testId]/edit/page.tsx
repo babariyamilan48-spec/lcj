@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, Eye } from 'lucide-react';
-import { getApiBaseUrl } from '../../../../config/api';
+import { getApiBaseUrl } from '@/config/api';
 
 interface TestFormData {
   test_id: string;
@@ -21,7 +21,18 @@ interface TestFormData {
 export default function EditTestPage() {
   const router = useRouter();
   const params = useParams();
-  const testId = params.testId as string;
+  const testId = params?.testId as string;
+  
+  // Handle case when params is null
+  if (!params || !testId) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-gray-500">Invalid test ID</p>
+        </div>
+      </div>
+    );
+  }
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

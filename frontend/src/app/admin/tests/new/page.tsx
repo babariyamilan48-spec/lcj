@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Save, Loader2, Eye } from 'lucide-react';
-import { getApiBaseUrl } from '../../../../config/api';
+import { getApiBaseUrl } from '@/config/api';
 
 interface TestFormData {
   test_id: string;
