@@ -14,8 +14,13 @@ if str(BACKEND_ROOT) not in sys.path:
 
 def main():
     """Start the production server"""
-    # Set environment
+    # Set environment variables for production
     os.environ.setdefault("ENVIRONMENT", "production")
+    
+    # Check for .env file and warn if missing (but continue)
+    env_file = Path(__file__).parent / ".env"
+    if not env_file.exists():
+        print("[INFO] .env file not found - using environment variables from Render")
     
     # Import after setting environment
     from main import app

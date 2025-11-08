@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     
     # Environment
     ENVIRONMENT: str = "development"
+    
+    # Additional production settings
+    @property
+    def environment(self) -> str:
+        """Alias for ENVIRONMENT for backward compatibility"""
+        return self.ENVIRONMENT
 
     # Security / Password policy
     PASSWORD_MIN_LENGTH: int = 8

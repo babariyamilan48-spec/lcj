@@ -14,7 +14,7 @@ def setup_middlewares(app: FastAPI) -> None:
     ]
 
     # Add production origins
-    if settings.environment == "production":
+    if settings.ENVIRONMENT == "production":
         production_origins = [
             "https://lcj-career-assessment.vercel.app",  # Replace with your actual Vercel URL
             "https://your-custom-domain.com",            # Add your custom domain if you have one
