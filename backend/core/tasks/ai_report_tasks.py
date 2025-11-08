@@ -58,7 +58,7 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
         )
         
         # Generate insights using the existing business logic
-        result = ai_service.generate_personality_insights(test_data)
+        result = ai_service.generate_insights(test_data)
         
         # Update progress
         self.update_state(
@@ -70,6 +70,37 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
                 'user_id': test_data.get('user_id')
             }
         )
+        
+        # Store individual AI insights in database if generation was successful
+        if result.get("success") and test_data.get('user_id'):
+            try:
+                # Import here to avoid circular imports
+                import asyncio
+                from results_service.app.services.result_service import ResultService
+                
+                # Store the individual AI insights
+                stored_result = asyncio.run(ResultService.store_ai_insights(
+                    user_id=test_data.get('user_id'),
+                    insights_data=result["insights"],
+                    generated_at=result.get("generated_at"),
+                    model=result.get("model"),
+                    test_results_used=[test_data.get('test_id')],
+                    generation_duration=None,
+                    insights_type="individual"
+                ))
+                
+                if stored_result:
+                    logger.info(f"Individual AI insights stored successfully in database for user {test_data.get('user_id')}")
+                    result['stored_in_db'] = True
+                    result['db_record_id'] = stored_result.get('id')
+                else:
+                    logger.warning(f"Failed to store individual AI insights in database for user {test_data.get('user_id')}")
+                    result['stored_in_db'] = False
+                    
+            except Exception as storage_error:
+                logger.error(f"Error storing individual AI insights for user {test_data.get('user_id')}: {str(storage_error)}")
+                result['stored_in_db'] = False
+                result['storage_error'] = str(storage_error)
         
         # Add task metadata to result
         result['task_id'] = self.request.id
@@ -163,7 +194,8 @@ def generate_comprehensive_ai_insights_task(self, request_data: Dict[str, Any]) 
                     generated_at=result.get("generated_at"),
                     model=result.get("model"),
                     test_results_used=list(request_data.get('all_test_results', {}).keys()),
-                    generation_duration=None  # Could calculate from task start time
+                    generation_duration=None,  # Could calculate from task start time
+                    insights_type="comprehensive"
                 ))
                 
                 if stored_result:

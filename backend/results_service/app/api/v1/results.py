@@ -178,7 +178,7 @@ async def generate_ai_insights(request: AIInsightRequest, async_processing: bool
             }
             
             # Generate insights
-            result = ai_service.generate_personality_insights(test_data)
+            result = ai_service.generate_insights(test_data)
             
             if result["success"]:
                 # Log successful generation

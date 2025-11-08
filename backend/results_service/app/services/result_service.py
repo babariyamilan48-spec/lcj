@@ -538,7 +538,7 @@ class ResultService:
                             }
                             
                             # Generate AI insights
-                            ai_result = ai_service.generate_personality_insights(test_data)
+                            ai_result = ai_service.generate_insights(test_data)
                             
                             if ai_result["success"] and ai_result.get("insights"):
                                 ai_insight = {
@@ -1452,20 +1452,24 @@ class ResultService:
         generated_at: Optional[str] = None,
         model: Optional[str] = None,
         test_results_used: Optional[List[str]] = None,
-        generation_duration: Optional[int] = None
+        generation_duration: Optional[int] = None,
+        insights_type: str = "comprehensive"
     ) -> Optional[Dict[str, Any]]:
         """
-        Store comprehensive AI insights in dedicated ai_insights table
+        Store AI insights in dedicated ai_insights table
+        
+        Args:
+            insights_type: Type of insights - "comprehensive" or "individual"
         """
         try:
             db = ResultService.get_db_session()
             if not db or not AIInsights:
                 # Fallback to in-memory storage
                 insights_id = str(uuid.uuid4())
-                results_db[f"ai_insights_{user_id}"] = {
+                results_db[f"ai_insights_{user_id}_{insights_type}"] = {
                     "id": insights_id,
                     "user_id": user_id,
-                    "insights_type": "comprehensive",
+                    "insights_type": insights_type,
                     "insights_data": json.dumps(insights_data),
                     "model_used": model or "gemini",
                     "status": "completed",
@@ -1474,12 +1478,12 @@ class ResultService:
                     "generation_duration": generation_duration
                 }
                 print(f"AI insights stored in memory for user {user_id}")
-                return results_db[f"ai_insights_{user_id}"]
+                return results_db[f"ai_insights_{user_id}_{insights_type}"]
             
             # Create AI insights record
             ai_insights = AIInsights(
                 user_id=user_id,
-                insights_type="comprehensive",
+                insights_type=insights_type,
                 insights_data=json.dumps(insights_data),
                 model_used=model or "gemini",
                 confidence_score=95,  # Default high confidence for successful generation
@@ -1513,10 +1517,10 @@ class ResultService:
             print(f"Error storing AI insights for user {user_id}: {str(e)}")
             # Fallback to in-memory storage on database error
             insights_id = str(uuid.uuid4())
-            results_db[f"ai_insights_{user_id}"] = {
+            results_db[f"ai_insights_{user_id}_{insights_type}"] = {
                 "id": insights_id,
                 "user_id": user_id,
-                "insights_type": "comprehensive",
+                "insights_type": insights_type,
                 "insights_data": json.dumps(insights_data),
                 "model_used": model or "gemini",
                 "status": "completed",
@@ -1524,7 +1528,7 @@ class ResultService:
                 "test_results_used": json.dumps(test_results_used or []),
                 "generation_duration": generation_duration
             }
-            return results_db[f"ai_insights_{user_id}"]
+            return results_db[f"ai_insights_{user_id}_{insights_type}"]
 
     @staticmethod
     async def get_user_ai_insights(user_id: str) -> Optional[Dict[str, Any]]:
