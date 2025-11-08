@@ -63,13 +63,11 @@ class SupabaseManager:
             
         try:
             # Configure client options for optimal performance
+            # Note: Using minimal options to avoid version compatibility issues
             options = ClientOptions(
                 schema="public",
-                headers={"apikey": supabase_key},
                 auto_refresh_token=True,
-                persist_session=True,
-                detect_session_in_url=False,
-                flow_type="implicit"
+                persist_session=True
             )
             
             self._client = create_client(supabase_url, supabase_key, options)
