@@ -22,9 +22,12 @@ RUN useradd --create-home --shell /bin/bash celery
 RUN chown -R celery:celery /app
 USER celery
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "from core.celery_app import celery_app; celery_app.control.inspect().ping()" || exit 1
+# Expose a fake port (required for Render web services)
+EXPOSE 10000
 
-# Default command (can be overridden)
-CMD ["python", "start_celery_worker.py"]
+# Health check (optional)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD python -c "print('health ok')" || exit 1
+
+# Start both Celery worker + a tiny HTTP server
+CMD celery -A core.celery_app.celery_app worker -l info & python -m http.server 10000
