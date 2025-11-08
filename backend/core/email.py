@@ -8,20 +8,36 @@ def _build_mail_conf():
 
     username = getattr(settings, "SMTP_USER", None)
     password = getattr(settings, "SMTP_PASSWORD", None)
-    mail_from = getattr(settings, "SMTP_FROM", username)
+    mail_from = getattr(settings, "SMTP_FROM", None)
+    
+    # If SMTP_FROM is not set, use SMTP_USER as fallback
+    if not mail_from:
+        mail_from = username
+    
+    # Validate that we have all required fields and that mail_from is a valid email
     if not username or not password or not mail_from:
+        print(f"[EMAIL] Missing SMTP configuration: username={bool(username)}, password={bool(password)}, mail_from={bool(mail_from)}")
+        return None
+    
+    # Basic email validation for mail_from
+    if "@" not in str(mail_from):
+        print(f"[EMAIL] Invalid MAIL_FROM address: '{mail_from}' - must be a valid email address")
         return None
 
-    return ConnectionConfig(
-        MAIL_USERNAME=username,
-        MAIL_PASSWORD=password,
-        MAIL_FROM=mail_from,
-        MAIL_PORT=int(getattr(settings, "SMTP_PORT", 587) or 587),
-        MAIL_SERVER=getattr(settings, "SMTP_HOST", "smtp.gmail.com"),
-        MAIL_STARTTLS=True,
-        MAIL_SSL_TLS=False,
-        USE_CREDENTIALS=True,
-    )
+    try:
+        return ConnectionConfig(
+            MAIL_USERNAME=username,
+            MAIL_PASSWORD=password,
+            MAIL_FROM=mail_from,
+            MAIL_PORT=int(getattr(settings, "SMTP_PORT", 587) or 587),
+            MAIL_SERVER=getattr(settings, "SMTP_HOST", "smtp.gmail.com"),
+            MAIL_STARTTLS=True,
+            MAIL_SSL_TLS=False,
+            USE_CREDENTIALS=True,
+        )
+    except Exception as e:
+        print(f"[EMAIL] Failed to create mail configuration: {e}")
+        return None
 
 async def send_email(subject: str, recipients: list[EmailStr], html: str) -> bool:
     """
@@ -52,7 +68,16 @@ async def send_email(subject: str, recipients: list[EmailStr], html: str) -> boo
         return False
 
 def is_email_configured() -> bool:
-    return bool(getattr(settings, "SMTP_USER", None) and getattr(settings, "SMTP_PASSWORD", None))
+    username = getattr(settings, "SMTP_USER", None)
+    password = getattr(settings, "SMTP_PASSWORD", None)
+    mail_from = getattr(settings, "SMTP_FROM", None) or username
+    
+    # Check if all required fields are present and mail_from is valid
+    if not username or not password or not mail_from:
+        return False
+    
+    # Basic email validation for mail_from
+    return "@" in str(mail_from)
 
 def otp_email_html(title: str, otp: str, note: Optional[str] = None) -> str:
     extra = f"<p style='color:#555;font-size:14px'>{note}</p>" if note else ""

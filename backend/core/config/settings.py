@@ -56,6 +56,17 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @field_validator("SMTP_FROM", mode="before")
+    @classmethod
+    def validate_smtp_from(cls, v: Any) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        # Basic email validation
+        v_str = str(v).strip()
+        if v_str and "@" not in v_str:
+            raise ValueError(f"SMTP_FROM must be a valid email address, got: {v_str}")
+        return v_str if v_str else None
+
     @field_validator("allowed_hosts", mode="before")
     @classmethod
     def parse_allowed_hosts(cls, v: Any) -> List[str]:

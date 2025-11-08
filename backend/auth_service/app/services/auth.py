@@ -71,11 +71,16 @@ def register_user(db: Session, payload: SignupInput) -> User:
     if not is_email_configured():
         # Still create the user but warn about email configuration
         print(f"[AUTH] ⚠️ User {payload.email} registered but verification email not sent - SMTP not configured")
+        print(f"[AUTH] 💡 Please set SMTP_USER, SMTP_PASSWORD, and SMTP_FROM environment variables")
         return user
     
-    email_sent = anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
-    if not email_sent:
-        print(f"[AUTH] ⚠️ User {payload.email} registered but verification email failed to send")
+    try:
+        email_sent = anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
+        if not email_sent:
+            print(f"[AUTH] ⚠️ User {payload.email} registered but verification email failed to send")
+    except Exception as e:
+        print(f"[AUTH] ⚠️ User {payload.email} registered but verification email error: {e}")
+        print(f"[AUTH] 💡 Check your SMTP configuration, especially SMTP_FROM email address")
     
     return user
 
