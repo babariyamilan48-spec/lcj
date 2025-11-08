@@ -10,33 +10,33 @@ import subprocess
 from pathlib import Path
 
 def start_celery_beat():
-    """Start Celery beat scheduler in production mode"""
+    """Start Celery beat scheduler"""
     
     # Add the backend directory to Python path
     backend_dir = Path(__file__).parent
     sys.path.insert(0, str(backend_dir))
     
-    # Set environment variables
-    os.environ.setdefault("ENVIRONMENT", "production")
+    # Set environment variables if not already set
     if not os.getenv('PYTHONPATH'):
         os.environ['PYTHONPATH'] = str(backend_dir)
     
-    print("🚀 Starting Celery Beat Scheduler in production mode...")
-    print(f"🌍 Environment: {os.environ.get('ENVIRONMENT', 'production')}")
-    print(f"🔗 Broker URL: {os.environ.get('CELERY_BROKER_URL', 'Not set')}")
+    # Celery beat command
+    cmd = [
+        'celery',
+        '-A', 'core.celery_app:celery_app',
+        'beat',
+        '--loglevel=info',
+        '--schedule=/tmp/celerybeat-schedule',
+        '--pidfile=/tmp/celerybeat.pid'
+    ]
     
-    # Import and start beat scheduler directly
-    from core.celery_app import celery_app
+    print("Starting Celery beat scheduler...")
+    print(f"Command: {' '.join(cmd)}")
+    print("Press Ctrl+C to stop the scheduler")
     
     try:
-        # Start the Celery beat scheduler with production settings
-        celery_app.start([
-            'celery',
-            'beat',
-            '--loglevel=info',
-            '--schedule=/tmp/celerybeat-schedule',
-            '--pidfile=/tmp/celerybeat.pid'
-        ])
+        # Start the Celery beat scheduler
+        subprocess.run(cmd, cwd=backend_dir)
     except KeyboardInterrupt:
         print("\nStopping Celery beat scheduler...")
     except Exception as e:
