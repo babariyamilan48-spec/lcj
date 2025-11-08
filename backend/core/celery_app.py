@@ -17,6 +17,11 @@ try:
     backend_dir = Path(__file__).parent.parent
     env_file = backend_dir / '.env'
 
+    # Ensure backend directory is in Python path for imports
+    if str(backend_dir) not in sys.path:
+        sys.path.insert(0, str(backend_dir))
+        print(f"[OK] Added {backend_dir} to Python path")
+
     if env_file.exists():
         load_dotenv(env_file, encoding='utf-8')
         print(f"[OK] Loaded environment variables from {env_file}")

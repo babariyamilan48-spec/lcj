@@ -1,0 +1,3 @@
+"""
+Results service application module.
+"""
