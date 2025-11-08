@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTests, useTestSelection } from '@/hooks/useQuestionService';
-import { Test as ApiTest } from '@/services/questionService';
 import { Test as StoreTest } from '@/store/app-store';
+import { Test as ApiTest } from '@/services/questionService';
 import { aiInsightsService } from '@/services/aiInsightsService';
+import { getCurrentUserId, getUserIdSource } from '@/utils/userUtils';
 import { CheckCircle } from 'lucide-react';
 
 interface TestSelectionProps {
@@ -29,12 +30,25 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
       if (hasCheckedCompletion) return; // Prevent multiple calls
 
       try {
-        const userId = localStorage.getItem('userId') || '11dc4aec-2216-45f9-b045-60edac007262';
+        const userId = getCurrentUserId();
+        
+        console.log('🔍 Checking completion status for user:', userId);
+        console.log('📝 User ID source:', getUserIdSource());
+        console.log('🔍 User ID length:', userId?.length);
+        console.log('🔍 User ID type:', typeof userId);
+        
         const status = await aiInsightsService.checkAllTestsCompleted(userId);
+        console.log('✅ Completion status response:', JSON.stringify(status, null, 2));
+        
         setCompletedTests(status.completedTests || []);
         setHasCheckedCompletion(true);
+        
+        // Debug: Log what tests are marked as completed
+        console.log('📊 Completed tests:', status.completedTests);
+        console.log('❌ Missing tests:', status.missingTests);
+        console.log('📈 Completion percentage:', status.completionPercentage);
       } catch (error) {
-        console.error('Error fetching completion status:', error);
+        console.error('❌ Error fetching completion status:', error);
       } finally {
         setLoadingCompletion(false);
       }

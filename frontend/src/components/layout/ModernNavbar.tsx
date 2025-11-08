@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import { 
   Menu, 
   X, 
@@ -41,6 +42,16 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
   const [scrolled, setScrolled] = useState(false);
   const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
+
+  // Handle click outside for profile dropdown
+  const profileRef = useClickOutside<HTMLDivElement>(() => {
+    setIsProfileOpen(false);
+  });
+
+  // Handle click outside for mobile menu
+  const mobileMenuRef = useClickOutside<HTMLDivElement>(() => {
+    setIsMobileMenuOpen(false);
+  });
 
   // Handle scroll effect
   useEffect(() => {
@@ -154,7 +165,7 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
 
             {/* Profile Dropdown */}
             {isAuthenticated && user && (
-              <div className="relative">
+              <div className="relative" ref={profileRef}>
                 <motion.button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors"
@@ -270,6 +281,7 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
+            ref={mobileMenuRef}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}

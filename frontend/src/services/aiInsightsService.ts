@@ -770,6 +770,17 @@ class AIInsightsService {
     }
   }
 
+  // Debug method to check what results exist for a user
+  async debugUserResults(userId: string): Promise<any> {
+    try {
+      const response = await api.get(`/api/v1/results_service/debug/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error debugging user results:', error);
+      return { error: error.message };
+    }
+  }
+
   // Check if user has completed all required tests
   async checkAllTestsCompleted(userId: string): Promise<{
     allCompleted: boolean;
@@ -779,6 +790,10 @@ class AIInsightsService {
     completionPercentage: number;
   }> {
     try {
+      // First, debug what results exist
+      const debugInfo = await this.debugUserResults(userId);
+      console.log('🐛 Debug user results:', debugInfo);
+      
       const response = await api.get(`/api/v1/results_service/completion-status/${userId}`);
       return response.data;
     } catch (error) {

@@ -347,6 +347,51 @@ async def get_user_ai_insights_for_history(user_id: str):
             detail=f"Failed to retrieve AI insights history: {str(e)}"
         )
 
+@router.get("/debug/{user_id}")
+async def debug_user_results(user_id: str):
+    """
+    Debug endpoint to check what results exist for a user
+    """
+    try:
+        from core.database import get_db
+        from question_service.app.models.test_result import TestResult as DBTestResult
+        
+        db = next(get_db())
+        
+        # Get ALL results for user (including incomplete)
+        all_results = db.query(DBTestResult).filter(
+            DBTestResult.user_id == user_id
+        ).order_by(DBTestResult.created_at.desc()).all()
+        
+        # Get only completed results
+        completed_results = db.query(DBTestResult).filter(
+            DBTestResult.user_id == user_id,
+            DBTestResult.is_completed == True
+        ).order_by(DBTestResult.created_at.desc()).all()
+        
+        debug_info = {
+            "user_id": user_id,
+            "total_results": len(all_results),
+            "completed_results": len(completed_results),
+            "all_results_details": [
+                {
+                    "id": result.id,
+                    "test_id": result.test_id,
+                    "is_completed": result.is_completed,
+                    "created_at": result.created_at.isoformat() if result.created_at else None,
+                    "completed_at": result.completed_at.isoformat() if result.completed_at else None
+                } for result in all_results
+            ],
+            "completed_test_ids": [result.test_id for result in completed_results]
+        }
+        
+        db.close()
+        return debug_info
+        
+    except Exception as e:
+        logger.error(f"Debug error: {str(e)}")
+        return {"error": str(e), "user_id": user_id}
+
 @router.get("/completion-status/{user_id}")
 async def check_test_completion_status(user_id: str):
     """
@@ -380,7 +425,8 @@ async def check_test_completion_status(user_id: str):
             "completedTests": completed_tests,
             "missingTests": missing_tests,
             "totalTests": len(required_tests),
-            "completionPercentage": completion_percentage
+            "completionPercentage": completion_percentage,
+            "debug_user_id": user_id  # Add this for debugging
         }
         
     except Exception as e:

@@ -139,11 +139,25 @@ def verify_email_request(request: Request, payload: VerifyEmailRequestInput, db:
     db.add(otp)
     db.commit()
     # Send email (prints if skipped)
-    from core.email import send_email, otp_email_html
+    from core.email import send_email, otp_email_html, is_email_configured
     import anyio
+    
+    if not is_email_configured():
+        return resp(
+            message="Email service not configured. Please contact administrator to set up SMTP settings.",
+            status_code=503
+        )
+    
     html = otp_email_html("Verify your email", otp.code, "This code expires in 10 minutes.")
-    anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
-    return resp(message="Verification code sent if the account exists.")
+    email_sent = anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
+    
+    if not email_sent:
+        return resp(
+            message="Failed to send verification email. Please try again later or contact support.",
+            status_code=503
+        )
+    
+    return resp(message="Verification code sent successfully.")
 
 @router.post("/verify-email/confirm")
 @limiter.limit("5/minute")

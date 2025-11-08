@@ -83,10 +83,40 @@ const ComprehensiveReportPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const userId = localStorage.getItem('userId') || '11dc4aec-2216-45f9-b045-60edac007262';
+      
+      // Get user ID from multiple sources with priority
+      let userId = localStorage.getItem('userId');
+      
+      // If no userId in localStorage, try to get from user_data
+      if (!userId) {
+        const userData = localStorage.getItem('user_data');
+        if (userData) {
+          try {
+            const parsedUserData = JSON.parse(userData);
+            userId = parsedUserData.id;
+            // Store it for future use
+            if (userId) {
+              localStorage.setItem('userId', userId);
+            }
+          } catch (e) {
+            console.warn('Failed to parse user_data from localStorage');
+          }
+        }
+      }
+      
+      // Final fallback to demo user
+      if (!userId) {
+        userId = '11dc4aec-2216-45f9-b045-60edac007262';
+        console.warn('🚨 Using fallback demo user ID. User may not be authenticated.');
+      }
+      
+      console.log('🔍 Comprehensive report for user:', userId);
+      console.log('🔍 User ID length:', userId?.length);
+      console.log('🔍 User ID type:', typeof userId);
 
       // Fetch completion status
       const status = await aiInsightsService.checkAllTestsCompleted(userId);
+      console.log('🔍 Raw completion status response:', JSON.stringify(status, null, 2));
       setCompletionStatus(status);
 
       if (!status.allCompleted) {

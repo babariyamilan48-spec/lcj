@@ -55,7 +55,16 @@ def register_user(db: Session, payload: SignupInput) -> User:
     # send verification email (mailer prints whether it was sent or skipped)
     html = otp_email_html("Verify your email", otp.code, "This code expires in 10 minutes.")
     import anyio
-    anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
+    
+    if not is_email_configured():
+        # Still create the user but warn about email configuration
+        print(f"[AUTH] ⚠️ User {payload.email} registered but verification email not sent - SMTP not configured")
+        return user
+    
+    email_sent = anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
+    if not email_sent:
+        print(f"[AUTH] ⚠️ User {payload.email} registered but verification email failed to send")
+    
     return user
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
@@ -105,7 +114,14 @@ def issue_reset_otp(db: Session, user: Optional[User]) -> None:
             pass
         html = otp_email_html("Reset your password", otp.code, "Enter this code to reset your password.")
         import anyio
-        anyio.from_thread.run(send_email, "Reset your password", [user.email], html)
+        
+        if not is_email_configured():
+            print(f"[AUTH] ⚠️ Password reset requested for {user.email} but SMTP not configured")
+            return
+            
+        email_sent = anyio.from_thread.run(send_email, "Reset your password", [user.email], html)
+        if not email_sent:
+            print(f"[AUTH] ⚠️ Password reset email failed to send to {user.email}")
 
 def verify_and_consume_otp(db: Session, email: str, purpose: str, code: str) -> Optional[User]:
     user = get_user_by_email(db, email)

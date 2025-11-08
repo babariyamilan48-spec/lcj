@@ -23,15 +23,19 @@ def _build_mail_conf():
         USE_CREDENTIALS=True,
     )
 
-async def send_email(subject: str, recipients: list[EmailStr], html: str) -> None:
+async def send_email(subject: str, recipients: list[EmailStr], html: str) -> bool:
+    """
+    Send email to recipients. Returns True if sent successfully, False otherwise.
+    """
     conf = _build_mail_conf()
     if conf is None:
         # Email not configured; print for visibility in dev
         try:
-            print(f"[EMAIL] SMTP not configured. Skipping send to {recipients} (subject='{subject}')")
+            print(f"[EMAIL] ❌ SMTP not configured. Cannot send email to {recipients} (subject='{subject}')")
+            print("[EMAIL] 💡 Please configure SMTP_USER, SMTP_PASSWORD, and SMTP_FROM in your .env file")
         except Exception:
             pass
-        return None
+        return False
 
     # Lazy import FastMail and MessageSchema
     from fastapi_mail import FastMail, MessageSchema
@@ -40,9 +44,12 @@ async def send_email(subject: str, recipients: list[EmailStr], html: str) -> Non
     fm = FastMail(conf)
     try:
         await fm.send_message(message)
-        print(f"[EMAIL] Sent '{subject}' to {recipients}")
+        print(f"[EMAIL] ✅ Successfully sent '{subject}' to {recipients}")
+        return True
     except Exception as e:
-        print(f"[EMAIL] Failed to send '{subject}' to {recipients}: {e}")
+        print(f"[EMAIL] ❌ Failed to send '{subject}' to {recipients}: {e}")
+        print(f"[EMAIL] 💡 Check your SMTP configuration and credentials")
+        return False
 
 def is_email_configured() -> bool:
     return bool(getattr(settings, "SMTP_USER", None) and getattr(settings, "SMTP_PASSWORD", None))
