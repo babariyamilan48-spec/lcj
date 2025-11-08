@@ -1,0 +1,87 @@
+services:
+  # Main FastAPI Backend Service
+  - type: web
+    name: lcj-backend
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.prod.txt
+    startCommand: python start_server.py
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lcj-postgres
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: CELERY_RESULT_BACKEND
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+    healthCheckPath: /health
+    
+  # Celery Worker Service
+  - type: worker
+    name: lcj-celery-worker
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.prod.txt
+    startCommand: python start_celery_worker.py
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lcj-postgres
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: CELERY_RESULT_BACKEND
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+
+  # Celery Beat Scheduler (Optional - for periodic tasks)
+  - type: worker
+    name: lcj-celery-beat
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.prod.txt
+    startCommand: python start_celery_beat.py
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lcj-postgres
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: CELERY_RESULT_BACKEND
+        sync: false
+
+databases:
+  # Note: You'll use Supabase instead, but keeping this for reference
+  - name: lcj-postgres
+    plan: starter

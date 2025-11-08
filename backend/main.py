@@ -28,16 +28,32 @@ app.include_router(contact_router, prefix="/api/v1/contact_service", tags=["Cont
 # Health check endpoints for individual services
 @app.get("/health")
 async def health_check():
+    from core.database_service import db_health_check
+    
+    # Get database health status
+    db_health = await db_health_check()
+    
     return {
-        "status": "healthy",
+        "status": "healthy" if db_health["overall"]["status"] in ["healthy", "degraded"] else "unhealthy",
         "service": "unified_lcj_api",
         "services": {
             "auth": "healthy",
             "questions": "healthy",
             "results": "healthy",
             "contact": "healthy"
-        }
+        },
+        "database": db_health
     }
+
+@app.get("/health/database")
+async def database_health():
+    from core.database_service import db_health_check
+    return await db_health_check()
+
+@app.get("/health/supabase")
+async def supabase_health():
+    from core.supabase_client import supabase_health
+    return supabase_health()
 
 @app.get("/health/auth")
 async def auth_health():

@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg2://lcj_user:lcj_password@localhost:5432/lcj"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
+    
+    # Supabase Configuration
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_ANON_KEY: Optional[str] = None
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    
+    # Environment
+    ENVIRONMENT: str = "development"
 
     # Security / Password policy
     PASSWORD_MIN_LENGTH: int = 8

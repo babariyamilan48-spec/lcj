@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config.settings import settings
 
 def setup_middlewares(app: FastAPI) -> None:
-    # More explicit CORS configuration for development
+    # CORS configuration for different environments
     allowed_origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000", 
@@ -12,6 +12,15 @@ def setup_middlewares(app: FastAPI) -> None:
         "http://localhost:8000",
         "http://127.0.0.1:8000"
     ]
+    
+    # Add production origins
+    if settings.environment == "production":
+        production_origins = [
+            "https://your-vercel-app.vercel.app",
+            "https://your-custom-domain.com",
+            "https://www.your-custom-domain.com"
+        ]
+        allowed_origins.extend(production_origins)
     
     # If settings.allowed_hosts contains "*", use all origins
     if "*" in settings.allowed_hosts:
