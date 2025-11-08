@@ -43,17 +43,27 @@ router = APIRouter()
 @router.post("/signup")
 @limiter.limit("5/minute")
 def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)):
-    user = register_user(db, payload)
-    out = UserOut(
-        id=str(user.id),
-        email=user.email,
-        username=user.username,
-        avatar=user.avatar,
-        is_verified=user.is_verified,
-        providers=user.providers,
-        role=user.role,
-    )
-    return resp(out.model_dump(), message="Account created. Please verify your email.")
+    print(f"[SIGNUP] Received signup request for email: {payload.email}")
+    print(f"[SIGNUP] Username: {payload.username}")
+    print(f"[SIGNUP] Password length: {len(payload.password)}")
+    
+    try:
+        user = register_user(db, payload)
+        print(f"[SIGNUP] User created successfully: {user.email}")
+        
+        out = UserOut(
+            id=str(user.id),
+            email=user.email,
+            username=user.username,
+            avatar=user.avatar,
+            is_verified=user.is_verified,
+            providers=user.providers,
+            role=user.role,
+        )
+        return resp(out.model_dump(), message="Account created. Please verify your email.")
+    except Exception as e:
+        print(f"[SIGNUP] Error during signup: {e}")
+        raise
 
 @router.post("/login")
 @limiter.limit("5/minute")

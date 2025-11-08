@@ -82,11 +82,25 @@ def resp(payload=None, success: bool = True, error: str | None = None, message: 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def handle_request_validation_error(_: Request, exc: RequestValidationError):
-        return resp(None, False, "Validation error", "Invalid request.", 422)
+        errors = []
+        for error in exc.errors():
+            field = " -> ".join(str(loc) for loc in error["loc"])
+            message = error["msg"]
+            errors.append(f"{field}: {message}")
+        
+        error_message = "; ".join(errors)
+        return resp(None, False, error_message, f"Validation failed: {error_message}", 422)
 
     @app.exception_handler(ValidationError)
     async def handle_validation_error(_: Request, exc: ValidationError):
-        return resp(None, False, "Validation error", "Invalid payload.", 422)
+        errors = []
+        for error in exc.errors():
+            field = " -> ".join(str(loc) for loc in error["loc"])
+            message = error["msg"]
+            errors.append(f"{field}: {message}")
+        
+        error_message = "; ".join(errors)
+        return resp(None, False, error_message, f"Validation failed: {error_message}", 422)
 
     @app.exception_handler(HTTPException)
     async def handle_http_exception(_: Request, exc: HTTPException):

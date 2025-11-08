@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List
 
 class Token(BaseModel):
@@ -8,8 +8,26 @@ class Token(BaseModel):
 
 class SignupInput(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=6, description="Password must be at least 6 characters long")
-    username: Optional[str] = None
+    password: str = Field(..., min_length=6, max_length=128, description="Password must be at least 6 characters long")
+    username: Optional[str] = Field(None, max_length=100, description="Username must be less than 100 characters")
+    
+    @validator('password')
+    def validate_password(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Password cannot be empty')
+        return v.strip()
+    
+    @validator('username')
+    def validate_username(cls, v):
+        if v is not None and len(v.strip()) == 0:
+            return None  # Convert empty string to None
+        return v.strip() if v else None
+    
+    @validator('email')
+    def validate_email(cls, v):
+        if not v or len(str(v).strip()) == 0:
+            raise ValueError('Email cannot be empty')
+        return str(v).strip().lower()
 
 class LoginInput(BaseModel):
     email: EmailStr

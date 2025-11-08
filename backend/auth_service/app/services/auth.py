@@ -27,23 +27,35 @@ def check_user_login_eligibility(user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
 def register_user(db: Session, payload: SignupInput) -> User:
+    print(f"[REGISTER] Starting registration for email: {payload.email}")
+    
     existing = get_user_by_email(db, payload.email)
     if existing:
+        print(f"[REGISTER] Email already exists: {payload.email}")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
     if len(payload.password) < settings.PASSWORD_MIN_LENGTH:
+        print(f"[REGISTER] Password too short: {len(payload.password)} < {settings.PASSWORD_MIN_LENGTH}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password too short")
 
-    user = User(
-        email=payload.email,
-        username=payload.username,
-        password_hash=get_password_hash(payload.password),
-        providers=["password"],
-        role="user",
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    print(f"[REGISTER] Creating user with email: {payload.email}, username: {payload.username}")
+    
+    try:
+        user = User(
+            email=payload.email,
+            username=payload.username,
+            password_hash=get_password_hash(payload.password),
+            providers=["password"],
+            role="user",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"[REGISTER] User created with ID: {user.id}")
+    except Exception as e:
+        print(f"[REGISTER] Database error during user creation: {e}")
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
     otp = EmailOTP(
         user_id=user.id,
         code=f"{secrets.randbelow(999999):06d}",
