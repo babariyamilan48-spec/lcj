@@ -19,18 +19,23 @@ def main():
     print("🚀 Starting Celery Worker in production mode...")
     print(f"🌍 Environment: {os.environ.get('ENVIRONMENT', 'production')}")
     print(f"🔗 Broker URL: {os.environ.get('CELERY_BROKER_URL', 'Not set')}")
+    print(f"🔗 Result Backend: {os.environ.get('CELERY_RESULT_BACKEND', 'Not set')}")
     
     # Import Celery app
     from core.celery_app import celery_app
     
-    # Start worker with production settings
+    # Start worker with production settings optimized for Render
     celery_app.worker_main([
         'worker',
         '--loglevel=info',
         '--concurrency=2',
         '--max-tasks-per-child=1000',
         '--time-limit=300',
-        '--soft-time-limit=240'
+        '--soft-time-limit=240',
+        '--queues=default,ai_reports,pdf_generation',
+        '--without-gossip',
+        '--without-mingle',
+        '--without-heartbeat'
     ])
 
 if __name__ == "__main__":
