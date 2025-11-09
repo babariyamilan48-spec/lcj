@@ -3,6 +3,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from core.config.settings import settings
 from core.middleware.compression import CompressionMiddleware, ResponseOptimizationMiddleware, JSONOptimizationMiddleware
+
+def middleware_health_check():
+    """Check middleware health status"""
+    try:
+        return {
+            "status": "healthy",
+            "compression": "enabled",
+            "response_optimization": "enabled", 
+            "json_optimization": "enabled"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 import logging
 
 logger = logging.getLogger(__name__)

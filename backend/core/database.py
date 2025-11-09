@@ -84,6 +84,30 @@ def get_db():
             logger.warning(f"Slow database session: {session_time:.2f}s")
         db.close()
 
+# Database monitoring class
+class DatabaseMonitor:
+    """Database performance monitoring"""
+    
+    @staticmethod
+    def get_pool_status():
+        """Get database connection pool status"""
+        try:
+            return {
+                "pool_size": engine.pool.size(),
+                "checked_out_connections": engine.pool.checkedout(),
+                "overflow_connections": engine.pool.overflow(),
+                "checked_in_connections": engine.pool.checkedin()
+            }
+        except Exception as e:
+            logger.error(f"Error getting pool status: {e}")
+            return {
+                "pool_size": 0,
+                "checked_out_connections": 0,
+                "overflow_connections": 0,
+                "checked_in_connections": 0,
+                "error": str(e)
+            }
+
 # Connection health check
 def check_db_health():
     """Check database connection health"""

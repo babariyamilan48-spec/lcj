@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import datetime
 
 # Add backend root to Python path
 BACKEND_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -28,47 +29,47 @@ app.include_router(contact_router, prefix="/api/v1/contact_service", tags=["Cont
 # Health check endpoints for individual services
 @app.get("/health")
 async def health_check():
-    from core.database_service import db_health_check
-    from core.performance_monitor import get_performance_dashboard
-    
-    # Get database health status
+    """Fast health check without heavy performance monitoring"""
     try:
-        db_health = await db_health_check()
-    except:
-        # Fallback if db_health_check doesn't exist
+        # Quick database check
         from core.database import check_db_health
-        db_health = {"overall": check_db_health()}
-    
-    # Get performance metrics
-    performance_data = get_performance_dashboard()
-    
-    return {
-        "status": "healthy" if db_health["overall"]["status"] in ["healthy", "degraded"] else "unhealthy",
-        "service": "unified_lcj_api",
-        "services": {
-            "auth": "healthy",
-            "questions": "healthy",
-            "results": "healthy",
-            "contact": "healthy"
-        },
-        "database": db_health,
-        "performance": {
-            "score": performance_data["metrics"].get("performance_score", 0) if "metrics" in performance_data else 0,
-            "status": performance_data.get("status", "unknown")
+        db_status = check_db_health()
+        
+        return {
+            "status": "healthy" if db_status.get("status") == "healthy" else "degraded",
+            "service": "unified_lcj_api",
+            "services": {
+                "auth": "healthy",
+                "questions": "healthy", 
+                "results": "healthy",
+                "contact": "healthy"
+            },
+            "database": db_status,
+            "timestamp": datetime.now().isoformat()
         }
-    }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "service": "unified_lcj_api", 
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.get("/health/database")
 async def database_health():
+    """Detailed database health check"""
     try:
-        from core.database_service import db_health_check
-        return await db_health_check()
-    except:
-        # Fallback if db_health_check doesn't exist
         from core.database import check_db_health, DatabaseMonitor
         return {
             "status": check_db_health(),
-            "pool_status": DatabaseMonitor.get_pool_status()
+            "pool_status": DatabaseMonitor.get_pool_status(),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
         }
 
 @app.get("/health/supabase")

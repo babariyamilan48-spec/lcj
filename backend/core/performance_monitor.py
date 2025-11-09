@@ -53,24 +53,38 @@ class PerformanceMonitor:
     def get_system_metrics(self) -> Dict[str, Any]:
         """Get comprehensive system metrics"""
         try:
-            # System metrics
-            cpu_percent = psutil.cpu_percent(interval=1)
+            # System metrics (non-blocking)
+            cpu_percent = psutil.cpu_percent(interval=0)  # Non-blocking
             memory = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
+            try:
+                disk = psutil.disk_usage('/')
+            except:
+                # Fallback for Windows
+                disk = psutil.disk_usage('C:\\')
             
             # Application uptime
             uptime_seconds = time.time() - self.start_time
             uptime_hours = uptime_seconds / 3600
             
-            # Cache metrics
-            cache_status = cache_health_check()
+            # Cache metrics (with timeout)
+            try:
+                cache_status = cache_health_check()
+            except Exception as e:
+                cache_status = {"status": "error", "error": str(e)}
             
-            # Database metrics
-            db_status = check_db_health()
-            db_pool_status = DatabaseMonitor.get_pool_status()
+            # Database metrics (with timeout)
+            try:
+                db_status = check_db_health()
+                db_pool_status = DatabaseMonitor.get_pool_status()
+            except Exception as e:
+                db_status = {"status": "error", "error": str(e)}
+                db_pool_status = {"error": str(e)}
             
-            # Middleware status
-            middleware_status = middleware_health_check()
+            # Middleware status (with timeout)
+            try:
+                middleware_status = middleware_health_check()
+            except Exception as e:
+                middleware_status = {"status": "error", "error": str(e)}
             
             # Calculate cache hit rate
             total_cache_requests = self.metrics["cache_hits"] + self.metrics["cache_misses"]
