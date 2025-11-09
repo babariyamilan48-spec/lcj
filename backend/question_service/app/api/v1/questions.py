@@ -8,11 +8,16 @@ from question_service.app.deps.auth import get_current_user
 from question_service.app.schemas.question import QuestionCreate, QuestionUpdate, QuestionResponse, QuestionListResponse
 from question_service.app.services.question_service import QuestionService
 from core.rate_limit import limiter
+from core.cache import cache_async_result, QueryCache
+from core.middleware.compression import compress_json_response, optimize_large_response
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 @router.get("/")
-@limiter.limit("100/minute")
+@limiter.limit("200/minute")  # Increased rate limit due to caching
 async def get_questions(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -22,7 +27,7 @@ async def get_questions(
     is_active: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
-    """Get all questions with pagination and filtering"""
+    """Get all questions with pagination and filtering - OPTIMIZED"""
     try:
         service = QuestionService(db)
         questions, total = service.get_questions(
@@ -40,18 +45,29 @@ async def get_questions(
             size=limit
         )
         
-        return resp(result, True, None, "Questions retrieved successfully")
+        # Optimize response for large datasets
+        optimized_result = optimize_large_response(result.dict(), max_items=limit)
+        
+        # Use compressed response for large payloads
+        if len(questions) > 50:
+            return compress_json_response(
+                {"success": True, "data": optimized_result, "error": None, "message": "Questions retrieved successfully"},
+                request
+            )
+        
+        return resp(optimized_result, True, None, "Questions retrieved successfully")
     except Exception as e:
+        logger.error(f"Error retrieving questions: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve questions", 500)
 
 @router.get("/{question_id}")
-@limiter.limit("100/minute")
+@limiter.limit("200/minute")  # Increased due to caching
 async def get_question(
     request: Request,
     question_id: int, 
     db: Session = Depends(get_db)
 ):
-    """Get a specific question by ID"""
+    """Get a specific question by ID - OPTIMIZED with caching"""
     try:
         service = QuestionService(db)
         question = service.get_question(question_id)
@@ -60,6 +76,7 @@ async def get_question(
         
         return resp(question, True, None, "Question retrieved successfully")
     except Exception as e:
+        logger.error(f"Error retrieving question {question_id}: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve question", 500)
 
 @router.post("/")

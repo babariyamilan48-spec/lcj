@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, JSON, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, JSON, ForeignKey, Float, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -23,10 +23,19 @@ class TestResult(Base):
     result_summary = Column(Text, nullable=True)  # Brief summary
     
     # Metadata
-    is_completed = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_completed = Column(Boolean, default=False, index=True)  # Added index for filtering completed results
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)  # Added index for time-based queries
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Added index for completion time queries
+    
+    # Performance indexes for common query patterns
+    __table_args__ = (
+        Index('idx_test_results_user_completed', 'user_id', 'is_completed'),  # Most common query pattern
+        Index('idx_test_results_user_test', 'user_id', 'test_id'),  # User's specific test results
+        Index('idx_test_results_user_created', 'user_id', 'created_at'),  # User results by time
+        Index('idx_test_results_test_completed', 'test_id', 'is_completed'),  # Test completion stats
+        Index('idx_test_results_completed_at', 'completed_at'),  # Recent completions
+    )
 
     # Relationships
     test = relationship("Test", back_populates="results")
@@ -39,17 +48,23 @@ class TestResultDetail(Base):
     __tablename__ = "test_result_details"
 
     id = Column(Integer, primary_key=True, index=True)
-    test_result_id = Column(Integer, ForeignKey("test_results.id"), nullable=False)
+    test_result_id = Column(Integer, ForeignKey("test_results.id"), nullable=False, index=True)  # Added index
     
     # Dimension/Category specific results
-    dimension_type = Column(String(50), nullable=False)  # e.g., 'mbti_dimension', 'intelligence_type', 'big_five_trait'
-    dimension_name = Column(String(100), nullable=False)  # e.g., 'extraversion', 'linguistic', 'openness'
+    dimension_type = Column(String(50), nullable=False, index=True)  # Added index for filtering by type
+    dimension_name = Column(String(100), nullable=False, index=True)  # Added index for filtering by name
     raw_score = Column(Float, nullable=False)
-    percentage_score = Column(Float, nullable=False)
-    level = Column(String(50), nullable=True)  # e.g., 'high', 'moderate', 'low'
+    percentage_score = Column(Float, nullable=False, index=True)  # Added index for score-based queries
+    level = Column(String(50), nullable=True, index=True)  # Added index for level filtering
     description = Column(Text, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Performance indexes for dimension analysis
+    __table_args__ = (
+        Index('idx_result_details_result_type', 'test_result_id', 'dimension_type'),  # Details by result and type
+        Index('idx_result_details_type_name', 'dimension_type', 'dimension_name'),  # Dimension analysis
+    )
 
     # Relationships
     test_result = relationship("TestResult", back_populates="details")
@@ -64,8 +79,8 @@ class TestResultConfiguration(Base):
     test_id = Column(String(50), ForeignKey("tests.test_id"), nullable=False, index=True)
     
     # Result type configurations
-    result_type = Column(String(50), nullable=False)  # e.g., 'mbti_type', 'intelligence_type', 'personality_trait'
-    result_code = Column(String(50), nullable=False)  # e.g., 'INTJ', 'linguistic', 'openness'
+    result_type = Column(String(50), nullable=False, index=True)  # Added index for filtering by type
+    result_code = Column(String(50), nullable=False, index=True)  # Added index for code lookups
     result_name_gujarati = Column(String(200), nullable=False)
     result_name_english = Column(String(200), nullable=False)
     description_gujarati = Column(Text, nullable=True)
@@ -87,9 +102,16 @@ class TestResultConfiguration(Base):
     challenges = Column(JSON, nullable=True)  # Areas for improvement/challenges
     career_suggestions = Column(JSON, nullable=True)  # Specific career suggestions
     
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True, index=True)  # Added index for active configurations
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Performance indexes for configuration lookups
+    __table_args__ = (
+        Index('idx_config_test_type', 'test_id', 'result_type'),  # Configuration by test and type
+        Index('idx_config_type_code', 'result_type', 'result_code'),  # Configuration by type and code
+        Index('idx_config_test_active', 'test_id', 'is_active'),  # Active configurations by test
+    )
 
     # Relationships
     test = relationship("Test", back_populates="configurations")

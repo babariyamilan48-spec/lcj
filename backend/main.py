@@ -29,9 +29,18 @@ app.include_router(contact_router, prefix="/api/v1/contact_service", tags=["Cont
 @app.get("/health")
 async def health_check():
     from core.database_service import db_health_check
+    from core.performance_monitor import get_performance_dashboard
     
     # Get database health status
-    db_health = await db_health_check()
+    try:
+        db_health = await db_health_check()
+    except:
+        # Fallback if db_health_check doesn't exist
+        from core.database import check_db_health
+        db_health = {"overall": check_db_health()}
+    
+    # Get performance metrics
+    performance_data = get_performance_dashboard()
     
     return {
         "status": "healthy" if db_health["overall"]["status"] in ["healthy", "degraded"] else "unhealthy",
@@ -42,13 +51,25 @@ async def health_check():
             "results": "healthy",
             "contact": "healthy"
         },
-        "database": db_health
+        "database": db_health,
+        "performance": {
+            "score": performance_data["metrics"].get("performance_score", 0) if "metrics" in performance_data else 0,
+            "status": performance_data.get("status", "unknown")
+        }
     }
 
 @app.get("/health/database")
 async def database_health():
-    from core.database_service import db_health_check
-    return await db_health_check()
+    try:
+        from core.database_service import db_health_check
+        return await db_health_check()
+    except:
+        # Fallback if db_health_check doesn't exist
+        from core.database import check_db_health, DatabaseMonitor
+        return {
+            "status": check_db_health(),
+            "pool_status": DatabaseMonitor.get_pool_status()
+        }
 
 @app.get("/health/supabase")
 async def supabase_health():
@@ -74,7 +95,7 @@ async def contact_health():
 @app.get("/")
 async def root():
     return {
-        "message": "LCJ Career Assessment System - Unified API",
+        "message": "LCJ Career Assessment System - Unified API (OPTIMIZED)",
         "version": "1.0.0",
         "services": {
             "auth": "/api/v1/auth",
@@ -82,13 +103,24 @@ async def root():
             "results": "/api/v1/results",
             "contact": "/api/v1/contact"
         },
+        "monitoring": {
+            "health": "/health",
+            "performance": "/performance",
+            "metrics": "/metrics"
+        },
         "docs": "/docs",
-        "health": "/health"
+        "optimizations": [
+            "Redis Caching",
+            "Response Compression",
+            "Database Connection Pooling",
+            "Query Optimization",
+            "JSON Optimization"
+        ]
     }
 
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 LCJ Unified API Server starting up...")
+    print("🚀 LCJ Unified API Server starting up... (OPTIMIZED)")
     print("📋 Available services:")
     print("   • Auth Service: /api/v1/auth")
     print("   • Question Service: /api/v1/questions")
@@ -96,10 +128,43 @@ async def startup_event():
     print("   • Contact Service: /api/v1/contact")
     print("📖 API Documentation: http://localhost:8000/docs")
     print("💚 Health Check: http://localhost:8000/health")
+    print("⚡ Performance Dashboard: http://localhost:8000/performance")
+    print("🔧 Optimizations enabled:")
+    print("   • Redis caching with intelligent TTL")
+    print("   • Response compression (gzip)")
+    print("   • Database connection pooling (20+ connections)")
+    print("   • Query optimization with eager loading")
+    print("   • JSON response optimization")
+    print("   • Performance monitoring")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     print("🛑 LCJ Unified API Server shutting down...")
+
+# Performance monitoring endpoints
+@app.get("/performance")
+async def performance_dashboard():
+    """Get comprehensive performance dashboard"""
+    from core.performance_monitor import get_performance_dashboard
+    return get_performance_dashboard()
+
+@app.get("/metrics")
+async def system_metrics():
+    """Get detailed system metrics"""
+    from core.performance_monitor import performance_monitor
+    return performance_monitor.get_system_metrics()
+
+@app.get("/performance/test")
+async def performance_test():
+    """Run performance tests"""
+    from core.performance_monitor import performance_monitor
+    return await performance_monitor.run_performance_tests()
+
+@app.get("/cache/status")
+async def cache_status():
+    """Get cache status and statistics"""
+    from core.cache import cache_health_check
+    return cache_health_check()
 
 if __name__ == "__main__":
     import uvicorn

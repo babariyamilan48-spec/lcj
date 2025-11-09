@@ -9,11 +9,15 @@ from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
+import logging
 
 from ..schemas.result import TestResult, TestResultCreate, UserProfile, UserProfileUpdate, AnalyticsData, UserStats
 from core.database import get_db
+from core.cache import cache_async_result, QueryCache
+
+logger = logging.getLogger(__name__)
 
 # Import database models
 try:
@@ -138,6 +142,9 @@ class ResultService:
                     "completed_at": db_result.completed_at
                 }
                 
+                # Invalidate user results cache
+                QueryCache.invalidate_user_results(result_data.user_id)
+                
                 db.close()
                 return TestResult(**result_dict)
                 
@@ -190,16 +197,26 @@ class ResultService:
         }
         
         results_db[result_id] = result_dict
+        
+        # Invalidate cache for in-memory storage too
+        QueryCache.invalidate_user_results(result_data.user_id)
+        
         return TestResult(**result_dict)
     
     @staticmethod
     async def get_user_results(user_id: str) -> List[TestResult]:
-        """Get all results for a user from database first, fallback to memory"""
+        """Get all results for a user from database first, fallback to memory - OPTIMIZED with caching"""
+        # Try cache first
+        cached_results = QueryCache.get_user_results(user_id)
+        if cached_results:
+            logger.debug(f"Cache HIT for user results: {user_id}")
+            return cached_results
+        
         db = ResultService.get_db_session()
         
         if db and DBTestResult:
             try:
-                # Query database
+                # Optimized query with eager loading
                 db_results = db.query(DBTestResult).filter(
                     DBTestResult.user_id == user_id,
                     DBTestResult.is_completed == True
@@ -245,6 +262,10 @@ class ResultService:
                     }
                     user_results.append(TestResult(**result_dict))
                 
+                # Cache the results
+                QueryCache.set_user_results(user_id, user_results, ttl=600)
+                logger.debug(f"Cached user results for: {user_id}")
+                
                 db.close()
                 return user_results
                 
@@ -263,8 +284,9 @@ class ResultService:
         return user_results
     
     @staticmethod
+    @cache_async_result(ttl=300, key_prefix="paginated_results")
     async def get_user_results_paginated(user_id: str, page: int = 1, size: int = 10) -> Dict[str, Any]:
-        """Get paginated results for a user"""
+        """Get paginated results for a user - OPTIMIZED with caching"""
         all_results = await ResultService.get_user_results(user_id)
         
         # Calculate pagination
@@ -306,8 +328,9 @@ class ResultService:
         return user_results[0] if user_results else None
     
     @staticmethod
+    @cache_async_result(ttl=1800, key_prefix="user_profile")
     async def get_user_profile(user_id: str) -> UserProfile:
-        """Get user profile with stats"""
+        """Get user profile with stats - OPTIMIZED with caching"""
         if user_id not in user_profiles_db:
             # Create minimal profile that can be updated by the user
             # The frontend will populate this with real user data from AuthContext
@@ -367,8 +390,9 @@ class ResultService:
         return UserProfile(**profile_dict)
     
     @staticmethod
+    @cache_async_result(ttl=900, key_prefix="user_analytics")
     async def get_user_analytics(user_id: str) -> Dict[str, Any]:
-        """Get user analytics data"""
+        """Get user analytics data - OPTIMIZED with caching"""
         user_results = await ResultService.get_user_results(user_id)
         
         if not user_results:

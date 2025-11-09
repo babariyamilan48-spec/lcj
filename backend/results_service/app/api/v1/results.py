@@ -1,10 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import io
 import json
 from datetime import datetime
+from core.cache import cache_async_result, QueryCache
+from core.middleware.compression import compress_json_response, optimize_large_response
+from core.rate_limit import limiter
 
 from results_service.app.schemas.result import TestResult, TestResultCreate, UserProfile, UserProfileUpdate, AnalyticsData
 from results_service.app.services.result_service import ResultService
@@ -80,13 +83,22 @@ async def submit_result(result: TestResultCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/results/{user_id}")
-async def get_user_results(user_id: str, page: int = 1, size: int = 10):
-    """Get paginated results for a user"""
+@limiter.limit("100/minute")
+async def get_user_results(request: Request, user_id: str, page: int = 1, size: int = 10):
+    """Get paginated results for a user - OPTIMIZED"""
     try:
         logger.info(f"Getting results for user {user_id}, page {page}, size {size}")
         results = await ResultService.get_user_results_paginated(user_id, page, size)
         logger.info(f"Successfully retrieved {len(results.get('results', []))} results")
-        return results
+        
+        # Optimize response for large datasets
+        optimized_results = optimize_large_response(results, max_items=size)
+        
+        # Use compression for large responses
+        if len(results.get('results', [])) > 20:
+            return compress_json_response(optimized_results, request)
+        
+        return optimized_results
     except Exception as e:
         logger.error(f"Error getting user results: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving results: {str(e)}")
@@ -393,7 +405,9 @@ async def debug_user_results(user_id: str):
         return {"error": str(e), "user_id": user_id}
 
 @router.get("/completion-status/{user_id}")
-async def check_test_completion_status(user_id: str):
+@limiter.limit("100/minute")
+@cache_async_result(ttl=300, key_prefix="completion_status")
+async def check_test_completion_status(request: Request, user_id: str):
     """
     Check if user has completed all required tests for comprehensive analysis
     """
@@ -433,57 +447,10 @@ async def check_test_completion_status(user_id: str):
         logger.error(f"Error checking test completion status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking completion status: {str(e)}")
 
-class ComprehensivePDFRequest(BaseModel):
-    test_results: Dict[str, Any]
-    ai_insights: Dict[str, Any]
-
-@router.post("/download-comprehensive-pdf/{user_id}")
-async def download_comprehensive_pdf(user_id: str, request_data: ComprehensivePDFRequest):
-    """
-    Generate and download comprehensive PDF report with all test results and AI insights
-    """
-    try:
-        logger.info(f"Generating comprehensive PDF report for user {user_id}")
-        
-        # Extract data from request
-        test_results = request_data.test_results
-        ai_insights = request_data.ai_insights
-        
-        # Generate PDF using the PDF generator service
-        pdf_path = PDFGeneratorService.generate_comprehensive_report_pdf(
-            test_results=test_results,
-            ai_insights=ai_insights,
-            user_id=user_id
-        )
-        
-        # Read the generated PDF file
-        with open(pdf_path, 'rb') as pdf_file:
-            pdf_content = pdf_file.read()
-        
-        # Clean up the temporary file
-        import os
-        os.remove(pdf_path)
-        
-        # Return PDF as streaming response
-        pdf_stream = io.BytesIO(pdf_content)
-        
-        return StreamingResponse(
-            io.BytesIO(pdf_content),
-            media_type='application/pdf',
-            headers={
-                "Content-Disposition": f"attachment; filename=comprehensive_report_user_{user_id}_{datetime.now().strftime('%Y%m%d')}.pdf"
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Error generating comprehensive PDF report: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate comprehensive PDF report: {str(e)}"
-        )
-
 @router.get("/all-results/{user_id}")
-async def get_all_test_results(user_id: str):
+@limiter.limit("50/minute")
+@cache_async_result(ttl=600, key_prefix="all_results")
+async def get_all_test_results(request: Request, user_id: str):
     """
     Get all test results for a user organized by test type for comprehensive analysis
     """
@@ -527,7 +494,13 @@ async def get_all_test_results(user_id: str):
         for test_id, result in organized_results.items():
             logger.info(f"Test {test_id}: {result.get('test_name', 'Unknown')} - Score: {result.get('score', 'N/A')} - Questions: {result.get('total_questions', 'N/A')}")
         
-        return organized_results
+        # Optimize and compress large responses
+        optimized_results = optimize_large_response(organized_results)
+        
+        if len(organized_results) > 5:
+            return compress_json_response(optimized_results, request)
+        
+        return optimized_results
         
     except Exception as e:
         logger.error(f"Error getting all test results: {str(e)}")

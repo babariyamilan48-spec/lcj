@@ -13,10 +13,16 @@ class Settings(BaseSettings):
     # CORS
     allowed_hosts: List[str] = ["*"]
 
-    # Database
+    # Database - Optimized for performance
     DATABASE_URL: str = "postgresql+psycopg2://lcj_user:lcj_password@localhost:5432/lcj"
-    DATABASE_POOL_SIZE: int = 10
-    DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_POOL_SIZE: int = 20  # Increased for better performance
+    DATABASE_MAX_OVERFLOW: int = 40  # Increased overflow capacity
+    
+    # Redis Cache Configuration
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_TTL_DEFAULT: int = 300  # 5 minutes default TTL
+    REDIS_TTL_LONG: int = 3600   # 1 hour for stable data
+    REDIS_TTL_SHORT: int = 60    # 1 minute for frequently changing data
 
     # Supabase Configuration
     SUPABASE_URL: Optional[str] = None
@@ -26,6 +32,12 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = "development"
 
+    # Performance Settings
+    API_RESPONSE_CACHE_TTL: int = 300  # Cache API responses for 5 minutes
+    ENABLE_QUERY_OPTIMIZATION: bool = True
+    ENABLE_RESPONSE_COMPRESSION: bool = True
+    MAX_RESPONSE_SIZE_MB: int = 50  # Maximum response size before truncation
+    
     # Additional production settings
     @property
     def environment(self) -> str:
