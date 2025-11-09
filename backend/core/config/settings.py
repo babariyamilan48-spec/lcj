@@ -41,8 +41,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: Optional[int] = None
 
 
-    # SMTP / Email (optional; if unset, email sending is skipped)
-    SMTP_HOST: str = "smtp.gmail.com"
+    # Sendinblue Email Configuration
+    SENDINBLUE_API_KEY: Optional[str] = None
+    MAIL_FROM: str = "Life Journey <hetbabariyabali09@gmail.com>"
+    
+    # Legacy SMTP / Email (optional; if unset, email sending is skipped)
+    SMTP_HOST: str = "smtp-relay.brevo.com"
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None

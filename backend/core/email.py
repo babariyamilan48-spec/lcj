@@ -1,57 +1,79 @@
 from typing import Optional, Union, List
 from pydantic import EmailStr
 from core.config.settings import settings
-import resend
-
-# Set the Resend API key
-resend.api_key = "re_aXRBPZW2_29gK1DM3oeB2vkbxFM4TMtLt"
+from sib_api_v3_sdk import Configuration, ApiClient
+from sib_api_v3_sdk.api.transactional_emails_api import TransactionalEmailsApi
+from sib_api_v3_sdk.models import SendSmtpEmail, SendSmtpEmailTo
+import os
 
 async def send_email(subject: str, recipients: Union[List[EmailStr], List[str]], html: str) -> bool:
     """
-    Send email to recipients using Resend API. Returns True if sent successfully, False otherwise.
+    Send email to recipients using Sendinblue API. Returns True if sent successfully, False otherwise.
     """
-    # Check if Resend is configured
-    if not resend.api_key:
-        print(f"[EMAIL] ❌ Resend API key not configured. Cannot send email to {recipients} (subject='{subject}')")
-        print("[EMAIL] 💡 Please configure RESEND_API_KEY in your .env file")
+    # Get API key from environment or settings
+    api_key = os.getenv("SENDINBLUE_API_KEY") or settings.SENDINBLUE_API_KEY
+    
+    # Check if Sendinblue is configured
+    if not api_key:
+        print(f"[EMAIL] ❌ Sendinblue API key not configured. Cannot send email to {recipients} (subject='{subject}')")
+        print("[EMAIL] 💡 Please configure SENDINBLUE_API_KEY in your .env file")
         return False
     
-    # Get the sender email from settings or use default
-    mail_from = getattr(settings, "MAIL_FROM", "Life Journey <onboarding@resend.dev>")
+    # Get the sender email from settings
+    mail_from = settings.MAIL_FROM
     
     try:
-        # Convert EmailStr objects to strings for Resend API
+        # Configure API key
+        configuration = Configuration()
+        configuration.api_key['api-key'] = api_key
+        
+        # Create API instance
+        api_instance = TransactionalEmailsApi(ApiClient(configuration))
+        
+        # Convert EmailStr objects to strings for Sendinblue API
         recipient_emails = [str(email) for email in recipients]
         
-        print(f"[EMAIL] Sending email via Resend API...")
+        print(f"[EMAIL] Sending email via Sendinblue API...")
         print(f"[EMAIL] From: {mail_from}")
         print(f"[EMAIL] To: {recipient_emails}")
         print(f"[EMAIL] Subject: {subject}")
         
-        # Send email using Resend API
-        r = resend.Emails.send({
-            "from": mail_from,
-            "to": recipient_emails,
-            "subject": subject,
-            "html": html
-        })
+        # Extract sender name and email
+        if '<' in mail_from and '>' in mail_from:
+            sender_name = mail_from.split('<')[0].strip()
+            sender_email = mail_from.split('<')[1].rstrip('>')
+        else:
+            sender_name = "Life Journey"
+            sender_email = mail_from
         
-        print(f"[EMAIL] ✅ Successfully sent '{subject}' to {recipient_emails} via Resend")
-        print(f"[EMAIL] Response: {r}")
+        # Prepare email data
+        email = SendSmtpEmail(
+            to=[SendSmtpEmailTo(email=email_addr) for email_addr in recipient_emails],
+            sender={"name": sender_name, "email": sender_email},
+            subject=subject,
+            html_content=html
+        )
+        
+        # Send email
+        response = api_instance.send_transac_email(email)
+        
+        print(f"[EMAIL] ✅ Successfully sent '{subject}' to {recipient_emails} via Sendinblue")
+        print(f"[EMAIL] Response: {response}")
         return True
         
     except Exception as e:
-        print(f"[EMAIL] ❌ Failed to send email via Resend: {e}")
+        print(f"[EMAIL] ❌ Failed to send email via Sendinblue: {e}")
         return False
 
 def is_email_configured() -> bool:
     """
-    Check if Resend email is properly configured.
+    Check if Sendinblue email is properly configured.
     """
-    api_key_configured = bool(resend.api_key)
-    mail_from = getattr(settings, "MAIL_FROM", "Life Journey <onboarding@resend.dev>")
+    api_key = os.getenv("SENDINBLUE_API_KEY") or settings.SENDINBLUE_API_KEY
+    api_key_configured = bool(api_key)
+    mail_from = settings.MAIL_FROM
     
-    print(f"[EMAIL_CONFIG] RESEND_API_KEY: {api_key_configured} ({'***' if api_key_configured else 'None'})")
+    print(f"[EMAIL_CONFIG] SENDINBLUE_API_KEY: {api_key_configured} ({'***' if api_key_configured else 'None'})")
     print(f"[EMAIL_CONFIG] MAIL_FROM: {mail_from}")
     
     # Basic email validation for mail_from
