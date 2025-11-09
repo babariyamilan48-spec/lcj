@@ -406,7 +406,7 @@ async def debug_user_results(user_id: str):
 
 @router.get("/completion-status/{user_id}")
 @limiter.limit("100/minute")
-@cache_async_result(ttl=300, key_prefix="completion_status")
+@cache_async_result(ttl=60, key_prefix="completion_status")  # Reduced cache time
 async def check_test_completion_status(request: Request, user_id: str):
     """
     Check if user has completed all required tests for comprehensive analysis
@@ -415,12 +415,22 @@ async def check_test_completion_status(request: Request, user_id: str):
         # Define required tests for comprehensive analysis (SVS removed from test suite)
         required_tests = ['mbti', 'intelligence', 'bigfive', 'riasec', 'decision', 'vark', 'life-situation']
         
-        # Get user's completed tests using the database-backed service
-        user_results = await ResultService.get_user_results(str(user_id))
-        completed_tests = []
+        # Get user's completed tests directly from database
+        from core.database import get_db
+        from question_service.app.models.test_result import TestResult as DBTestResult
         
-        if user_results:
-            completed_tests = [result.test_id for result in user_results if result.test_id]
+        db = next(get_db())
+        
+        # Query only COMPLETED test results
+        completed_results = db.query(DBTestResult).filter(
+            DBTestResult.user_id == user_id,
+            DBTestResult.is_completed == True  # Only completed tests
+        ).all()
+        
+        completed_tests = [result.test_id for result in completed_results if result.test_id]
+        
+        # Close database connection
+        db.close()
         
         # Remove duplicates
         completed_tests = list(set(completed_tests))
@@ -431,6 +441,7 @@ async def check_test_completion_status(request: Request, user_id: str):
         logger.info(f"User {user_id} completion status: {len(completed_tests)}/{len(required_tests)} tests completed")
         logger.info(f"Completed tests: {completed_tests}")
         logger.info(f"Missing tests: {missing_tests}")
+        logger.info(f"Total completed results found in DB: {len(completed_results)}")
         
         completion_percentage = (len(completed_tests) / len(required_tests)) * 100
         
@@ -440,12 +451,51 @@ async def check_test_completion_status(request: Request, user_id: str):
             "missingTests": missing_tests,
             "totalTests": len(required_tests),
             "completionPercentage": completion_percentage,
-            "debug_user_id": user_id  # Add this for debugging
+            "debug_user_id": user_id,
+            "debug_total_completed_in_db": len(completed_results),  # Debug info
+            "debug_completed_test_details": [
+                {
+                    "test_id": r.test_id,
+                    "is_completed": r.is_completed,
+                    "completed_at": r.completed_at.isoformat() if r.completed_at else None
+                } for r in completed_results
+            ]
         }
         
     except Exception as e:
         logger.error(f"Error checking test completion status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking completion status: {str(e)}")
+
+@router.post("/clear-cache/{user_id}")
+async def clear_completion_cache(user_id: str):
+    """Clear completion status cache for a user"""
+    try:
+        from core.cache import cache
+        
+        # Clear completion status cache
+        cache_key_pattern = f"completion_status:check_test_completion_status:{user_id}"
+        
+        # Try to clear the cache (Redis pattern matching)
+        if hasattr(cache.redis_client, 'delete'):
+            # Get all keys matching the pattern
+            keys = cache.redis_client.keys(f"*{cache_key_pattern}*")
+            if keys:
+                cache.redis_client.delete(*keys)
+                logger.info(f"Cleared {len(keys)} cache keys for user {user_id}")
+        
+        return {
+            "message": f"Cache cleared for user {user_id}",
+            "user_id": user_id,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error clearing cache: {str(e)}")
+        return {
+            "message": f"Error clearing cache: {str(e)}",
+            "user_id": user_id,
+            "status": "error"
+        }
 
 @router.get("/all-results/{user_id}")
 @limiter.limit("50/minute")
