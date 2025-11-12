@@ -1,4 +1,5 @@
 import api from './api';
+import { getApiBaseUrl } from '../config/api';
 
 export interface AIInsightsHistoryItem {
   id: string;
@@ -24,23 +25,63 @@ export interface AIInsightsHistoryResponse {
 }
 
 class AIInsightsHistoryService {
+  private baseUrl: string;
+  private cache: Map<string, { data: any; timestamp: number; promise?: Promise<any> }> = new Map();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  constructor() {
+    this.baseUrl = getApiBaseUrl();
+  }
+
+  private getCacheKey(userId: string): string {
+    return `ai_insights_${userId}`;
+  }
+
+  private isValidCache(cacheEntry: { data: any; timestamp: number }): boolean {
+    return Date.now() - cacheEntry.timestamp < this.CACHE_TTL;
+  }
+
   /**
    * Get AI insights formatted for test history display
    */
   async getAIInsightsHistory(userId: string): Promise<AIInsightsHistoryItem[]> {
     try {
-      
-      const response = await api.get<AIInsightsHistoryResponse>(
-        `/api/v1/results_service/ai-insights/${userId}/history`
-      );
+      const cacheKey = this.getCacheKey(userId);
+      const cacheEntry = this.cache.get(cacheKey);
 
-      if (response.data.success) {
-        
-        return response.data.ai_insights;
-      } else {
-        
-        return [];
+      // Return cached data if valid
+      if (cacheEntry && this.isValidCache(cacheEntry)) {
+        console.log(`🔍 AIInsightsHistoryService: Using cached data for user ${userId}`);
+        return cacheEntry.data;
       }
+
+      // Return existing promise if one is in progress
+      if (cacheEntry && cacheEntry.promise) {
+        console.log(`🔍 AIInsightsHistoryService: Waiting for existing request for user ${userId}`);
+        return await cacheEntry.promise;
+      }
+
+      console.log(`🔍 AIInsightsHistoryService: Making fresh API call for user ${userId}`);
+      
+      const promise = api.get<AIInsightsHistoryResponse>(
+        `/api/v1/results_service/ai-insights/${userId}/history`
+      ).then(response => {
+        if (response.data.success) {
+          this.cache.set(cacheKey, { data: response.data.ai_insights, timestamp: Date.now() });
+          return response.data.ai_insights;
+        } else {
+          this.cache.set(cacheKey, { data: [], timestamp: Date.now() });
+          return [];
+        }
+      }).catch(error => {
+        this.cache.delete(cacheKey);
+        throw error;
+      });
+
+      // Store the promise to prevent duplicate calls
+      this.cache.set(cacheKey, { data: [], timestamp: Date.now(), promise });
+      
+      return await promise;
     } catch (error: any) {
       console.error('🔍 AIInsightsHistoryService: Error occurred:', error);
       console.error('🔍 AIInsightsHistoryService: Error response:', error.response);

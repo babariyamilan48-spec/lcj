@@ -17,8 +17,12 @@ export function middleware(req: NextRequest) {
   const isPublicRoute = publicRoutes.includes(url.pathname);
   
   // Check if user is authenticated
-  const accessToken = req.cookies.get('at')?.value;
-  const isAuthenticated = !!accessToken;
+  // CRITICAL FIX: Check both cookies and headers for token
+  const cookieToken = req.cookies.get('at')?.value;
+  const authHeader = req.headers.get('authorization');
+  const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  
+  const isAuthenticated = !!(cookieToken || headerToken);
   
   // If trying to access protected route without authentication
   if (!isPublicRoute && !isAuthenticated) {
@@ -28,13 +32,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
   
-  // If trying to access auth pages while already authenticated
-  if (isPublicRoute && isAuthenticated) {
-    // Always go to home after auth
-    url.pathname = '/home';
-    url.searchParams.delete('redirect');
-    return NextResponse.redirect(url);
-  }
+  // CRITICAL FIX: Let client-side handle auth page redirects
+  // Middleware can't reliably detect localStorage-based authentication
+  // if (isPublicRoute && isAuthenticated) {
+  //   url.pathname = '/home';
+  //   url.searchParams.delete('redirect');
+  //   return NextResponse.redirect(url);
+  // }
   
   return NextResponse.next();
 }

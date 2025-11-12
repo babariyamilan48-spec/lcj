@@ -1,0 +1,174 @@
+{
+  "performance_test_report": {
+    "timestamp": "2025-11-12T10:02:14.323527",
+    "test_user_id": "6350f461-8ffa-4a99-8a33-93f42e33c434",
+    "summary": {
+      "optimized_endpoints_tested": 6,
+      "standard_endpoints_tested": 3,
+      "load_tests_performed": 2
+    },
+    "optimized_results": {
+      "submit_result_fast": {
+        "endpoint": "/api/v1/results_service/optimized/results/fast",
+        "method": "POST",
+        "error": "All requests failed",
+        "errors": [
+          "HTTP 500",
+          "HTTP 500",
+          "HTTP 500",
+          "HTTP 500",
+          "[WinError 64] The specified network name is no longer available"
+        ]
+      },
+      "get_user_results_fast": {
+        "endpoint": "/api/v1/results_service/optimized/results/6350f461-8ffa-4a99-8a33-93f42e33c434/fast?page=1&size=10",
+        "method": "GET",
+        "iterations": 10,
+        "avg_response_time_ms": 1190.67,
+        "min_response_time_ms": 32.14,
+        "max_response_time_ms": 11424.29,
+        "median_response_time_ms": 64.31,
+        "std_dev_ms": 3595.77,
+        "success_rate": 100.0,
+        "errors": []
+      },
+      "get_all_results_fast": {
+        "endpoint": "/api/v1/results_service/optimized/all-results/6350f461-8ffa-4a99-8a33-93f42e33c434/fast",
+        "method": "GET",
+        "iterations": 8,
+        "avg_response_time_ms": 68.47,
+        "min_response_time_ms": 33.56,
+        "max_response_time_ms": 203.38,
+        "median_response_time_ms": 49.91,
+        "std_dev_ms": 56.45,
+        "success_rate": 100.0,
+        "errors": []
+      },
+      "get_batch_user_data": {
+        "endpoint": "/api/v1/results_service/optimized/batch-user-data/6350f461-8ffa-4a99-8a33-93f42e33c434",
+        "method": "GET",
+        "iterations": 8,
+        "avg_response_time_ms": 63.5,
+        "min_response_time_ms": 33.35,
+        "max_response_time_ms": 107.12,
+        "median_response_time_ms": 66.39,
+        "std_dev_ms": 26.91,
+        "success_rate": 100.0,
+        "errors": []
+      },
+      "get_latest_result_fast": {
+        "endpoint": "/api/v1/results_service/optimized/results/6350f461-8ffa-4a99-8a33-93f42e33c434/latest/fast",
+        "method": "GET",
+        "iterations": 15,
+        "avg_response_time_ms": 54.44,
+        "min_response_time_ms": 29.99,
+        "max_response_time_ms": 94.47,
+        "median_response_time_ms": 61.98,
+        "std_dev_ms": 21.09,
+        "success_rate": 100.0,
+        "errors": []
+      },
+      "health_check_fast": {
+        "endpoint": "/api/v1/results_service/optimized/health/fast",
+        "method": "GET",
+        "iterations": 20,
+        "avg_response_time_ms": 6.02,
+        "min_response_time_ms": 2.61,
+        "max_response_time_ms": 8.87,
+        "median_response_time_ms": 6.34,
+        "std_dev_ms": 1.68,
+        "success_rate": 100.0,
+        "errors": []
+      }
+    },
+    "standard_results": {
+      "submit_result_standard": {
+        "endpoint": "/api/v1/results_service/results",
+        "method": "POST",
+        "error": "All requests failed",
+        "errors": [
+          "HTTP 422",
+          "HTTP 422",
+          "HTTP 422",
+          "HTTP 422",
+          "HTTP 422"
+        ]
+      },
+      "get_user_results_standard": {
+        "endpoint": "/api/v1/results_service/results/6350f461-8ffa-4a99-8a33-93f42e33c434?page=1&size=10",
+        "method": "GET",
+        "iterations": 10,
+        "avg_response_time_ms": 247.59,
+        "min_response_time_ms": 34.37,
+        "max_response_time_ms": 1989.83,
+        "median_response_time_ms": 62.77,
+        "std_dev_ms": 612.36,
+        "success_rate": 100.0,
+        "errors": []
+      },
+      "get_all_results_standard": {
+        "endpoint": "/api/v1/results_service/all-results/6350f461-8ffa-4a99-8a33-93f42e33c434",
+        "method": "GET",
+        "iterations": 8,
+        "avg_response_time_ms": 127.99,
+        "min_response_time_ms": 32.45,
+        "max_response_time_ms": 539.87,
+        "median_response_time_ms": 65.21,
+        "std_dev_ms": 172.74,
+        "success_rate": 100.0,
+        "errors": []
+      }
+    },
+    "load_test_results": [
+      {
+        "endpoint": "/api/v1/results_service/optimized/health/fast",
+        "duration_seconds": 15,
+        "concurrent_requests": 20,
+        "total_requests": 1200,
+        "requests_per_second": 80.0,
+        "avg_response_time_ms": 111.91,
+        "min_response_time_ms": 14.39,
+        "max_response_time_ms": 2096.07,
+        "p95_response_time_ms": 264.42,
+        "error_count": 0,
+        "error_rate": 0.0
+      },
+      {
+        "endpoint": "/api/v1/results_service/optimized/results/6350f461-8ffa-4a99-8a33-93f42e33c434/latest/fast",
+        "duration_seconds": 15,
+        "concurrent_requests": 20,
+        "total_requests": 260,
+        "requests_per_second": 17.33,
+        "avg_response_time_ms": 1112.97,
+        "min_response_time_ms": 880.37,
+        "max_response_time_ms": 1761.61,
+        "p95_response_time_ms": 1722.35,
+        "error_count": 0,
+        "error_rate": 0.0
+      }
+    ],
+    "performance_comparison": {
+      "get_user_results": {
+        "optimized_time_ms": 1190.67,
+        "standard_time_ms": 247.59,
+        "improvement_percentage": -380.9,
+        "speedup_factor": 0.21
+      },
+      "get_all_results": {
+        "optimized_time_ms": 68.47,
+        "standard_time_ms": 127.99,
+        "improvement_percentage": 46.5,
+        "speedup_factor": 1.87
+      }
+    },
+    "recommendations": [
+      "\u26a0\ufe0f  get_user_results_fast still slow (1190.67ms) - consider further optimization",
+      "\u2705 get_all_results_fast performing excellently (68.47ms)",
+      "\u2705 get_batch_user_data performing excellently (63.5ms)",
+      "\u2705 get_latest_result_fast performing excellently (54.44ms)",
+      "\u2705 health_check_fast performing excellently (6.02ms)",
+      "\u26a0\ufe0f  Low throughput on /api/v1/results_service/optimized/health/fast (80.0 RPS)",
+      "\u26a0\ufe0f  Low throughput on /api/v1/results_service/optimized/results/6350f461-8ffa-4a99-8a33-93f42e33c434/latest/fast (17.33 RPS)"
+    ]
+  }
+}

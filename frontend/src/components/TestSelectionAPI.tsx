@@ -6,6 +6,7 @@ import { useTests, useTestSelection } from '@/hooks/useQuestionService';
 import { Test as StoreTest } from '@/store/app-store';
 import { Test as ApiTest } from '@/services/questionService';
 import { aiInsightsService } from '@/services/aiInsightsService';
+import { completionStatusService } from '@/services/completionStatusService';
 import { getCurrentUserId, getUserIdSource } from '@/utils/userUtils';
 import { CheckCircle } from 'lucide-react';
 
@@ -32,21 +33,13 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
       try {
         const userId = getCurrentUserId();
         
-        console.log('🔍 Checking completion status for user:', userId);
-        console.log('📝 User ID source:', getUserIdSource());
-        console.log('🔍 User ID length:', userId?.length);
-        console.log('🔍 User ID type:', typeof userId);
-        
-        const status = await aiInsightsService.checkAllTestsCompleted(userId);
-        console.log('✅ Completion status response:', JSON.stringify(status, null, 2));
-        
-        setCompletedTests(status.completedTests || []);
+        const statusResponse = await completionStatusService.getCompletionStatus(userId, true); // Use cache-busting for fresh data
+            
+        const status = statusResponse.data;
+        setCompletedTests(status.completed_tests || []);
         setHasCheckedCompletion(true);
         
         // Debug: Log what tests are marked as completed
-        console.log('📊 Completed tests:', status.completedTests);
-        console.log('❌ Missing tests:', status.missingTests);
-        console.log('📈 Completion percentage:', status.completionPercentage);
       } catch (error) {
         console.error('❌ Error fetching completion status:', error);
       } finally {

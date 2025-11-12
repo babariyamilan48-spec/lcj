@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -13,13 +13,38 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [redirectTimer, setRedirectTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // CRITICAL FIX: Give more time for authentication state to restore on refresh
     if (!isLoading && !isAuthenticated) {
-      router.push('/auth/login');
+      
+      // Clear any existing timer
+      if (redirectTimer) {
+        clearTimeout(redirectTimer);
+      }
+      
+      // Wait a bit longer before redirecting to allow auth state to restore
+      const timer = setTimeout(() => {
+        router.replace('/auth/login');
+      }, 1500); // Increased from immediate to 1.5 seconds
+      
+      setRedirectTimer(timer);
+    } else if (isAuthenticated && redirectTimer) {
+      // Cancel redirect if user becomes authenticated
+      clearTimeout(redirectTimer);
+      setRedirectTimer(null);
     }
-  }, [isAuthenticated, isLoading, router]);
+    
+    // Cleanup timer on unmount
+    return () => {
+      if (redirectTimer) {
+        clearTimeout(redirectTimer);
+      }
+    };
+  }, [isAuthenticated, isLoading, router, redirectTimer]);
 
+  // Show loading state while authentication is being determined
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -31,22 +56,16 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
     );
   }
 
+  // CRITICAL FIX: Show loading state while authentication is being restored
+  // Don't immediately redirect on refresh - give time for auth state to restore
   if (!isAuthenticated) {
-    return fallback || (
+    return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-600 mb-4">
-            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <p className="text-red-600 mb-4">Access denied. Please log in.</p>
-          <button
-            onClick={() => router.push('/auth/login')}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go to Login
-          </button>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">
+            {isLoading ? 'Loading...' : 'Checking authentication...'}
+          </p>
         </div>
       </div>
     );

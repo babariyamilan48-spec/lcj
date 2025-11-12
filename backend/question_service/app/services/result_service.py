@@ -66,6 +66,17 @@ class TestResultService:
             
             self.db.commit()
             self.db.refresh(existing_result)
+            
+            # CRITICAL FIX: Invalidate cache when updating existing result
+            try:
+                from core.cache import QueryCache
+                # Specifically invalidate completion status cache
+                QueryCache.invalidate_completion_status(str(user_id))
+                QueryCache.invalidate_user_results(str(user_id))
+                print(f"✅ Cache invalidated for user {user_id} after updating test result")
+            except Exception as e:
+                print(f"⚠️ Warning: Failed to invalidate cache for user {user_id}: {e}")
+            
             return existing_result
         
         # Calculate completion percentage
@@ -98,6 +109,16 @@ class TestResultService:
         
         # Save detailed results
         self._save_result_details(test_result.id, test_id, calculated_result)
+        
+        # CRITICAL FIX: Invalidate cache when creating new result
+        try:
+            from core.cache import QueryCache
+            # Specifically invalidate completion status cache
+            QueryCache.invalidate_completion_status(str(user_id))
+            QueryCache.invalidate_user_results(str(user_id))
+            print(f"✅ Cache invalidated for user {user_id} after creating new test result")
+        except Exception as e:
+            print(f"⚠️ Warning: Failed to invalidate cache for user {user_id}: {e}")
         
         return test_result
     

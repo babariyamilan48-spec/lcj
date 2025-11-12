@@ -8,7 +8,25 @@ interface VARKResultsProps {
 }
 
 const VARKResults: React.FC<VARKResultsProps> = ({ calculatedResult, testResults }) => {
-  if (!calculatedResult || calculatedResult.type !== 'VARK Learning Style') return null;
+  console.log('🔍 VARKResults: Received props:', { calculatedResult, testResults });
+  
+  // More flexible type checking
+  if (!calculatedResult) {
+    console.log('❌ VARKResults: No calculatedResult provided');
+    return null;
+  }
+  
+  // Check if it's a VARK test (more flexible)
+  const isVARKTest = calculatedResult.type?.includes('VARK') || 
+                     calculatedResult.testType === 'vark' ||
+                     testResults?.testId === 'vark';
+                     
+  if (!isVARKTest) {
+    console.log('❌ VARKResults: Not a VARK test:', calculatedResult.type);
+    return null;
+  }
+  
+  console.log('✅ VARKResults: Rendering VARK results');
 
   // Enhanced calculation validation
   const primaryStyle = calculatedResult.primaryStyle || {};

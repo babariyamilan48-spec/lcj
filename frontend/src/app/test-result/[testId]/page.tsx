@@ -28,10 +28,13 @@ interface TestResult {
 }
 
 export default function TestResultPage() {
+  console.log('🔍 Individual Test Result Page: Component rendering...');
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
   const testId = params?.testId as string;
+  console.log('🔍 Individual Test Result Page: testId:', testId);
+  console.log('🔍 Individual Test Result Page: userId:', user?.id);
   
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [calculatedResult, setCalculatedResult] = useState<any>(null);
@@ -78,34 +81,47 @@ export default function TestResultPage() {
         }
         
         // Get user's regular test results
+        console.log('🔍 Individual Test Result: Fetching user results for testId:', testId);
         const userResults = await resultsService.getUserResults(user.id);
+        console.log('🔍 Individual Test Result: User results received:', userResults);
         
         // Find the specific test result
         const foundResult = userResults.results.find((result: any) => 
           result.test_id === testId
         );
+        console.log('🔍 Individual Test Result: Found result for testId:', testId, foundResult);
 
         if (!foundResult) {
+          console.error('❌ Individual Test Result: Test result not found for testId:', testId);
+          console.log('📋 Available test IDs:', userResults.results.map((r: any) => r.test_id));
           setError('Test result not found');
           return;
         }
 
         // Convert the result to match our interface
+        console.log('🔍 Raw foundResult fields:', Object.keys(foundResult));
+        console.log('🔍 Raw foundResult data:', foundResult);
+        
         const convertedResult: TestResult = {
           id: String(foundResult.id),
           test_id: foundResult.test_id,
-          test_name: foundResult.test_name,
-          completed_at: foundResult.completed_at,
-          percentage_score: foundResult.percentage_score || 0,
-          analysis: foundResult.analysis,
-          duration_minutes: foundResult.duration_minutes,
-          answers: foundResult.answers
+          test_name: foundResult.test_name || (foundResult as any).primary_result || `${foundResult.test_id.toUpperCase()} Test`,
+          completed_at: foundResult.completed_at || (foundResult as any).created_at,
+          percentage_score: foundResult.percentage_score || (foundResult as any).completion_percentage || 100,
+          analysis: foundResult.analysis || (foundResult as any).calculated_result,
+          duration_minutes: foundResult.duration_minutes || 0,
+          answers: foundResult.answers || (foundResult as any).user_answers
         };
+        
+        console.log('🔍 Converted result:', convertedResult);
 
+        console.log('✅ Individual Test Result: Setting test result:', convertedResult);
         setTestResult(convertedResult);
 
         // Calculate result from stored answers if available
+        console.log('🔍 Individual Test Result: Checking answers:', foundResult.answers);
         if (foundResult.answers && Object.keys(foundResult.answers).length > 0) {
+          console.log('🔄 Individual Test Result: Calculating result from answers...');
           const result = await calculateTestResult(
             foundResult.test_id,
             foundResult.answers,
@@ -124,12 +140,55 @@ export default function TestResultPage() {
             setCalculatedResult(foundResult.analysis);
           }
         } else {
-          setCalculatedResult(foundResult.analysis);
+          console.log('🔄 Individual Test Result: Using analysis as calculated result');
+          // Use the analysis data directly and format it properly
+          const analysisData = (foundResult as any).calculated_result || foundResult.analysis;
+          console.log('🔍 Individual Test Result: Analysis data:', analysisData);
+          
+          if (analysisData) {
+            // Set the correct type for each test
+            let testType = '';
+            switch (foundResult.test_id) {
+              case 'mbti':
+                testType = 'MBTI Test';
+                break;
+              case 'vark':
+                testType = 'VARK Learning Style';
+                break;
+              case 'bigfive':
+                testType = 'Big Five Personality Test';
+                break;
+              case 'intelligence':
+                testType = 'Multiple Intelligence Test';
+                break;
+              case 'riasec':
+                testType = 'RIASEC Career Interest Test';
+                break;
+              case 'decision':
+                testType = 'Decision Making Style Test';
+                break;
+              case 'life-situation':
+                testType = 'Life Situation Assessment';
+                break;
+              default:
+                testType = `${foundResult.test_id.toUpperCase()} Test`;
+            }
+            
+            setCalculatedResult({
+              ...analysisData,
+              type: testType,
+              testType: foundResult.test_id,
+              completedAt: foundResult.completed_at || (foundResult as any).created_at
+            });
+          } else {
+            setCalculatedResult(foundResult.analysis);
+          }
         }
       } catch (err) {
-        console.error('Error fetching test result:', err);
+        console.error('❌ Individual Test Result: Error fetching test result:', err);
         setError('Failed to load test result');
       } finally {
+        console.log('🔄 Individual Test Result: Setting loading to false');
         setIsLoading(false);
       }
     };
@@ -160,7 +219,10 @@ export default function TestResultPage() {
   };
 
   const renderTestContent = () => {
+    console.log('🔍 renderTestContent: Render state check:', { isLoading, error, hasTestResult: !!testResult, testResult });
+    
     if (isLoading) {
+      console.log('🔄 renderTestContent: Showing loading spinner');
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-600"></div>
@@ -169,6 +231,7 @@ export default function TestResultPage() {
     }
 
     if (error || !testResult) {
+      console.log('❌ renderTestContent: Showing error state:', { error, testResult });
       return (
         <div className="text-center py-12">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Error Loading Test Result</h3>
@@ -193,17 +256,26 @@ export default function TestResultPage() {
       sessionId: testResult.id
     };
 
+    console.log('🔍 renderTestContent: About to render test content for:', testResult.test_id);
+    console.log('🔍 renderTestContent: calculatedResult:', calculatedResult);
+    console.log('🔍 renderTestContent: testResults:', testResults);
+    
     try {
       switch (testResult.test_id) {
         case 'mbti':
+          console.log('✅ renderTestContent: Rendering MBTIResults component');
           return <MBTIResults calculatedResult={calculatedResult} testResults={testResults} />;
         case 'intelligence':
+          console.log('✅ renderTestContent: Rendering IntelligenceResults component');
           return <IntelligenceResults calculatedResult={calculatedResult} testResults={testResults} />;
         case 'bigfive':
+          console.log('✅ renderTestContent: Rendering BigFiveResults component');
           return <BigFiveResults calculatedResult={calculatedResult} testResults={testResults} />;
         case 'riasec':
+          console.log('✅ renderTestContent: Rendering RIASECResults component');
           return <RIASECResults calculatedResult={calculatedResult} testResults={testResults} />;
         case 'vark':
+          console.log('✅ renderTestContent: Rendering VARKResults component');
           return <VARKResults calculatedResult={calculatedResult} testResults={testResults} />;
         case 'svs':
           return <SVSResults calculatedResult={calculatedResult} testResults={testResults} />;
@@ -217,8 +289,10 @@ export default function TestResultPage() {
             questions={[]}
           />;
         case 'comprehensive-ai-insights':
+          console.log('✅ renderTestContent: Rendering ComprehensiveAIInsights component');
           return <ComprehensiveAIInsights insights={calculatedResult?.aiInsights} />;
         default:
+          console.log('⚠️ renderTestContent: Unknown test type, showing default message for:', testResult.test_id);
           return (
             <div className="p-8 text-center">
               <h3 className="text-2xl font-bold text-gray-800 mb-4">{testResult.test_name}</h3>
@@ -227,7 +301,7 @@ export default function TestResultPage() {
           );
       }
     } catch (error) {
-      console.error('Error rendering test result:', error);
+      console.error('❌ renderTestContent: Error rendering test result:', error);
       return (
         <div className="p-8 text-center">
           <h3 className="text-2xl font-bold text-gray-800 mb-4">{testResult.test_name}</h3>

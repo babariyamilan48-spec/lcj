@@ -127,12 +127,6 @@ class QuestionService {
   private async handleResponse<T>(response: Response): Promise<T> {
     try {
       const rawText = await response.text();
-      console.log('Raw API response:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url,
-        rawText: rawText.substring(0, 500) // First 500 chars
-      });
       
       let data: any;
       try {
@@ -172,11 +166,9 @@ class QuestionService {
         return data.data as T;
       } else {
         // If no success field, assume the entire response is the data
-        console.log('No success field in response, returning entire response as data');
         return data as T;
       }
     } catch (error) {
-      console.error('Error in handleResponse:', error);
       throw error;
     }
   }
@@ -227,11 +219,43 @@ class QuestionService {
   }
 
   async getTestQuestions(testId: string): Promise<Question[]> {
+    console.log(`🔍 Fetching test questions for testId: ${testId}`);
+    
     const response = await fetch(`${this.getBaseUrl()}/tests/${testId}/questions`, {
       headers: this.getHeaders(),
     });
     
-    return this.handleResponse<Question[]>(response);
+    console.log(`📡 API Response status: ${response.status}`);
+    
+    const result = await this.handleResponse<any>(response);
+    
+    console.log(`🔍 Raw API result:`, {
+      type: typeof result,
+      isArray: Array.isArray(result),
+      keys: typeof result === 'object' ? Object.keys(result) : 'N/A',
+      hasQuestions: result && typeof result === 'object' && 'questions' in result
+    });
+    
+    // Extract questions array from the response
+    let questions: Question[] = [];
+    
+    if (Array.isArray(result)) {
+      // If result is already an array, use it directly
+      questions = result;
+    } else if (result && typeof result === 'object' && 'questions' in result) {
+      // If result is an object with questions property, extract it
+      questions = result.questions || [];
+    } else {
+      console.warn('⚠️ Unexpected API response format:', result);
+      questions = [];
+    }
+    
+    console.log(`✅ Extracted questions:`, {
+      count: questions.length,
+      firstQuestion: questions.length > 0 ? questions[0].question_text : 'N/A'
+    });
+    
+    return questions;
   }
 
   // Question methods

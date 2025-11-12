@@ -8,7 +8,25 @@ interface MBTIResultsProps {
 }
 
 const MBTIResults: React.FC<MBTIResultsProps> = ({ calculatedResult, testResults }) => {
-  if (!calculatedResult || calculatedResult.type !== 'MBTI') return null;
+  console.log('🔍 MBTIResults: Received props:', { calculatedResult, testResults });
+  
+  // More flexible type checking
+  if (!calculatedResult) {
+    console.log('❌ MBTIResults: No calculatedResult provided');
+    return null;
+  }
+  
+  // Check if it's an MBTI test (more flexible)
+  const isMBTITest = calculatedResult.type?.includes('MBTI') || 
+                     calculatedResult.testType === 'mbti' ||
+                     testResults?.testId === 'mbti';
+                     
+  if (!isMBTITest) {
+    console.log('❌ MBTIResults: Not an MBTI test:', calculatedResult.type);
+    return null;
+  }
+  
+  console.log('✅ MBTIResults: Rendering MBTI results');
 
   // Enhanced calculation validation
   const mbtiCode = calculatedResult.code || 'XXXX';

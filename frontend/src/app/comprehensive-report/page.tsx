@@ -18,7 +18,9 @@ import {
   Eye
 } from 'lucide-react';
 import { aiInsightsService } from '@/services/aiInsightsService';
+import { completionStatusService } from '@/services/completionStatusService';
 import { aiInsightsAsyncService, TaskStatusResponse } from '@/services/aiInsightsAsyncService';
+import { getCurrentUserId } from '@/utils/userUtils';
 import ComprehensiveAIInsightsComponent from '@/components/ComprehensiveAIInsights';
 
 interface TestResult {
@@ -114,9 +116,18 @@ const ComprehensiveReportPage = () => {
       console.log('🔍 User ID length:', userId?.length);
       console.log('🔍 User ID type:', typeof userId);
 
-      // Fetch completion status
-      const status = await aiInsightsService.checkAllTestsCompleted(userId);
-      console.log('🔍 Raw completion status response:', JSON.stringify(status, null, 2));
+      // Fetch completion status using new service (with cache-busting for fresh data)
+      const statusResponse = await completionStatusService.getCompletionStatus(userId, true);
+      console.log('🔍 Raw completion status response:', JSON.stringify(statusResponse, null, 2));
+      
+      // Transform response to match old interface
+      const status = {
+        allCompleted: statusResponse.data.all_completed,
+        completedTests: statusResponse.data.completed_tests,
+        missingTests: statusResponse.data.missing_tests,
+        totalTests: statusResponse.data.total_tests,
+        completionPercentage: statusResponse.data.completion_percentage
+      };
       setCompletionStatus(status);
 
       if (!status.allCompleted) {
@@ -185,10 +196,22 @@ const ComprehensiveReportPage = () => {
     }
   };
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
     setError(null);
     setErrorType('completion');
     setComprehensiveInsights(null);
+    
+    // Clear cache before retrying
+    try {
+      const userId = getCurrentUserId();
+      if (userId) {
+        await completionStatusService.clearCompletionCache(userId);
+        console.log('✅ Cache cleared before retry');
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to clear cache:', error);
+    }
+    
     fetchData();
   };
 

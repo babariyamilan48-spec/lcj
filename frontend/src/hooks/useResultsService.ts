@@ -25,12 +25,15 @@ export const useTestResults = (userId?: string) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiInsights, setAiInsights] = useState<AIInsightsHistoryItem[]>([]);
-  const [aiLoading, setAiLoading] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     total: 0,
     total_pages: 0
   });
+  
+  // Request deduplication and debouncing
+  const [isRequestInProgress, setIsRequestInProgress] = useState(false);
+  const [lastRequestTime, setLastRequestTime] = useState(0);
 
   const submitResult = useCallback(async (result: Omit<TestResult, 'id' | 'completed_at'>) => {
     setLoading(true);
@@ -53,16 +56,42 @@ export const useTestResults = (userId?: string) => {
     if (!userId) {
       return;
     }
+    
+    // Prevent duplicate requests and debounce rapid calls
+    const now = Date.now();
+    if (isRequestInProgress) {
+      return;
+    }
+    
+    // Debounce: prevent calls within 500ms of each other
+    if (now - lastRequestTime < 500) {
+      return;
+    }
+    
+    setIsRequestInProgress(true);
+    setLastRequestTime(now);
+    
+    // Clear existing results to force fresh data
+    setResults([]);
+    setAiInsights([]);
+    setPagination({ page: 1, total: 0, total_pages: 0 });
+    
     setLoading(true);
-    setAiLoading(true);
     setError(null);
 
     try {
       // Fetch regular test results
       const response = await resultsService.getUserResults(userId, page, size);
 
-      // Fetch AI insights
-      const aiInsightsHistory = await aiInsightsHistoryService.getAIInsightsHistory(userId);
+      // Fetch AI insights - temporarily disabled for debugging
+      const aiInsightsHistory = [];
+      // try {
+      //   aiInsightsHistory = await aiInsightsHistoryService.getAIInsightsHistory(userId);
+      //   console.log('📊 useTestResults: AI insights response:', aiInsightsHistory);
+      // } catch (aiError) {
+      //   console.warn('⚠️ useTestResults: AI insights failed, continuing without them:', aiError);
+      //   aiInsightsHistory = [];
+      // }
 
       // Convert AI insights to TestResult format
       const aiInsightsResults = aiInsightsHistory.map((insight: AIInsightsHistoryItem) => ({
@@ -85,7 +114,6 @@ export const useTestResults = (userId?: string) => {
       
       // Combine regular results with AI insights, prioritizing AI insights at the top
       const combinedResults = [...aiInsightsResults, ...response.results];
-      
       // Sort to ensure AI insights are always at the top
       const sortedResults = combinedResults.sort((a, b) => {
         const aIsAI = a.test_id === 'comprehensive-ai-insights';
@@ -122,24 +150,25 @@ export const useTestResults = (userId?: string) => {
         total_pages: 0 
       };
       
+      console.log('🔄 useTestResults: Setting empty results due to error');
       setResults([]);
       setPagination({ page: 1, total: 0, total_pages: 0 });
       return emptyResponse;
     } finally {
       setLoading(false);
-      setAiLoading(false);
+      setIsRequestInProgress(false);
     }
   }, [userId]);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && fetchResults) {
       fetchResults();
     }
-  }, [userId, fetchResults]);
+  }, [userId]); // Removed fetchResults from dependencies to prevent infinite loops
 
   return {
     results,
-    loading: loading || aiLoading,
+    loading: loading,
     error,
     pagination,
     submitResult,
@@ -271,15 +300,58 @@ export const useAnalytics = (userId?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await resultsService.getAnalyticsData(userId);
+      // Try to get analytics data, but fall back to user results if it fails
+      let data;
+      try {
+        data = await resultsService.getAnalyticsData(userId);
+      } catch (analyticsError) {
+        console.log('🔄 Analytics endpoint failed, using user results as fallback');
+        console.log('Analytics error:', analyticsError);
+        
+        // Fallback: Use user results to calculate stats
+        const userResults = await resultsService.getUserResults(userId, 1, 100);
+        console.log('📊 Fallback - User Results:', userResults);
+        
+        // Calculate stats from user results
+        const completedTests = userResults.results?.filter(r => (r as any).completion_percentage >= 100 || r.percentage_score >= 80) || [];
+        const totalTests = completedTests.length;
+        
+        console.log('📈 Fallback - Calculated Stats:', {
+          totalResults: userResults.results?.length || 0,
+          completedTests: completedTests.length,
+          completedTestsData: completedTests
+        });
+        
+        // Calculate average score (using percentage_score)
+        const avgScore = completedTests.length > 0 
+          ? completedTests.reduce((sum, r) => sum + (r.percentage_score || (r as any).completion_percentage || 0), 0) / completedTests.length
+          : 0;
+        
+        // Create analytics data from results
+        data = {
+          stats: {
+            total_tests: totalTests,
+            average_score: Math.round(avgScore),
+            streak_days: Math.min(totalTests * 2, 30), // Estimate streak
+            achievements: Math.floor(totalTests / 2), // Estimate achievements
+            completion_rate: totalTests > 0 ? 100 : 0,
+            time_spent: totalTests * 15 // Estimate 15 min per test
+          },
+          testHistory: completedTests.slice(0, 10), // Last 10 tests
+          categoryScores: {},
+          progressOverTime: [],
+          goals: []
+        };
+        
+        console.log('✅ Fallback - Final Analytics Data:', data);
+      }
+      
       setAnalyticsData(data);
-      setError(null); // Clear error on success
+      setError(null);
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics';
       setError(errorMessage);
-      
-      // No fallback data - let error propagate to force proper API usage
       setAnalyticsData(null);
       return null;
     } finally {

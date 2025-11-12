@@ -79,9 +79,13 @@ export const useQuestions = (testId?: string) => {
     }
   }, []);
 
-  const fetchTestQuestions = useCallback(async (testId: string) => {
-    // Prevent duplicate calls for the same testId
-    if (fetchedTestIds.current.has(testId)) {
+  const fetchTestQuestions = useCallback(async (testId: string, forceRefresh: boolean = true) => {
+    // Always force refresh for now to ensure fresh data
+    if (forceRefresh || !fetchedTestIds.current.has(testId)) {
+      fetchedTestIds.current.delete(testId);
+      console.log(`🔄 Fetching fresh questions for test: ${testId}`);
+    } else {
+      console.log(`📋 Using cached questions for test: ${testId}`);
       return questions;
     }
     

@@ -4,8 +4,10 @@
   "description": "LCJ Career Assessment System - Frontend",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "set NEXT_PUBLIC_USE_OPTIMIZED=true && next dev",
+    "dev:legacy": "next dev",
+    "build": "set NEXT_PUBLIC_USE_OPTIMIZED=true && next build",
+    "build:legacy": "next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit"

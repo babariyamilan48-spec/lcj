@@ -164,7 +164,6 @@ def get_dashboard_analytics(db: Session = Depends(get_db)):
         total_completions = db.query(TestResult).filter(TestResult.is_completed == True).count()
         total_users = db.query(TestResult.user_id).distinct().count()
         
-        print(f"Analytics Debug - Total tests: {total_tests}, Total completions: {total_completions}, Total users: {total_users}")
         
         # Calculate average completion percentage (since we don't have scores)
         avg_completion = db.query(func.avg(TestResult.completion_percentage)).scalar()

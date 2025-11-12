@@ -76,7 +76,16 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
 
   // Convert API questions to local format and set up quiz
   useEffect(() => {
+    console.log('🔍 Quiz useEffect - apiQuestions:', {
+      apiQuestions,
+      length: apiQuestions?.length,
+      loading,
+      error
+    });
+    
     if (apiQuestions && apiQuestions.length > 0) {
+      console.log('✅ Converting API questions to local format:', apiQuestions.length, 'questions');
+      
       const convertedQuestions: Question[] = apiQuestions.map((apiQ: ApiQuestion) => ({
         question: apiQ.question_text,
         options: apiQ.options.map((opt: ApiOption) => ({
@@ -88,7 +97,9 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
         category: apiQ.section_id?.toString() || 'general'
       }));
 
+      console.log('✅ Converted questions:', convertedQuestions.length);
       setQuestions(convertedQuestions);
+      
       if (convertedQuestions.length > 0) {
         setCurrentQuestion(convertedQuestions[0]);
         // Reset progress when starting new test
@@ -96,9 +107,17 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
         setCurrentQuestionIndex(0);
         setUserAnswers({});
         setSelectedAnswers({});
+        console.log('✅ Quiz setup complete with first question:', convertedQuestions[0].question);
       }
+    } else {
+      console.log('❌ No API questions available:', {
+        apiQuestions,
+        length: apiQuestions?.length,
+        loading,
+        error
+      });
     }
-  }, [apiQuestions, setTestProgress, setCurrentQuestionIndex, setUserAnswers]);
+  }, [apiQuestions, setTestProgress, setCurrentQuestionIndex, setUserAnswers, loading, error]);
 
   const getSampleQuestions = (): Question[] => {
     return [

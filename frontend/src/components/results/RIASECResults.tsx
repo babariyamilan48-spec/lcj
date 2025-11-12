@@ -8,7 +8,23 @@ interface RIASECResultsProps {
 }
 
 const RIASECResults: React.FC<RIASECResultsProps> = ({ calculatedResult, testResults }) => {
-  if (!calculatedResult || calculatedResult.type !== 'RIASEC Career Interest') return null;
+  console.log('🔍 RIASECResults: Received props:', { calculatedResult, testResults });
+  
+  if (!calculatedResult) {
+    console.log('❌ RIASECResults: No calculatedResult provided');
+    return null;
+  }
+  
+  const isRIASECTest = calculatedResult.type?.includes('RIASEC') || 
+                       calculatedResult.testType === 'riasec' ||
+                       testResults?.testId === 'riasec';
+                       
+  if (!isRIASECTest) {
+    console.log('❌ RIASECResults: Not a RIASEC test:', calculatedResult.type);
+    return null;
+  }
+  
+  console.log('✅ RIASECResults: Rendering RIASEC results');
 
   // Enhanced calculation validation
   const hollandCode = calculatedResult.hollandCode || 'XXX';

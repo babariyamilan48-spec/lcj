@@ -150,9 +150,13 @@ class ResultsService {
       completed_at: new Date().toISOString()
     };
 
-    const response = await fetch(`${this.getBaseUrl()}/results_service/results`, {
+    // Use optimized fast endpoint for result submission
+    const response = await fetch(`${this.getBaseUrl()}/results_service/optimized/results/fast`, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers: {
+        ...this.getHeaders(),
+        'X-Bypass-Interceptor': 'true', // Signal to bypass interceptor
+      },
       body: JSON.stringify(backendResult),
     });
     
@@ -176,23 +180,41 @@ class ResultsService {
 
   // Get user's test results
   async getUserResults(userId: string, page: number = 1, size: number = 10): Promise<{results: TestResult[], total: number, page: number, total_pages: number}> {
-    const response = await fetch(`${this.getBaseUrl()}/results_service/results/${userId}?page=${page}&size=${size}`, {
-      headers: this.getHeaders(),
+    // Use optimized FAST endpoint directly with bypass header and cache busting
+    const cacheBuster = `_t=${Date.now()}&_r=${Math.random()}`;
+    const response = await fetch(`${this.getBaseUrl()}/results_service/optimized/results/${userId}/fast?page=${page}&size=${size}&${cacheBuster}`, {
+      headers: {
+        ...this.getHeaders(),
+        'X-Bypass-Interceptor': 'true', // Signal to bypass interceptor
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
     });
     
-    const data = await this.handleResponse<{
-      results: TestResult[];
-      total: number;
-      page: number;
-      size: number;
-      total_pages: number;
-    }>(response);
+    const rawData = await this.handleResponse<any>(response);
+    
+    // Handle different response formats
+    let actualData;
+    if (rawData.data && rawData.data.results) {
+      // New optimized format: {success: true, data: {results: [...], total: 4}}
+      actualData = rawData.data;
+    } else if (rawData.results) {
+      // Direct format from fast endpoint: {results: [...], total: 4}
+      actualData = rawData;
+    } else {
+      // Fallback
+      actualData = { results: [], total: 0, page: 1, total_pages: 0 };
+    }
+    
+    const results = actualData.results || [];
+    const total = actualData.total || 0;
     
     return {
-      results: data.results,
-      total: data.total,
-      page: data.page,
-      total_pages: data.total_pages
+      results: results,
+      total: total,
+      page: actualData.page || 1,
+      total_pages: actualData.total_pages || Math.ceil(total / 10)
     };
   }
 

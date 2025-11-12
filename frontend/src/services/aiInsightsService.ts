@@ -770,44 +770,8 @@ class AIInsightsService {
     }
   }
 
-  // Debug method to check what results exist for a user
-  async debugUserResults(userId: string): Promise<any> {
-    try {
-      const response = await api.get(`/api/v1/results_service/debug/${userId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error debugging user results:', error);
-      return { error: error.message };
-    }
-  }
-
-  // Check if user has completed all required tests
-  async checkAllTestsCompleted(userId: string): Promise<{
-    allCompleted: boolean;
-    completedTests: string[];
-    missingTests: string[];
-    totalTests: number;
-    completionPercentage: number;
-  }> {
-    try {
-      // First, debug what results exist
-      const debugInfo = await this.debugUserResults(userId);
-      console.log('🐛 Debug user results:', debugInfo);
-      
-      const response = await api.get(`/api/v1/results_service/completion-status/${userId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error checking test completion status:', error);
-      // Fallback - assume not all tests completed
-      return {
-        allCompleted: false,
-        completedTests: [],
-        missingTests: ['mbti', 'intelligence', 'bigfive', 'riasec', 'decision', 'vark', 'life-situation'],
-        totalTests: 7,
-        completionPercentage: 0
-      };
-    }
-  }
+  // Note: Completion status methods moved to completionStatusService
+  // Use completionStatusService.getCompletionStatus() instead
 
   // Get all test results for comprehensive analysis
   async getAllTestResults(userId: string): Promise<ComprehensiveAIRequest> {

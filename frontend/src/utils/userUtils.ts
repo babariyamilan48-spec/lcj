@@ -29,10 +29,14 @@ export function getCurrentUserId(): string {
     }
   }
   
-  // Final fallback to demo user
+  // CRITICAL FIX: Don't use hardcoded fallback - force authentication
   if (!userId) {
-    userId = '11dc4aec-2216-45f9-b045-60edac007262';
-    console.warn('🚨 Using fallback demo user ID. User may not be authenticated.');
+    console.error('🚨 No user ID found! User is not authenticated.');
+    // Redirect to login instead of using demo user
+    if (typeof window !== 'undefined') {
+      window.location.href = '/auth/login';
+    }
+    return ''; // Return empty string instead of demo user ID
   }
   
   return userId;

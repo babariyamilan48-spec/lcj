@@ -6,8 +6,8 @@ from uuid import UUID
 class TestResultDetailBase(BaseModel):
     dimension_type: str = Field(..., description="Type of dimension (e.g., 'mbti_dimension', 'intelligence_type')")
     dimension_name: str = Field(..., description="Name of the dimension")
-    dimension_id: UUID = Field(..., description="UUID of the dimension")
-    percentage_score: float = Field(..., description="Percentage score (0-100)")
+    raw_score: float = Field(..., description="Raw score for this dimension")
+    percentage_score: float = Field(..., description="Percentage score for this dimension")
     level: Optional[str] = Field(None, description="Level description (e.g., 'high', 'moderate', 'low')")
     description: Optional[str] = Field(None, description="Detailed description")
 

@@ -53,11 +53,6 @@ async def calculate_and_save_test_result(
 ):
     """Calculate test results automatically and save them"""
     try:
-        print(f"=== CALCULATING AND SAVING TEST RESULT ===")
-        print(f"User ID: {test_result_data.get('user_id')}")
-        print(f"Test ID: {test_result_data.get('test_id')}")
-        print(f"Answers count: {len(test_result_data.get('answers', {}))}")
-        
         service = TestResultService(db)
         result = service.calculate_and_save_test_result(
             user_id=str(current_user.id),  # Use authenticated user's ID
@@ -67,14 +62,8 @@ async def calculate_and_save_test_result(
             time_taken_seconds=test_result_data.get('time_taken_seconds')
         )
         
-        print(f"=== CALCULATION COMPLETE ===")
-        print(f"Result ID: {result.id}")
-        print(f"Primary Result: {result.primary_result}")
-        print(f"Calculated Result Keys: {list(result.calculated_result.keys()) if result.calculated_result else 'None'}")
-        
         return result
     except Exception as e:
-        print(f"Error in calculate_and_save_test_result: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -224,7 +213,6 @@ async def get_user_latest_summary(
     Get latest test results summary for user - optimized for overview tab
     Returns dynamic data from calculated results with configuration fallback
     """
-    print(f"=== API CALLED: get_user_latest_summary for user_id: {user_id} ===")
     try:
         service = TestResultService(db)
         

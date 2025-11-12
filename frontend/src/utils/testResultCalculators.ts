@@ -772,23 +772,38 @@ export const calculateTestResultFrontend = (testId: string, answers: Record<stri
   }
 };
 
-// Main calculator function - now uses backend by default
+// Main calculator function - optimized to avoid redundant backend calls
 export const calculateTestResult = async (
   testId: string, 
   answers: Record<string, any>, 
-  userId: string, // Changed to string to support UUID
-  sessionId?: string
+  userId: string | null, // Allow null but handle it properly
+  sessionId?: string,
+  skipBackendCall: boolean = false // New parameter to skip backend call if result already exists
 ) => {
-  // Ensure userId is always a string UUID, never an integer
-  const safeUserId = (userId === '1' || userId === '11' || !userId || userId.toString() === '1' || userId.toString() === '11') 
-    ? '11dc4aec-2216-45f9-b045-60edac007262' 
-    : userId;
+  // If we already have the result from backend (e.g., from optimized submission), skip backend call
+  if (skipBackendCall) {
+    return calculateTestResultFrontend(testId, answers);
+  }
+  
+  // Ensure userId is a string (convert UUID to string if needed)
+  if (!userId) {
+    return calculateTestResultFrontend(testId, answers);
+  }
+  
+  // Convert userId to string - userId is guaranteed to not be null due to the check above
+  const safeUserId = typeof userId === 'string' 
+    ? userId 
+    : String(userId);
   
   // Try backend calculation first (with database integration)
-  const backendResult = await calculateTestResultFromBackend(testId, answers, safeUserId, sessionId);
-  
-  if (backendResult) {
-    return backendResult;
+  try {
+    const backendResult = await calculateTestResultFromBackend(testId, answers, safeUserId, sessionId);
+    
+    if (backendResult) {
+      return backendResult;
+    }
+  } catch (error) {
+    // Backend calculation failed, using frontend fallback
   }
   
   // Fallback to frontend calculation

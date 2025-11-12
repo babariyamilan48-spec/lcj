@@ -150,7 +150,3 @@ export const buildApiEndpoint = (service: string, endpoint: string = ''): string
   return environmentManager.getApiEndpointUrl(service, endpoint);
 };
 
-// Debug information (only in development)
-if (typeof window !== 'undefined' && !environmentManager.isProduction()) {
-  console.log('🌍 Environment Configuration:', environmentManager.getConfig());
-}

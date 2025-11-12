@@ -1,8 +1,13 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
+
+// Initialize API interceptor for automatic optimization
+if (typeof window !== 'undefined') {
+  import('../utils/apiInterceptor');
+}
 
 interface ProvidersProps {
   children: React.ReactNode;

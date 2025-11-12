@@ -73,6 +73,28 @@ async def submit_result(result: TestResultCreate):
         created_result = await ResultService.create_result(result)
         logger.info(f"New result created successfully: {created_result.id}")
         
+        # CRITICAL: Immediately invalidate completion status cache to ensure fresh data
+        try:
+            from results_service.app.services.completion_status_service import CompletionStatusService
+            
+            # Invalidate cache immediately after test submission
+            cache_cleared = await CompletionStatusService.invalidate_user_cache(str(result.user_id))
+            
+            if cache_cleared:
+                logger.info(f"✅ Successfully invalidated completion status cache for user {result.user_id} after test submission")
+            else:
+                logger.warning(f"⚠️ Cache invalidation returned False for user {result.user_id}")
+                
+            # Also mark the test as completed in the completion service
+            await CompletionStatusService.mark_test_completed(str(result.user_id), result.test_id)
+            logger.info(f"✅ Marked test {result.test_id} as completed for user {result.user_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to invalidate completion status cache: {e}")
+            import traceback
+            logger.error(f"Cache invalidation traceback: {traceback.format_exc()}")
+            # Don't fail the request, but log the error
+        
         return ResultSubmissionResponse(
             message="Result submitted successfully", 
             result_id=created_result.id,
@@ -359,144 +381,6 @@ async def get_user_ai_insights_for_history(user_id: str):
             detail=f"Failed to retrieve AI insights history: {str(e)}"
         )
 
-@router.get("/debug/{user_id}")
-async def debug_user_results(user_id: str):
-    """
-    Debug endpoint to check what results exist for a user
-    """
-    try:
-        from core.database import get_db
-        from question_service.app.models.test_result import TestResult as DBTestResult
-        
-        db = next(get_db())
-        
-        # Get ALL results for user (including incomplete)
-        all_results = db.query(DBTestResult).filter(
-            DBTestResult.user_id == user_id
-        ).order_by(DBTestResult.created_at.desc()).all()
-        
-        # Get only completed results
-        completed_results = db.query(DBTestResult).filter(
-            DBTestResult.user_id == user_id,
-            DBTestResult.is_completed == True
-        ).order_by(DBTestResult.created_at.desc()).all()
-        
-        debug_info = {
-            "user_id": user_id,
-            "total_results": len(all_results),
-            "completed_results": len(completed_results),
-            "all_results_details": [
-                {
-                    "id": result.id,
-                    "test_id": result.test_id,
-                    "is_completed": result.is_completed,
-                    "created_at": result.created_at.isoformat() if result.created_at else None,
-                    "completed_at": result.completed_at.isoformat() if result.completed_at else None
-                } for result in all_results
-            ],
-            "completed_test_ids": [result.test_id for result in completed_results]
-        }
-        
-        db.close()
-        return debug_info
-        
-    except Exception as e:
-        logger.error(f"Debug error: {str(e)}")
-        return {"error": str(e), "user_id": user_id}
-
-@router.get("/completion-status/{user_id}")
-@limiter.limit("100/minute")
-@cache_async_result(ttl=60, key_prefix="completion_status")  # Reduced cache time
-async def check_test_completion_status(request: Request, user_id: str):
-    """
-    Check if user has completed all required tests for comprehensive analysis
-    """
-    try:
-        # Define required tests for comprehensive analysis (SVS removed from test suite)
-        required_tests = ['mbti', 'intelligence', 'bigfive', 'riasec', 'decision', 'vark', 'life-situation']
-        
-        # Get user's completed tests directly from database
-        from core.database import get_db
-        from question_service.app.models.test_result import TestResult as DBTestResult
-        
-        db = next(get_db())
-        
-        # Query only COMPLETED test results
-        completed_results = db.query(DBTestResult).filter(
-            DBTestResult.user_id == user_id,
-            DBTestResult.is_completed == True  # Only completed tests
-        ).all()
-        
-        completed_tests = [result.test_id for result in completed_results if result.test_id]
-        
-        # Close database connection
-        db.close()
-        
-        # Remove duplicates
-        completed_tests = list(set(completed_tests))
-        
-        # Find missing tests
-        missing_tests = [test for test in required_tests if test not in completed_tests]
-        
-        logger.info(f"User {user_id} completion status: {len(completed_tests)}/{len(required_tests)} tests completed")
-        logger.info(f"Completed tests: {completed_tests}")
-        logger.info(f"Missing tests: {missing_tests}")
-        logger.info(f"Total completed results found in DB: {len(completed_results)}")
-        
-        completion_percentage = (len(completed_tests) / len(required_tests)) * 100
-        
-        return {
-            "allCompleted": len(missing_tests) == 0,
-            "completedTests": completed_tests,
-            "missingTests": missing_tests,
-            "totalTests": len(required_tests),
-            "completionPercentage": completion_percentage,
-            "debug_user_id": user_id,
-            "debug_total_completed_in_db": len(completed_results),  # Debug info
-            "debug_completed_test_details": [
-                {
-                    "test_id": r.test_id,
-                    "is_completed": r.is_completed,
-                    "completed_at": r.completed_at.isoformat() if r.completed_at else None
-                } for r in completed_results
-            ]
-        }
-        
-    except Exception as e:
-        logger.error(f"Error checking test completion status: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error checking completion status: {str(e)}")
-
-@router.post("/clear-cache/{user_id}")
-async def clear_completion_cache(user_id: str):
-    """Clear completion status cache for a user"""
-    try:
-        from core.cache import cache
-        
-        # Clear completion status cache
-        cache_key_pattern = f"completion_status:check_test_completion_status:{user_id}"
-        
-        # Try to clear the cache (Redis pattern matching)
-        if hasattr(cache.redis_client, 'delete'):
-            # Get all keys matching the pattern
-            keys = cache.redis_client.keys(f"*{cache_key_pattern}*")
-            if keys:
-                cache.redis_client.delete(*keys)
-                logger.info(f"Cleared {len(keys)} cache keys for user {user_id}")
-        
-        return {
-            "message": f"Cache cleared for user {user_id}",
-            "user_id": user_id,
-            "status": "success"
-        }
-        
-    except Exception as e:
-        logger.error(f"Error clearing cache: {str(e)}")
-        return {
-            "message": f"Error clearing cache: {str(e)}",
-            "user_id": user_id,
-            "status": "error"
-        }
-
 @router.get("/all-results/{user_id}")
 @limiter.limit("50/minute")
 @cache_async_result(ttl=600, key_prefix="all_results")
@@ -540,9 +424,6 @@ async def get_all_test_results(request: Request, user_id: str):
         logger.info(f"Retrieved {len(organized_results)} unique test results for user {user_id}")
         logger.info(f"Test types found: {list(organized_results.keys())}")
         
-        # Log summary of each test result for debugging
-        for test_id, result in organized_results.items():
-            logger.info(f"Test {test_id}: {result.get('test_name', 'Unknown')} - Score: {result.get('score', 'N/A')} - Questions: {result.get('total_questions', 'N/A')}")
         
         # Optimize and compress large responses
         optimized_results = optimize_large_response(organized_results)
@@ -556,54 +437,6 @@ async def get_all_test_results(request: Request, user_id: str):
         logger.error(f"Error getting all test results: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting all test results: {str(e)}")
 
-@router.get("/debug/ai-input/{user_id}")
-async def debug_ai_input_data(user_id: str):
-    """
-    Debug endpoint to show exactly what data would be sent to AI service
-    """
-    try:
-        # Get all user results using the same method as AI insights
-        user_results = await ResultService.get_user_results(str(user_id))
-        
-        if not user_results:
-            return {
-                "user_id": user_id,
-                "message": "No test results found",
-                "test_count": 0,
-                "test_results": {}
-            }
-        
-        # Organize results by test type (same as AI endpoint)
-        organized_results = {}
-        
-        for result in user_results:
-            test_id = result.test_id
-            if test_id:
-                # Keep only the latest result for each test type
-                if test_id not in organized_results or result.timestamp > organized_results[test_id]['timestamp']:
-                    organized_results[test_id] = {
-                        'test_id': result.test_id,
-                        'test_name': result.test_name,
-                        'analysis': result.analysis,
-                        'score': result.score,
-                        'percentage': result.percentage,
-                        'percentage_score': result.percentage_score,
-                        'total_score': result.total_score,
-                        'dimensions_scores': result.dimensions_scores,
-                        'recommendations': result.recommendations,
-                        'answers': result.answers,
-                        'duration_minutes': result.duration_minutes,
-                        'total_questions': result.total_questions,
-                        'timestamp': result.timestamp,
-                        'completed_at': result.completed_at,
-                        'user_id': result.user_id,
-                        # Debug info
-                        'answers_count': len(result.answers) if result.answers else 0,
-                        'has_analysis': bool(result.analysis),
-                        'has_recommendations': bool(result.recommendations),
-                        'has_dimensions': bool(result.dimensions_scores)
-                    }
-        
         return {
             "user_id": user_id,
             "message": f"Found {len(organized_results)} test results for AI analysis",
@@ -757,6 +590,29 @@ async def cleanup_duplicate_results(user_id: str):
     except Exception as e:
         logger.error(f"Error cleaning up duplicates: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
+
+@router.post("/clear-cache/{user_id}")
+async def clear_user_cache(user_id: str):
+    """
+    Clear all cache entries for a specific user (for testing/debugging)
+    """
+    try:
+        logger.info(f"Clearing cache for user {user_id}")
+        
+        # Clear all user-related cache
+        QueryCache.invalidate_all_user_cache(user_id)
+        
+        return {
+            "status": "success",
+            "message": f"Cache cleared for user {user_id}",
+            "user_id": user_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error clearing cache for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Cache clear failed: {str(e)}")
+
+# Old debug completion endpoint removed - replaced with new implementation
 
 @router.get("/test-report/{user_id}")
 async def test_report_generation(user_id: str):

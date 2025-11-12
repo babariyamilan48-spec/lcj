@@ -52,7 +52,43 @@ class ResultService:
     @staticmethod
     async def create_result(result_data: TestResultCreate) -> TestResult:
         """Create a new test result with database persistence and deduplication"""
-        db = ResultService.get_db_session()
+        import uuid
+        
+        # Convert user_id to UUID if it's a string - FIX FOR UUID HANDLING
+        try:
+            if isinstance(result_data.user_id, str):
+                user_uuid = uuid.UUID(result_data.user_id)
+            else:
+                user_uuid = result_data.user_id
+        except (ValueError, TypeError):
+            logger.error(f"Invalid user_id format in create_result: {result_data.user_id}")
+            # Fallback to in-memory storage for invalid UUIDs
+            result_id = str(uuid.uuid4())
+            result_dict = {
+                "id": result_id,
+                "user_id": str(result_data.user_id),
+                "test_id": result_data.test_id,
+                "test_name": result_data.test_name,
+                "score": result_data.total_score or result_data.score or 0,
+                "percentage": 100.0,
+                "percentage_score": 100.0,
+                "total_score": result_data.total_score or result_data.score or 0,
+                "answers": result_data.answers,
+                "analysis": result_data.analysis,
+                "timestamp": datetime.now().isoformat(),
+                "recommendations": result_data.recommendations or []
+            }
+            results_db[result_id] = result_dict
+            QueryCache.invalidate_all_user_cache(str(result_data.user_id))
+            return TestResult(**result_dict)
+        
+        # Use the same database connection method as debug endpoints
+        try:
+            from core.database import get_db
+            db = next(get_db())
+        except Exception as e:
+            logger.error(f"Database connection failed in create_result: {e}")
+            db = None
         
         if db and DBTestResult:
             try:
@@ -61,7 +97,7 @@ class ResultService:
                 five_minutes_ago = datetime.now() - timedelta(minutes=5)
                 
                 existing_result = db.query(DBTestResult).filter(
-                    DBTestResult.user_id == result_data.user_id,
+                    DBTestResult.user_id == user_uuid,
                     DBTestResult.test_id == result_data.test_id,
                     DBTestResult.created_at > five_minutes_ago,
                     DBTestResult.is_completed == True
@@ -99,7 +135,7 @@ class ResultService:
                 
                 # Create database record
                 db_result = DBTestResult(
-                    user_id=result_data.user_id,
+                    user_id=user_uuid,  # Use converted UUID instead of raw user_id
                     test_id=result_data.test_id,
                     answers=answers_data,
                     completion_percentage=result_data.percentage_score or result_data.percentage or result_data.score or 0,
@@ -142,8 +178,35 @@ class ResultService:
                     "completed_at": db_result.completed_at
                 }
                 
-                # Invalidate user results cache
-                QueryCache.invalidate_user_results(result_data.user_id)
+                # Invalidate ALL user cache to prevent cross-user contamination
+                QueryCache.invalidate_all_user_cache(str(result_data.user_id))
+                
+                # Also invalidate completion status cache using direct cache operations
+                try:
+                    # Clear completion status cache keys directly
+                    user_id_str = str(result_data.user_id)
+                    cache_keys = [
+                        f"completion_status:{user_id_str}",
+                        f"completed_tests:{user_id_str}",
+                        f"progress_summary:{user_id_str}",
+                        f"completion_status_v2:{user_id_str}",
+                    ]
+                    
+                    # Use QueryCache methods for proper cache invalidation
+                    QueryCache.invalidate_completion_status(user_id_str)
+                    QueryCache.invalidate_user_results(user_id_str)
+                    
+                    # Also clear specific keys using cache instance
+                    from core.cache import cache
+                    for cache_key in cache_keys:
+                        try:
+                            cache.delete(cache_key)
+                        except Exception as cache_error:
+                            logger.debug(f"Cache key {cache_key} not found or already cleared: {cache_error}")
+                    
+                    logger.info(f"Invalidated completion status cache for user {result_data.user_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to clear completion status cache: {e}")
                 
                 db.close()
                 return TestResult(**result_dict)
@@ -206,21 +269,41 @@ class ResultService:
     @staticmethod
     async def get_user_results(user_id: str) -> List[TestResult]:
         """Get all results for a user from database first, fallback to memory - OPTIMIZED with caching"""
-        # Try cache first
+        import uuid
+        
+        # Convert user_id to UUID if it's a string - FIX FOR UUID HANDLING
+        try:
+            if isinstance(user_id, str):
+                user_uuid = uuid.UUID(user_id)
+            else:
+                user_uuid = user_id
+        except (ValueError, TypeError):
+            logger.error(f"Invalid user_id format in get_user_results: {user_id}")
+            return []
+        
+        # Try cache first - use string user_id for cache key consistency
         cached_results = QueryCache.get_user_results(user_id)
         if cached_results:
-            logger.debug(f"Cache HIT for user results: {user_id}")
             return cached_results
         
-        db = ResultService.get_db_session()
+        # Use the same database connection method as debug endpoints
+        try:
+            from core.database import get_db
+            db = next(get_db())
+        except Exception as e:
+            logger.error(f"Database connection failed in get_user_results: {e}")
+            db = None
         
         if db and DBTestResult:
             try:
-                # Optimized query with eager loading
+                logger.info(f"Querying database for user_uuid: {user_uuid}")
+                # Optimized query with eager loading - use UUID for database query
                 db_results = db.query(DBTestResult).filter(
-                    DBTestResult.user_id == user_id,
+                    DBTestResult.user_id == user_uuid,
                     DBTestResult.is_completed == True
                 ).order_by(desc(DBTestResult.created_at)).all()
+                
+                logger.info(f"Database query returned {len(db_results)} results for user {user_id}")
                 
                 user_results = []
                 for db_result in db_results:
@@ -264,13 +347,11 @@ class ResultService:
                 
                 # Cache the results
                 QueryCache.set_user_results(user_id, user_results, ttl=600)
-                logger.debug(f"Cached user results for: {user_id}")
                 
                 db.close()
                 return user_results
                 
             except Exception as e:
-                print(f"Database query failed, using fallback: {e}")
                 if db:
                     db.close()
         
@@ -1379,13 +1460,25 @@ class ResultService:
     @staticmethod
     async def cleanup_duplicate_results(user_id: str) -> Dict[str, Any]:
         """Clean up duplicate test results for a user, keeping only the latest result for each test type"""
+        import uuid
+        
+        # Convert user_id to UUID if it's a string - FIX FOR UUID HANDLING
+        try:
+            if isinstance(user_id, str):
+                user_uuid = uuid.UUID(user_id)
+            else:
+                user_uuid = user_id
+        except (ValueError, TypeError):
+            logger.error(f"Invalid user_id format in cleanup_duplicate_results: {user_id}")
+            return {"error": "Invalid user ID format", "cleaned_count": 0}
+        
         db = ResultService.get_db_session()
         
         if db and DBTestResult:
             try:
                 # Get all results for the user
                 all_results = db.query(DBTestResult).filter(
-                    DBTestResult.user_id == user_id,  # Remove int() conversion to support UUID strings
+                    DBTestResult.user_id == user_uuid,
                     DBTestResult.is_completed == True
                 ).order_by(DBTestResult.test_id, desc(DBTestResult.created_at)).all()
                 
@@ -1559,6 +1652,18 @@ class ResultService:
         """
         Get existing comprehensive AI insights for a user (for one-time restriction check)
         """
+        import uuid
+        
+        # Convert user_id to UUID if it's a string - FIX FOR UUID HANDLING
+        try:
+            if isinstance(user_id, str):
+                user_uuid = uuid.UUID(user_id)
+            else:
+                user_uuid = user_id
+        except (ValueError, TypeError):
+            logger.error(f"Invalid user_id format in get_user_ai_insights: {user_id}")
+            return None
+            
         try:
             db = ResultService.get_db_session()
             if not db or not AIInsights:
@@ -1572,7 +1677,7 @@ class ResultService:
             
             # Query AI insights table
             ai_insights = db.query(AIInsights).filter(
-                AIInsights.user_id == user_id,
+                AIInsights.user_id == user_uuid,
                 AIInsights.insights_type == "comprehensive",
                 AIInsights.status == "completed"
             ).order_by(desc(AIInsights.generated_at)).first()

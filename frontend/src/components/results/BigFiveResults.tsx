@@ -8,7 +8,23 @@ interface BigFiveResultsProps {
 }
 
 const BigFiveResults: React.FC<BigFiveResultsProps> = ({ calculatedResult, testResults }) => {
-  if (!calculatedResult || calculatedResult.type !== 'Big Five Personality') return null;
+  console.log('🔍 BigFiveResults: Received props:', { calculatedResult, testResults });
+  
+  if (!calculatedResult) {
+    console.log('❌ BigFiveResults: No calculatedResult provided');
+    return null;
+  }
+  
+  const isBigFiveTest = calculatedResult.type?.includes('Big Five') || 
+                        calculatedResult.testType === 'bigfive' ||
+                        testResults?.testId === 'bigfive';
+                        
+  if (!isBigFiveTest) {
+    console.log('❌ BigFiveResults: Not a Big Five test:', calculatedResult.type);
+    return null;
+  }
+  
+  console.log('✅ BigFiveResults: Rendering Big Five results');
 
   // Enhanced calculation validation
   const dimensions = calculatedResult.dimensions || [];

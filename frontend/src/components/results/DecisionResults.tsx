@@ -8,7 +8,23 @@ interface DecisionResultsProps {
 }
 
 const DecisionResults: React.FC<DecisionResultsProps> = ({ calculatedResult, testResults }) => {
-  if (!calculatedResult || calculatedResult.type !== 'Decision Making Style') return null;
+  console.log('🔍 DecisionResults: Received props:', { calculatedResult, testResults });
+  
+  if (!calculatedResult) {
+    console.log('❌ DecisionResults: No calculatedResult provided');
+    return null;
+  }
+  
+  const isDecisionTest = calculatedResult.type?.includes('Decision') || 
+                         calculatedResult.testType === 'decision' ||
+                         testResults?.testId === 'decision';
+                         
+  if (!isDecisionTest) {
+    console.log('❌ DecisionResults: Not a Decision test:', calculatedResult.type);
+    return null;
+  }
+  
+  console.log('✅ DecisionResults: Rendering Decision results');
 
   // Enhanced calculation validation
   const primaryStyle = calculatedResult.primaryStyle || {};

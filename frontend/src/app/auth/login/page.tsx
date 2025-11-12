@@ -11,6 +11,7 @@ import { modernToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import clsx from 'clsx';
 import Image from 'next/image';
+import ForceLogoutButton from '@/components/ForceLogoutButton';
 
 const LoginSchema = Yup.object({
   email: Yup.string().email('Enter a valid email').required('Email is required'),
@@ -24,12 +25,18 @@ function LoginPageContent() {
   
   // Redirect if already authenticated (respect admin role)
   React.useEffect(() => {
-    if (isAuthenticated) {
+    
+    // CRITICAL FIX: Only redirect if user is authenticated and we're not in the middle of a login process
+    if (isAuthenticated && user) {
       const redirectParam = searchParams?.get('redirect');
       const destination = redirectParam || (user?.role === 'admin' ? '/admin' : '/home');
-      router.replace(destination);
+      
+      // Use setTimeout to ensure state has fully updated
+      setTimeout(() => {
+        router.replace(destination);
+      }, 100);
     }
-  }, [isAuthenticated, user?.role, router, searchParams]);
+  }, [isAuthenticated, user, router, searchParams]);
 
   return (
     <AuthCard
@@ -57,11 +64,21 @@ function LoginPageContent() {
                 if (result.success) {
                   modernToast.auth.loginSuccess();
                   
-                  // Check if user is admin and redirect accordingly
-                  const redirectTo = searchParams?.get('redirect') || 
-                    (result.user?.role === 'admin' ? '/admin' : '/home');
+                  // CRITICAL FIX: Manual redirect after successful login
+                  const redirectParam = searchParams?.get('redirect');
+                  const destination = redirectParam || (result.user?.role === 'admin' ? '/admin' : '/home');
                   
-                  router.push(redirectTo);
+                  // Small delay to ensure state updates are complete
+                  setTimeout(() => {
+                    router.replace(destination);
+                  }, 200);
+                  
+                  // FALLBACK: If router redirect fails, use window.location as backup
+                  setTimeout(() => {
+                    if (window.location.pathname.includes('/auth/login')) {
+                      window.location.href = destination;
+                    }
+                  }, 1000);
                 } else {
                   modernToast.auth.loginError();
                 }

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { tokenStore } from '@/services/token';
 import { questionService } from '@/services/questionService';
 import { API_ENDPOINTS } from '@/config/api';
+import { clearAllUserData, shouldPreventAutoLogin, validateUserSession, forceSessionClear } from '@/utils/clearUserData';
 
 interface User {
   id: string;
@@ -23,6 +24,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; user?: User }>;
   logout: () => void;
+  forceLogout: () => void;
   refreshToken: () => Promise<boolean>;
   setAuthToken: (token: string | null) => void;
 }
@@ -33,24 +35,84 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Helper function to clear all cookies
+const clearAllCookies = () => {
+  if (typeof document !== 'undefined') {
+    // Clear all cookies by setting them to expire
+    const cookies = document.cookie.split(';');
+    
+    for (const cookie of cookies) {
+      const eqPos = cookie.indexOf('=');
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+      
+      // Clear cookie for current domain
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.${window.location.hostname}`;
+    }
+    
+  }
+};
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!user && !!tokenStore.getAccessToken();
+  
 
   // Initialize auth state on mount
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        
+        // Check if we should prevent auto-login
+        if (shouldPreventAutoLogin()) {
+          forceSessionClear();
+          clearAllCookies();
+          setIsLoading(false);
+          return;
+        }
+        
+        // CRITICAL FIX: Validate session integrity before proceeding
+        if (!validateUserSession()) {
+          forceSessionClear();
+          clearAllCookies();
+          setIsLoading(false);
+          return;
+        }
+        
+        // Skip auto-auth initialization if user is already set (from login)
+        if (user) {
+          setIsLoading(false);
+          return;
+        }
+        
         const token = tokenStore.getAccessToken();
+        
         if (token) {
-          // Set the token in the question service
-          questionService.setAuthToken(token);
-
-          // Try to fetch user info to validate token
+          // CRITICAL FIX: Try to restore from cached user data first
+          const cachedUserData = localStorage.getItem('user_data');
+          const cachedUserId = localStorage.getItem('userId');
+          
+          if (cachedUserData && cachedUserId) {
+            try {
+              const userData = JSON.parse(cachedUserData);
+              if (userData.id === cachedUserId) {
+                setUser(userData);
+                questionService.setAuthToken(token);
+                
+                // Validate token in background (non-blocking)
+                validateTokenInBackground(token, userData);
+                return;
+              }
+            } catch (error) {
+            }
+          }
+          
+          // If no cached data or validation failed, validate with server
           try {
-            // Fetch real user data from /me endpoint
+            // Fetch real user data from /me endpoint to validate token
             const response = await fetch(`${API_ENDPOINTS.AUTH.BASE}${API_ENDPOINTS.AUTH.ME}`, {
               method: 'GET',
               headers: {
@@ -74,26 +136,61 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   avatar: data.data.avatar || ''
                 };
 
+                // CRITICAL FIX: Check if this is a different user than cached
+                if (cachedUserId && cachedUserId !== userData.id) {
+                  clearAllUserData();
+                  clearAllCookies();
+                  tokenStore.clear();
+                  setIsLoading(false);
+                  return;
+                }
+
                 setUser(userData);
                 localStorage.setItem('user_data', JSON.stringify(userData));
                 localStorage.setItem('userId', userData.id);
+                
+                // Set the token in services after successful validation
+                questionService.setAuthToken(token);
               } else {
                 throw new Error('Invalid user data received');
+              }
+            } else if (response.status === 401) {
+              // Token is invalid, try to refresh
+              const refreshed = await refreshToken();
+              if (!refreshed) {
+                forceLogout();
+                return;
               }
             } else {
               throw new Error('Failed to fetch user data');
             }
           } catch (error) {
-            // Token might be invalid, try to refresh
-            const refreshed = await refreshToken();
-            if (!refreshed) {
-              logout();
+            
+            // CRITICAL FIX: Don't immediately logout on network errors
+            // If we have cached user data, use it temporarily
+            if (cachedUserData && cachedUserId) {
+              try {
+                const userData = JSON.parse(cachedUserData);
+                if (userData.id === cachedUserId) {
+                  setUser(userData);
+                  questionService.setAuthToken(token);
+                  return;
+                }
+              } catch (cacheError) {
+              }
             }
+            
+            // Only logout if we have no valid cached data
+            forceLogout();
+            return;
           }
+        } else {
+          // No token found, ensure clean state
+          clearAllUserData();
+          clearAllCookies();
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
-        logout();
+        forceLogout();
       } finally {
         setIsLoading(false);
       }
@@ -105,6 +202,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (email: string, password: string): Promise<{ success: boolean; user?: User }> => {
     try {
       setIsLoading(true);
+
+      // CRITICAL FIX: Clear ALL previous user data before login
+      clearAllUserData();
+      clearAllCookies();
+      tokenStore.clear();
+      questionService.setAuthToken(null);
+      setUser(null);
 
       // Call your auth service login endpoint
       const response = await fetch(`${API_ENDPOINTS.AUTH.BASE}${API_ENDPOINTS.AUTH.LOGIN}`, {
@@ -133,12 +237,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           throw new Error('No access token received');
         }
 
-        // Store tokens
-        tokenStore.setTokens(access_token, refresh_token);
-
-        // Set token in question service
-        questionService.setAuthToken(access_token);
-
         // Create user object with comprehensive data
         const userData: User = {
           id: responseData.id || '',
@@ -152,9 +250,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
           avatar: responseData.avatar || responseData.profilePicture || ''
         };
 
+        // Store tokens AFTER user data validation with user ID tracking
+        tokenStore.setTokens(access_token, refresh_token, userData.id);
+        
+        // Set token in question service
+        questionService.setAuthToken(access_token);
+        
         // Set user data and store in localStorage
         setUser(userData);
         localStorage.setItem('user_data', JSON.stringify(userData));
+        localStorage.setItem('userId', userData.id);
+        
 
         return { success: true, user: userData };
       } else {
@@ -162,7 +268,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error(data.message || data.error || 'Login failed');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      // Ensure clean state on login failure
+      clearAllUserData();
+      clearAllCookies();
+      tokenStore.clear();
+      questionService.setAuthToken(null);
+      setUser(null);
       // Re-throw the error so the login page can display the specific message
       throw error;
     } finally {
@@ -171,10 +282,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = () => {
+    forceLogout();
+  };
+  
+  // CRITICAL FIX: Add background token validation
+  const validateTokenInBackground = async (token: string, userData: User) => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.AUTH.BASE}${API_ENDPOINTS.AUTH.ME}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        // Could try to refresh token here if needed
+      } else {
+      }
+    } catch (error) {
+    }
+  };
+
+  const forceLogout = () => {
+    
+    // Clear auth state
     tokenStore.clear();
     questionService.setAuthToken(null);
     setUser(null);
-    localStorage.removeItem('user_data');
+    
+    // CRITICAL FIX: Clear ALL user-related data including cookies
+    clearAllUserData();
+    clearAllCookies();
+    
+    // Clear any login flags
+    sessionStorage.removeItem('logging_in');
 
     // Redirect to login page
     if (typeof window !== 'undefined') {
@@ -206,8 +348,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (data.success && data.data) {
         const { access_token, refresh_token: newRefreshToken } = data.data;
 
-        // Update tokens
-        tokenStore.setTokens(access_token, newRefreshToken);
+        // Update tokens with current user ID
+        const currentUserId = localStorage.getItem('userId');
+        tokenStore.setTokens(access_token, newRefreshToken, currentUserId);
         questionService.setAuthToken(access_token);
 
         return true;
@@ -235,6 +378,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     login,
     logout,
+    forceLogout,
     refreshToken,
     setAuthToken,
   };

@@ -10,6 +10,7 @@ import { testResultService, UserOverview } from '@/services/testResultService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserOverview, clearUserDataCache, forceRefreshUserData } from '@/hooks/useTestResults';
 import { aiInsightsService, AIInsights } from '@/services/aiInsightsService';
+import { completionStatusService } from '@/services/completionStatusService';
 // Removed useReportDownload - using simple window.print() instead
 import {
   MBTIResultDisplay,
@@ -86,6 +87,7 @@ interface ModernResultsProps {
 }
 
 const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
+  // ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const { testResults } = useAppStore();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
@@ -97,25 +99,17 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
   const [insightsError, setInsightsError] = useState<string | null>(null);
   const [allTestsCompleted, setAllTestsCompleted] = useState(false);
   const [testCompletionStatus, setTestCompletionStatus] = useState<any>(null);
-  // Use centralized hook instead of direct API calls - consistent user ID logic
-  const authUserId = user?.id || '';
-  const storageUserId = localStorage.getItem('userId') || '11dc4aec-2216-45f9-b045-60edac007262';
-  const userId = authUserId || storageUserId;
-  const { overview: userOverview, loading: isLoadingOverview, error: overviewError } = useUserOverview(userId);
   const [selectedInsight, setSelectedInsight] = useState<string>('');
   const [hasProcessed, setHasProcessed] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  // Removed complex download functionality - using simple window.print() instead
-
-  // Reset state on component mount or testResults change
-  useEffect(() => {
-    if (testResults && testResults.testId) {
-      // Reset processing state when new test results arrive
-      setHasProcessed(false);
-      setCalculatedResult(null);
-      setIsInitialLoad(false);
-    }
-  }, [testResults]);
+  
+  // Use centralized hook instead of direct API calls - consistent user ID logic
+  const authUserId = user?.id || '';
+  const storageUserId = localStorage.getItem('userId') || '';
+  const userId = authUserId || storageUserId;
+  
+  // Always call hooks - conditional rendering comes after
+  const { overview: userOverview, loading: isLoadingOverview, error: overviewError } = useUserOverview(userId || 'default');
 
   // Auto-save function - defined before useEffect that uses it
   const autoSaveResult = useCallback(async (result: any) => {
@@ -146,8 +140,14 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
     try {
       // Use consistent user ID from auth context, fallback to localStorage
       const authUserId = user?.id || '';
-      const storageUserId = localStorage.getItem('userId') || '11dc4aec-2216-45f9-b045-60edac007262';
+      const storageUserId = localStorage.getItem('userId') || '';
       const userId = authUserId || storageUserId;
+      
+      if (!userId) {
+        console.error('🚨 No user ID available for saving test result');
+        setSaveStatus('error');
+        return;
+      }
 
       const saveResponse = await testResultService.autoSaveResult(
         userId,
@@ -170,6 +170,90 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
       setIsSaving(false);
     }
   }, [testResults, isSaving, saveStatus]);
+
+  // Generate AI insights callback
+  const generateAIInsights = useCallback(async (result: any) => {
+    if (!result || !testResults || isLoadingInsights || aiInsights) {
+      return;
+    }
+
+    setIsLoadingInsights(true);
+    setInsightsError(null);
+
+    try {
+      const authUserId = user?.id || '';
+      const storageUserId = localStorage.getItem('userId') || '';
+      const userId = authUserId || storageUserId;
+      
+      if (!userId) {
+        throw new Error('No user ID available for AI insights');
+      }
+
+      const insights = await aiInsightsService.generateInsights(
+        userId,
+        testResults.testId,
+        result
+      );
+
+      setAiInsights(insights);
+    } catch (error) {
+      console.error('Error generating AI insights:', error);
+      setInsightsError(error instanceof Error ? error.message : 'Failed to generate insights');
+    } finally {
+      setIsLoadingInsights(false);
+    }
+  }, [testResults, isLoadingInsights, aiInsights, user?.id]);
+
+  // Check test completion status callback
+  const checkTestCompletion = useCallback(async () => {
+    if (!userId) return null;
+    
+    try {
+      const statusResponse = await completionStatusService.getCompletionStatus(userId, true);
+      const status = {
+        allCompleted: statusResponse.data.all_completed,
+        completedTests: statusResponse.data.completed_tests,
+        missingTests: statusResponse.data.missing_tests,
+        totalTests: statusResponse.data.total_tests,
+        completionPercentage: statusResponse.data.completion_percentage
+      };
+      setTestCompletionStatus(status);
+      setAllTestsCompleted(status.allCompleted);
+      return status;
+    } catch (error) {
+      console.error('Error checking test completion:', error);
+      return null;
+    }
+  }, [userId]);
+
+  // Handle tab change callback
+  const handleTabChange = useCallback((tabName: string) => {
+    if (tabName === activeTab) {
+      return;
+    }
+
+    setActiveTab(tabName);
+
+    // Only generate AI insights when user clicks on AI insights tab
+    if (tabName === 'insights' && !aiInsights && !isLoadingInsights && calculatedResult) {
+      generateAIInsights(calculatedResult);
+    }
+  }, [activeTab, aiInsights, isLoadingInsights, calculatedResult, generateAIInsights]);
+
+  // Reset state on component mount or testResults change
+  useEffect(() => {
+    if (testResults && testResults.testId) {
+      // Reset processing state when new test results arrive
+      setHasProcessed(false);
+      setCalculatedResult(null);
+      setIsInitialLoad(false);
+    }
+  }, [testResults]);
+
+  // Check test completion on component mount
+  useEffect(() => {
+    checkTestCompletion();
+  }, [checkTestCompletion]);
 
   // Calculate dynamic result when component mounts or testResults change
   useEffect(() => {
@@ -203,6 +287,10 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
 
           // Auto-save the result
           await autoSaveResult(enhancedResult);
+          
+          // CRITICAL FIX: Refresh completion status after test is saved
+          console.log('🔄 Refreshing completion status after test completion...');
+          await checkTestCompletion();
         } else {
           
         }
@@ -222,110 +310,24 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
     };
   }, [testResults, hasProcessed, autoSaveResult]);
 
-  const generateAIInsights = useCallback(async (result: any) => {
-    if (!result || !testResults || isLoadingInsights || aiInsights) {
-      return;
-    }
+  // CONDITIONAL RENDERING LOGIC - AFTER ALL HOOKS
+  // CRITICAL FIX: Don't render if no valid user ID
+  if (!userId) {
+    console.error('🚨 No user ID available in ModernResults');
+    return <div>Please log in to view results</div>;
+  }
 
-    // Validate that we have answers to send
-    if (!testResults.answers || Object.keys(testResults.answers).length === 0) {
-      setInsightsError('No test answers available for analysis');
-      return;
-    }
-
-    setIsLoadingInsights(true);
-    setInsightsError(null);
-
-    try {
-      // Convert answers object to array format expected by API
-      const answersArray = testResults?.answers
-        ? Object.entries(testResults.answers).map(([questionId, answerData]) => ({
-            question_id: questionId,
-            ...answerData
-          }))
-        : [];
-
-      const response = await Promise.race([
-        aiInsightsService.generateInsights({
-          test_type: testResults?.testId || 'general',
-          test_id: testResults?.testId || 'general',
-          answers: answersArray,
-          results: result,
-          user_id: userId.toString()
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Backend API timeout')), 120000) // 2 minute timeout for AI processing
-        )
-      ]) as any;
-
-      if (response.success && response.insights) {
-        setAiInsights(response.insights);
-      } else {
-        const errorMsg = response.error;
-        setInsightsError(typeof errorMsg === 'string' ? errorMsg : 'Failed to generate insights');
-      }
-    } catch (error: any) {
-      console.error('Error generating AI insights:', error);
-      const errorMessage = error?.message || error?.toString() || 'Failed to generate AI insights';
-      setInsightsError(typeof errorMessage === 'string' ? errorMessage : 'Failed to generate AI insights');
-    } finally {
-      setIsLoadingInsights(false);
-    }
-  }, [testResults, isLoadingInsights, aiInsights]);
-
-  // Check test completion status
-  const checkTestCompletion = useCallback(async () => {
-    try {
-      const status = await aiInsightsService.checkAllTestsCompleted(userId);
-      setTestCompletionStatus(status);
-      setAllTestsCompleted(status.allCompleted);
-      return status;
-    } catch (error) {
-      console.error('Error checking test completion:', error);
-      return null;
-    }
-  }, [userId]);
-
-  // Check test completion on component mount
-  useEffect(() => {
-    checkTestCompletion();
-  }, [checkTestCompletion]);
-
-  // Removed fetchUserOverview - now using centralized hook
-
-  const handleTabChange = useCallback((tabName: string) => {
-    if (tabName === activeTab) {
-      return;
-    }
-
-    setActiveTab(tabName);
-
-    // Only generate AI insights when user clicks on AI insights tab
-    if (tabName === 'insights' && !aiInsights && !isLoadingInsights && calculatedResult) {
-
-      // Immediately start loading and call API (no static data)
-      generateAIInsights(calculatedResult);
-    }
-
-    // Overview data is now handled by centralized hook
-  }, [activeTab, aiInsights, isLoadingInsights, calculatedResult, generateAIInsights]);
-
+  // Handle download report function
   const handleDownloadReport = () => {
     // Set unique filename based on test type
     const originalTitle = document.title;
     const testName = testResults?.testName || 'Test Result';
     const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const filename = `${testName}_Report_${timestamp}`;
     
-    // Set document title for PDF filename
-    document.title = `${testName}_Report_${timestamp}.pdf`;
-    
-    // Print the document
+    document.title = filename;
     window.print();
-    
-    // Restore original title after a short delay
-    setTimeout(() => {
-      document.title = originalTitle;
-    }, 1000);
+    document.title = originalTitle;
   };
 
   if (!testResults) {

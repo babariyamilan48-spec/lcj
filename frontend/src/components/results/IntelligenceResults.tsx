@@ -8,7 +8,23 @@ interface IntelligenceResultsProps {
 }
 
 const IntelligenceResults: React.FC<IntelligenceResultsProps> = ({ calculatedResult, testResults }) => {
-  if (!calculatedResult || calculatedResult.type !== 'Multiple Intelligence') return null;
+  console.log('🔍 IntelligenceResults: Received props:', { calculatedResult, testResults });
+  
+  if (!calculatedResult) {
+    console.log('❌ IntelligenceResults: No calculatedResult provided');
+    return null;
+  }
+  
+  const isIntelligenceTest = calculatedResult.type?.includes('Intelligence') || 
+                             calculatedResult.testType === 'intelligence' ||
+                             testResults?.testId === 'intelligence';
+                             
+  if (!isIntelligenceTest) {
+    console.log('❌ IntelligenceResults: Not an Intelligence test:', calculatedResult.type);
+    return null;
+  }
+  
+  console.log('✅ IntelligenceResults: Rendering Intelligence results');
 
   // Enhanced calculation validation
   const dominantType = calculatedResult.dominantType || 'Unknown';
