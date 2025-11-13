@@ -3,9 +3,10 @@ Async API endpoints for handling background AI report generation and PDF creatio
 These endpoints use Celery tasks to prevent blocking and handle multiple users efficiently.
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
+from typing import Dict, Any, Optional
+from datetime import datetime
 import logging
 from datetime import datetime
 
@@ -214,7 +215,7 @@ async def generate_comprehensive_pdf_async(request: AsyncComprehensivePDFRequest
         )
 
 @router.get("/task-status/{task_id}", response_model=TaskStatusResponse)
-async def get_task_status_endpoint(task_id: str):
+async def get_task_status_endpoint(task_id: str, http_response: Response):
     """
     Get the status of a running or completed task.
     """
@@ -225,8 +226,25 @@ async def get_task_status_endpoint(task_id: str):
         from celery.result import AsyncResult
         from core.celery_app import celery_app
         
-        # Get task result
+        # Get task result with retry mechanism for cloud Redis
         task_result = AsyncResult(task_id, app=celery_app)
+        
+        # For cloud Redis (Upstash), add retry mechanism for replication delays
+        import time
+        max_retries = 3
+        retry_delay = 0.3
+        
+        for retry in range(max_retries):
+            if task_result.status != 'PENDING' or task_result.ready() or getattr(task_result, 'info', None):
+                break  # We have valid data, no need to retry
+                
+            if retry < max_retries - 1:  # Don't sleep on last retry
+                time.sleep(retry_delay)
+                task_result = AsyncResult(task_id, app=celery_app)
+                retry_delay *= 1.5  # Exponential backoff
+        
+        # Log task status for monitoring
+        logger.info(f"Task {task_id} - Status: {task_result.status}, Ready: {task_result.ready()}")
         
         response = TaskStatusResponse(
             task_id=task_id,
@@ -239,14 +257,33 @@ async def get_task_status_endpoint(task_id: str):
         if task_result.ready():
             if task_result.successful():
                 response.result = task_result.result
+                # Set final progress to 100% when task is complete
+                response.progress = {
+                    "status": "Task completed successfully",
+                    "progress": 100
+                }
             else:
                 response.error = str(task_result.info)
         else:
             # Task is still running, get progress info
-            if hasattr(task_result, 'info') and task_result.info:
-                response.progress = task_result.info
+            task_info = getattr(task_result, 'info', None)
+            if task_info is not None:
+                if isinstance(task_info, dict):
+                    # If task_info contains the progress data directly
+                    response.progress = task_info
+                else:
+                    # Fallback for other formats
+                    response.progress = {"status": str(task_info), "progress": 0}
+            else:
+                # No progress info available, set default
+                response.progress = {"status": "Processing...", "progress": 0}
                 
-        logger.info(f"Task {task_id} status: {response.status}")
+        logger.info(f"Task {task_id} status: {response.status}, progress: {response.progress.get('progress') if response.progress else None}%")
+        
+        # Add cache-busting headers to prevent caching of task status
+        http_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        http_response.headers["Pragma"] = "no-cache"
+        http_response.headers["Expires"] = "0"
         
         return response
         

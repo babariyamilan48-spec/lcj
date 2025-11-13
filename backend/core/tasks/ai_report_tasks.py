@@ -13,7 +13,7 @@ from core.services.ai_service import AIInsightService
 
 logger = logging.getLogger(__name__)
 
-@celery_app.task(bind=True, name='core.tasks.ai_report_tasks.generate_ai_insights_task')
+@celery_app.task(bind=True, name='core.tasks.ai_report_tasks.generate_ai_insights_task', queue='default')
 def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Asynchronous task for generating AI-powered personality insights.
@@ -57,15 +57,37 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
             }
         )
         
+        # Update progress before AI generation
+        self.update_state(
+            state='PROCESSING',
+            meta={
+                'status': 'Sending request to AI service...',
+                'progress': 40,
+                'test_type': test_data.get('test_type'),
+                'user_id': test_data.get('user_id')
+            }
+        )
+        
         # Generate insights using the existing business logic
         result = ai_service.generate_insights(test_data)
         
-        # Update progress
+        # Update progress after AI generation
         self.update_state(
             state='PROCESSING',
             meta={
                 'status': 'Processing AI response...',
-                'progress': 80,
+                'progress': 70,
+                'test_type': test_data.get('test_type'),
+                'user_id': test_data.get('user_id')
+            }
+        )
+        
+        # Update progress before database storage
+        self.update_state(
+            state='PROCESSING',
+            meta={
+                'status': 'Storing insights in database...',
+                'progress': 85,
                 'test_type': test_data.get('test_type'),
                 'user_id': test_data.get('user_id')
             }
@@ -110,6 +132,17 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
                 result['stored_in_db'] = False
                 result['storage_error'] = str(storage_error)
         
+        # Final progress update
+        self.update_state(
+            state='PROCESSING',
+            meta={
+                'status': 'Finalizing insights...',
+                'progress': 95,
+                'test_type': test_data.get('test_type'),
+                'user_id': test_data.get('user_id')
+            }
+        )
+        
         # Add task metadata to result
         result['task_id'] = self.request.id
         result['completed_at'] = datetime.utcnow().isoformat()
@@ -147,6 +180,9 @@ def generate_comprehensive_ai_insights_task(self, request_data: Dict[str, Any]) 
     try:
         user_id = request_data.get('user_id')
         
+        # Log task start
+        logger.info(f"Starting comprehensive AI insights for user {user_id}")
+        
         # Update task state to indicate processing has started
         self.update_state(
             state='PROCESSING',
@@ -174,10 +210,32 @@ def generate_comprehensive_ai_insights_task(self, request_data: Dict[str, Any]) 
             }
         )
         
+        # Update progress before AI generation
+        self.update_state(
+            state='PROCESSING',
+            meta={
+                'status': 'Generating comprehensive AI analysis...',
+                'progress': 50,
+                'user_id': user_id,
+                'test_count': len(request_data.get('all_test_results', {}))
+            }
+        )
+        
         # Generate comprehensive insights using existing business logic
         result = ai_service.generate_comprehensive_insights(request_data)
         
-        # Update progress
+        # Update progress after AI generation
+        self.update_state(
+            state='PROCESSING',
+            meta={
+                'status': 'Processing comprehensive insights...',
+                'progress': 70,
+                'user_id': user_id,
+                'test_count': len(request_data.get('all_test_results', {}))
+            }
+        )
+        
+        # Update progress before database storage
         self.update_state(
             state='PROCESSING',
             meta={

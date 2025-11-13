@@ -14,7 +14,7 @@ from sqlalchemy import desc, func
 import logging
 
 from ..schemas.result import TestResult, TestResultCreate, UserProfile, UserProfileUpdate, AnalyticsData, UserStats
-from core.database import get_db
+from core.database_singleton import get_db
 from core.cache import cache_async_result, QueryCache
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ class ResultService:
         
         # Use the same database connection method as debug endpoints
         try:
-            from core.database import get_db
+            from core.database_singleton import get_db
             db = next(get_db())
         except Exception as e:
             logger.error(f"Database connection failed in create_result: {e}")
@@ -288,7 +288,7 @@ class ResultService:
         
         # Use the same database connection method as debug endpoints
         try:
-            from core.database import get_db
+            from core.database_singleton import get_db
             db = next(get_db())
         except Exception as e:
             logger.error(f"Database connection failed in get_user_results: {e}")
@@ -509,6 +509,38 @@ class ResultService:
         for category in category_scores:
             category_scores[category] = sum(category_scores[category]) / len(category_scores[category])
         
+        # Get AI insights and add to test history
+        test_history = [
+            {
+                "id": r.id,
+                "test_name": r.test_name,
+                "score": r.score,
+                "completed_at": r.timestamp.isoformat() if hasattr(r.timestamp, 'isoformat') else str(r.timestamp)
+            } for r in user_results
+        ]
+        
+        # Add AI insights to test history if they exist
+        try:
+            ai_insights_history = await ResultService.get_user_ai_insights_for_history(user_id)
+            if ai_insights_history:
+                for ai_insight in ai_insights_history:
+                    test_history.append({
+                        "id": ai_insight.get("id"),
+                        "test_name": ai_insight.get("test_name"),
+                        "score": ai_insight.get("score", 100),
+                        "completed_at": ai_insight.get("completion_date")
+                    })
+                
+                # Update total tests count to include AI insights
+                total_tests += len(ai_insights_history)
+                
+                logger.info(f"Added {len(ai_insights_history)} AI insights to analytics for user {user_id}")
+        except Exception as ai_error:
+            logger.warning(f"Could not add AI insights to analytics for user {user_id}: {ai_error}")
+        
+        # Sort test history by completion date (newest first)
+        test_history.sort(key=lambda x: x.get("completed_at", ""), reverse=True)
+        
         return {
             "stats": {
                 "total_tests": total_tests,
@@ -524,14 +556,7 @@ class ResultService:
                 ],
                 "category_scores": category_scores
             },
-            "testHistory": [
-                {
-                    "id": r.id,
-                    "test_name": r.test_name,
-                    "score": r.score,
-                    "completed_at": r.timestamp.isoformat() if hasattr(r.timestamp, 'isoformat') else str(r.timestamp)
-                } for r in user_results
-            ],
+            "testHistory": test_history,
             "categoryScores": category_scores,
             "progressOverTime": [],
             "goals": [

@@ -17,7 +17,7 @@ sys.path.append(str(BACKEND_ROOT))
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from core.database import get_db, engine, Base
+from core.database_singleton import get_db, engine, Base
 from question_service.app.models.test import Test
 from question_service.app.models.test_dimension import TestDimension
 from question_service.app.models.test_section import TestSection

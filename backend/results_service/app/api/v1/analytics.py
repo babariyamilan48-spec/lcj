@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
-from core.database import get_db
+from core.database_singleton import get_db
 from question_service.app.models.test_result import TestResult
 from question_service.app.models.test import Test
 from core.app_factory import resp

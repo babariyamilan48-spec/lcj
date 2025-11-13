@@ -413,7 +413,31 @@ export default function ProfilePage() {
     
     return null;
   })();
-  const recentTests = effectiveResults?.slice(0, 3) || [];
+  // Prioritize AI insights in recent tests display
+  const recentTests = (() => {
+    if (!effectiveResults || effectiveResults.length === 0) return [];
+    
+    // Find AI insights
+    const aiInsights = effectiveResults.filter((test: any) => 
+      test.test_id === 'comprehensive-ai-insights' || 
+      test.id?.toString().includes('ai_insights') ||
+      test.test_name?.includes('AI વિશ્લેષણ') ||
+      test.test_name?.includes('AI Analysis')
+    );
+    
+    // Get other tests (non-AI insights)
+    const otherTests = effectiveResults.filter((test: any) => 
+      !(test.test_id === 'comprehensive-ai-insights' || 
+        test.id?.toString().includes('ai_insights') ||
+        test.test_name?.includes('AI વિશ્લેષણ') ||
+        test.test_name?.includes('AI Analysis'))
+    );
+    
+    // Combine: AI insights first, then most recent other tests
+    const combined = [...aiInsights, ...otherTests.slice(0, 3 - aiInsights.length)];
+    
+    return combined.slice(0, 3);
+  })();
   
 
   return (

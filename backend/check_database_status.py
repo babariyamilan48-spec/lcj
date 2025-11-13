@@ -13,7 +13,7 @@ BACKEND_ROOT = Path(__file__).parent.absolute()
 sys.path.append(str(BACKEND_ROOT))
 
 from sqlalchemy.orm import Session
-from core.database import get_db, engine
+from core.database_singleton import get_db, engine
 from question_service.app.models.test import Test
 from question_service.app.models.question import Question
 from question_service.app.models.option import Option

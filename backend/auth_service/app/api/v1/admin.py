@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from core.database import get_db
+from core.database_singleton import get_db
 from auth_service.app.deps.auth import get_current_admin_user
 from auth_service.app.models.user import User
 from auth_service.app.schemas.user import UserOut

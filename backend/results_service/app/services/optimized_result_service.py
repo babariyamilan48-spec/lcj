@@ -21,7 +21,7 @@ from core.optimized_supabase_client import (
     QueryOptimization
 )
 from core.cache import cache_async_result, QueryCache
-from core.database import get_db
+from core.database_singleton import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -351,6 +351,35 @@ class OptimizedResultService:
                     }
             
             logger.info(f"Fast retrieval: {len(organized_results)} unique test results for user {user_id}")
+            
+            # Add AI insights to the results if they exist
+            try:
+                ai_insights = await ResultService.get_user_ai_insights(user_id)
+                if ai_insights:
+                    # Add AI insights as a special test type
+                    organized_results['comprehensive-ai-insights'] = {
+                        'test_id': 'comprehensive-ai-insights',
+                        'test_name': 'સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)',
+                        'analysis': 'AI_INSIGHTS',
+                        'score': 100,
+                        'percentage': 100,
+                        'percentage_score': 100,
+                        'total_score': 100,
+                        'dimensions_scores': {},
+                        'recommendations': [],
+                        'answers': {},
+                        'duration_minutes': None,
+                        'total_questions': 0,
+                        'timestamp': ai_insights.get('generated_at'),
+                        'completed_at': ai_insights.get('generated_at'),
+                        'user_id': str(user_id),
+                        'insights_data': ai_insights.get('insights_data'),
+                        'model_used': ai_insights.get('model_used'),
+                        'insights_type': ai_insights.get('insights_type', 'comprehensive')
+                    }
+                    logger.info(f"Added AI insights to fast all-results for user {user_id}")
+            except Exception as ai_error:
+                logger.warning(f"Could not add AI insights to fast all-results for user {user_id}: {ai_error}")
             
             # Additional safety check: ensure all datetime and UUID objects are converted to strings
             def ensure_json_serializable(obj):

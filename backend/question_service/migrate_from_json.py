@@ -46,7 +46,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from core.database import get_db, engine
+from core.database_singleton import get_db, engine
 from question_service.app.models import Test, TestSection, TestDimension, Question, Option
 
 # Configure logging with colors

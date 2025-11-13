@@ -12,7 +12,7 @@ import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from core.database import get_db
+from core.database_singleton import get_db
 from core.cache import QueryCache
 
 logger = logging.getLogger(__name__)

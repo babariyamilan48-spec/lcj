@@ -237,7 +237,7 @@ async def debug_user_database(request: Request, user_id: str) -> Dict[str, Any]:
     """
     try:
         import uuid
-        from core.database import get_db
+        from core.database_singleton import get_db
         from question_service.app.models.test_result import TestResult as DBTestResult
         from sqlalchemy import and_
         

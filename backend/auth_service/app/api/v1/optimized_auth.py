@@ -17,7 +17,7 @@ import jwt
 import bcrypt
 from contextlib import asynccontextmanager
 
-from core.database import get_db
+from core.database_singleton import get_db
 from core.database_pool import get_optimized_db
 from core.simple_database_dependencies import get_simple_optimized_db
 from core.app_factory import resp

@@ -3,7 +3,7 @@ import secrets
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.orm import Session
-from core.database import get_db
+from core.database_singleton import get_db
 from auth_service.app.deps.auth import get_current_user
 from core.app_factory import resp
 from auth_service.app.schemas.user import (

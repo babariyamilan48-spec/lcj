@@ -163,7 +163,7 @@ class AIInsightsAsyncService {
     maxWaitTime: number = 300000 // 5 minutes max wait
   ): Promise<any> {
     const startTime = Date.now();
-    const pollInterval = 2000; // Poll every 2 seconds
+    const pollInterval = 3000; // Poll every 3 seconds (increased for cloud Redis)
 
     return new Promise((resolve, reject) => {
       const poll = async () => {

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from core.database import get_db
+from core.database_singleton import get_db
 from ..deps.auth import get_current_user
 from auth_service.app.models.user import User
 from ..models.test_result import TestResult, TestResultDetail, TestResultConfiguration

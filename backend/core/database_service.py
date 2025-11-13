@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import text
 
-from core.database import get_db, SessionLocal, engine, Base
+from core.database_singleton import get_db, SessionLocal, engine, Base
 from core.supabase_client import supabase_manager, SupabaseManager
 from core.config.settings import settings
 

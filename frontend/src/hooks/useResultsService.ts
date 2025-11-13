@@ -83,15 +83,15 @@ export const useTestResults = (userId?: string) => {
       // Fetch regular test results
       const response = await resultsService.getUserResults(userId, page, size);
 
-      // Fetch AI insights - temporarily disabled for debugging
-      const aiInsightsHistory = [];
-      // try {
-      //   aiInsightsHistory = await aiInsightsHistoryService.getAIInsightsHistory(userId);
-      //   console.log('📊 useTestResults: AI insights response:', aiInsightsHistory);
-      // } catch (aiError) {
-      //   console.warn('⚠️ useTestResults: AI insights failed, continuing without them:', aiError);
-      //   aiInsightsHistory = [];
-      // }
+      // Fetch AI insights
+      let aiInsightsHistory = [];
+      try {
+        aiInsightsHistory = await aiInsightsHistoryService.getAIInsightsHistory(userId);
+        console.log('📊 useTestResults: AI insights response:', aiInsightsHistory);
+      } catch (aiError) {
+        console.warn('⚠️ useTestResults: AI insights failed, continuing without them:', aiError);
+        aiInsightsHistory = [];
+      }
 
       // Convert AI insights to TestResult format
       const aiInsightsResults = aiInsightsHistory.map((insight: AIInsightsHistoryItem) => ({

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional
 import time
 
-from core.database import get_db
+from core.database_singleton import get_db
 from auth_service.app.models.user import User
 from ..deps.auth import get_current_user
 from ..models.test_result import TestResult

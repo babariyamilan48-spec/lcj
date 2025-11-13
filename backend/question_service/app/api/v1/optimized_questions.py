@@ -12,7 +12,7 @@ import time
 import logging
 from datetime import datetime
 
-from core.database import get_db
+from core.database_singleton import get_db
 from core.database_pool import get_optimized_db
 from core.app_factory import resp
 from core.cache import cache_async_result
