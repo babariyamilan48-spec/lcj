@@ -21,6 +21,7 @@ import {
   VARKResultDisplay
 } from '@/components/TestResultDisplays';
 import ModernAIInsights from '@/components/ModernAIInsights';
+import TestCalculationLoader from '@/components/TestCalculationLoader';
 import {
   Trophy,
   Target,
@@ -102,6 +103,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
   const [selectedInsight, setSelectedInsight] = useState<string>('');
   const [hasProcessed, setHasProcessed] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isCalculating, setIsCalculating] = useState(false);
   
   // Use centralized hook instead of direct API calls - consistent user ID logic
   const authUserId = user?.id || '';
@@ -255,6 +257,16 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
     checkTestCompletion();
   }, [checkTestCompletion]);
 
+  // Reset states when testResults changes (new test)
+  useEffect(() => {
+    if (testResults) {
+      setHasProcessed(false);
+      setCalculatedResult(null);
+      setIsCalculating(false); // Reset loading state for new test
+      console.log('🔄 Reset states for new test:', testResults.testId);
+    }
+  }, [testResults?.testId, testResults?.timestamp]);
+
   // Calculate dynamic result when component mounts or testResults change
   useEffect(() => {
     let isMounted = true;
@@ -263,6 +275,16 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
       if (!testResults || hasProcessed) return;
 
       try {
+        setIsCalculating(true);
+        console.log('🔄 Starting test result calculation...');
+
+        // Timeout fallback to prevent stuck loading state
+        const timeoutId = setTimeout(() => {
+          if (isMounted) {
+            console.warn('⚠️ Calculation timeout - resetting loading state');
+            setIsCalculating(false);
+          }
+        }, 10000); // 10 second timeout
 
         // Calculate result based on specific test type and answers using backend
         const result = await calculateTestResult(
@@ -284,6 +306,8 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
 
           setCalculatedResult(enhancedResult);
           setHasProcessed(true);
+          setIsCalculating(false); // Reset loading state immediately when we have results
+          clearTimeout(timeoutId); // Clear timeout since we got results
 
           // Auto-save the result
           await autoSaveResult(enhancedResult);
@@ -298,7 +322,10 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
         console.error('Error processing results:', error);
       } finally {
         if (isMounted) {
+          setIsCalculating(false);
           setIsInitialLoad(false);
+          clearTimeout(timeoutId); // Ensure timeout is cleared
+          console.log('✅ Test result calculation completed');
         }
       }
     };
@@ -907,8 +934,18 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
                 </div>
               )}
 
-              {/* No Data Available Message - Only show if no calculated result and no API data */}
-              {!isLoadingOverview && !calculatedResult && (!userOverview || !userOverview?.latest_test_results || userOverview.latest_test_results.length === 0) && (
+              {/* Calculation Loading State - Show when calculating test results and no results yet */}
+              {isCalculating && !calculatedResult && (
+                <TestCalculationLoader 
+                  title="Calculating Your Results"
+                  message="Processing your answers and generating personalized insights..."
+                  variant="detailed"
+                  showProgressSteps={true}
+                />
+              )}
+
+              {/* No Data Available Message - Only show if no calculated result and no API data and not calculating */}
+              {!isLoadingOverview && !isCalculating && !calculatedResult && (!userOverview || !userOverview?.latest_test_results || userOverview.latest_test_results.length === 0) && (
                 <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm text-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center mx-auto mb-4">
                     <BarChart3 className="w-8 h-8 text-white" />

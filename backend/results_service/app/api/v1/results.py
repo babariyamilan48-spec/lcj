@@ -416,14 +416,28 @@ async def get_all_test_results(request: Request, user_id: str):
                         'answers': result.answers,  # Include raw answers for AI analysis
                         'duration_minutes': result.duration_minutes,
                         'total_questions': result.total_questions,
-                        'timestamp': result.timestamp,
-                        'completed_at': result.completed_at,
-                        'user_id': result.user_id  # Include user_id for AI context
+                        'timestamp': result.timestamp.isoformat() if result.timestamp else None,
+                        'completed_at': result.completed_at.isoformat() if result.completed_at else None,
+                        'user_id': str(result.user_id)  # Convert UUID to string for JSON serialization
                     }
         
         logger.info(f"Retrieved {len(organized_results)} unique test results for user {user_id}")
         logger.info(f"Test types found: {list(organized_results.keys())}")
         
+        # Additional safety check: ensure all datetime and UUID objects are converted to strings
+        def ensure_json_serializable(obj):
+            if isinstance(obj, dict):
+                return {k: ensure_json_serializable(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [ensure_json_serializable(item) for item in obj]
+            elif hasattr(obj, 'isoformat'):  # datetime objects
+                return obj.isoformat()
+            elif hasattr(obj, 'hex'):  # UUID objects
+                return str(obj)
+            else:
+                return obj
+        
+        organized_results = ensure_json_serializable(organized_results)
         
         # Optimize and compress large responses
         optimized_results = optimize_large_response(organized_results)

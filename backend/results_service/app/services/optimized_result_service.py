@@ -345,13 +345,27 @@ class OptimizedResultService:
                         'answers': db_result.get("answers", {}),
                         'duration_minutes': (db_result.get("time_taken_seconds", 0) // 60),
                         'total_questions': len(db_result.get("answers", {})),
-                        'timestamp': db_result["created_at"],
-                        'completed_at': db_result.get("completed_at"),
-                        'user_id': user_id
+                        'timestamp': db_result["created_at"].isoformat() if db_result.get("created_at") else None,
+                        'completed_at': db_result.get("completed_at").isoformat() if db_result.get("completed_at") else None,
+                        'user_id': str(user_id)
                     }
             
             logger.info(f"Fast retrieval: {len(organized_results)} unique test results for user {user_id}")
-            return organized_results
+            
+            # Additional safety check: ensure all datetime and UUID objects are converted to strings
+            def ensure_json_serializable(obj):
+                if isinstance(obj, dict):
+                    return {k: ensure_json_serializable(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [ensure_json_serializable(item) for item in obj]
+                elif hasattr(obj, 'isoformat'):  # datetime objects
+                    return obj.isoformat()
+                elif hasattr(obj, 'hex'):  # UUID objects
+                    return str(obj)
+                else:
+                    return obj
+            
+            return ensure_json_serializable(organized_results)
             
         except Exception as e:
             logger.error(f"Error in get_all_test_results_fast: {str(e)}")

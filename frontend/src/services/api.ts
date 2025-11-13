@@ -42,6 +42,54 @@ const setupInterceptors = () => {
       // Add auth token if available
       const token = tokenStore.getAccessToken();
       if (token) config.headers.Authorization = `Bearer ${token}`;
+      
+      // API Optimization - Redirect to optimized endpoints
+      const url = config.url || '';
+      const method = (config.method || 'GET').toUpperCase();
+      
+      // Debug: Log the URL being processed
+      console.log(`🔍 Axios Request Intercepted: ${method}:${url}`);
+      
+      // Check if optimized endpoints should be used
+      const useOptimized = process.env.NEXT_PUBLIC_USE_OPTIMIZED === 'true' || 
+                          process.env.NODE_ENV === 'production' ||
+                          true; // Default to optimized
+      
+      if (useOptimized && url.includes('/api/v1/') && !url.includes('/optimized/')) {
+        // Endpoint redirects mapping
+        const ENDPOINT_REDIRECTS: Record<string, string> = {
+          'POST:/api/v1/auth_service/auth/login': '/api/v1/auth_service/optimized/auth/login/fast',
+          'GET:/api/v1/auth_service/auth/me': '/api/v1/auth_service/optimized/auth/me/fast',
+          'POST:/api/v1/results_service/results': '/api/v1/results_service/optimized/results/fast',
+          'GET:/api/v1/question_service/questions/': '/api/v1/question_service/optimized/questions/',
+          'GET:/api/v1/question_service/tests/': '/api/v1/question_service/optimized/tests/',
+          'POST:/api/v1/question_service/questions': '/api/v1/question_service/optimized/questions/fast',
+          'POST:/api/v1/question_service/test-results/calculate-and-save': '/api/v1/question_service/test-results/calculate-and-save/fast',
+          'GET:/api/v1/results_service/completion-status/': '/api/v1/results_service/completion-status/',
+        };
+        
+        const methodUrl = `${method}:${url}`;
+        
+        // Check for exact matches
+        for (const [pattern, replacement] of Object.entries(ENDPOINT_REDIRECTS)) {
+          const [patternMethod, patternUrl] = pattern.split(':');
+          
+          if (method === patternMethod && url.includes(patternUrl)) {
+            const newUrl = url.replace(patternUrl, replacement);
+            console.log(`🚀 API OPTIMIZATION: ${method} ${patternUrl} → ${replacement}`);
+            console.log(`   Original: ${url}`);
+            console.log(`   Optimized: ${newUrl}`);
+            
+            config.url = newUrl;
+            if (config.headers) {
+              config.headers['X-Optimized-Request'] = 'true';
+              config.headers['X-Performance-Tracking'] = 'enabled';
+            }
+            break;
+          }
+        }
+      }
+      
       return config;
     },
     (error) => {

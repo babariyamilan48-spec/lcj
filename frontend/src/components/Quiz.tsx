@@ -6,7 +6,8 @@ import { useAppStore } from '@/store/app-store';
 import { useQuestions } from '@/hooks/useQuestionService';
 import { useQuizSubmission } from '@/hooks/useResultsService';
 import { Question as ApiQuestion, Option as ApiOption } from '@/services/questionService';
-import { ChevronLeft, ChevronRight, Sparkles, Heart, Flower, Brain } from 'lucide-react';
+import { Heart, ChevronLeft, ChevronRight, Clock, CheckCircle, Target, BarChart3, Sparkles, Flower, Brain } from 'lucide-react';
+import TestCalculationLoader from './TestCalculationLoader';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Add custom scrollbar hiding styles
@@ -692,6 +693,19 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
         </div>
       </div>
     </div>
+
+    {/* Submission Loading Overlay */}
+    {(isSubmitting || submitting) && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-8 max-w-md mx-4">
+          <TestCalculationLoader 
+            title="Submitting Your Test"
+            message="Saving your answers and calculating results..."
+            variant="compact"
+          />
+        </div>
+      </div>
+    )}
     </>
   );
 };

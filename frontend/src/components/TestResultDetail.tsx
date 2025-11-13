@@ -3,13 +3,15 @@ import { motion } from 'framer-motion';
 import { 
   ArrowLeft,
   Download,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { useReportDownload } from '../hooks/useResultsService';
 import { calculateTestResult } from '../utils/testResultCalculators';
 import { MBTIResults, IntelligenceResults, BigFiveResults, RIASECResults, VARKResults, SVSResults, DecisionResults } from './results';
 import LifeSituationResults from './results/LifeSituationResults';
 import { useAuth } from '@/contexts/AuthContext';
+import TestCalculationLoader from './TestCalculationLoader';
 
 interface TestResult {
   id: string;
@@ -254,9 +256,11 @@ const TestResultDetail: React.FC<TestResultDetailProps> = ({ testResult, onClose
   const renderTestContent = () => {
     if (isCalculating) {
       return (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-600"></div>
-        </div>
+        <TestCalculationLoader 
+          title="Calculating Your Results"
+          message="Processing your test answers and generating detailed insights..."
+          variant="default"
+        />
       );
     }
 

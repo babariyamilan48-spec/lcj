@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
+import ApiInterceptorInit from '@/components/ApiInterceptorInit';
 
 
 const inter = Inter({ subsets: ['latin'] });
@@ -26,6 +27,7 @@ export default function RootLayout({
   return (
     <html lang="gu" dir="ltr">
       <body className={`${poppins.variable} font-sans`}>
+        <ApiInterceptorInit />
         <Providers>
           {children}
         </Providers>
