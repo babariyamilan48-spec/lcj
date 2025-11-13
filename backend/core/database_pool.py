@@ -2,7 +2,7 @@
 Optimized Database Connection Pool Configuration
 Prevents connection timeouts and ensures proper session management
 """
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 import logging
@@ -35,17 +35,17 @@ class OptimizedDatabasePool:
                 database_url,
                 # Connection pool settings - optimized for Supabase
                 poolclass=QueuePool,
-                pool_size=5,  # Reduced for Supabase connection limits
-                max_overflow=10,  # Reduced overflow
-                pool_timeout=5,  # Faster timeout for getting connection from pool
-                pool_recycle=1800,  # Recycle connections every 30 minutes
+                pool_size=3,  # Conservative for Supabase connection limits
+                max_overflow=5,  # Reduced overflow to prevent exhaustion
+                pool_timeout=10,  # Longer timeout for getting connection from pool
+                pool_recycle=900,  # Recycle connections every 15 minutes
                 pool_pre_ping=True,  # Validate connections before use
                 
                 # Connection settings - optimized for Supabase
                 connect_args={
-                    "connect_timeout": 5,  # Faster connection timeout
+                    "connect_timeout": 15,  # Longer connection timeout for Supabase
                     "application_name": "lcj_optimized_api",
-                    "options": "-c statement_timeout=10000 -c idle_in_transaction_session_timeout=30000"  # 10s query, 30s idle timeout
+                    "options": "-c statement_timeout=15000 -c idle_in_transaction_session_timeout=60000"  # 15s query, 60s idle timeout
                 },
                 
                 # Engine settings
@@ -77,10 +77,10 @@ class OptimizedDatabasePool:
             """Set connection-level settings for optimization"""
             try:
                 with dbapi_connection.cursor() as cursor:
-                    # Set aggressive timeouts for fast responses
-                    cursor.execute("SET statement_timeout = '10s'")  # 10 second query timeout
-                    cursor.execute("SET lock_timeout = '5s'")        # 5 second lock timeout
-                    cursor.execute("SET idle_in_transaction_session_timeout = '30s'")  # 30 second idle timeout
+                    # Set reasonable timeouts for Supabase
+                    cursor.execute("SET statement_timeout = '15s'")  # 15 second query timeout
+                    cursor.execute("SET lock_timeout = '10s'")        # 10 second lock timeout
+                    cursor.execute("SET idle_in_transaction_session_timeout = '60s'")  # 60 second idle timeout
                     cursor.execute("SET tcp_keepalives_idle = '600'")  # TCP keepalive
                     cursor.execute("SET tcp_keepalives_interval = '30'")  # TCP keepalive interval
                     cursor.execute("SET tcp_keepalives_count = '3'")   # TCP keepalive count
@@ -138,7 +138,7 @@ class OptimizedDatabasePool:
             
             # Test connection
             with self.engine.connect() as conn:
-                result = conn.execute("SELECT 1").scalar()
+                result = conn.execute(text("SELECT 1")).scalar()
                 
             # Get pool status
             pool = self.engine.pool

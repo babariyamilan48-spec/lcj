@@ -19,6 +19,7 @@ from contextlib import asynccontextmanager
 
 from core.database import get_db
 from core.database_pool import get_optimized_db
+from core.simple_database_dependencies import get_simple_optimized_db
 from core.app_factory import resp
 from core.cache import cache_async_result
 from core.rate_limit import limiter
@@ -48,16 +49,19 @@ class OptimizedAuthService:
         """Ensure database session is properly closed"""
         try:
             if self.db:
+                if exc_type is not None:
+                    # Rollback on exception
+                    self.db.rollback()
+                else:
+                    # Commit on success
+                    self.db.commit()
                 self.db.close()
         except Exception as e:
             logger.warning(f"Error closing auth database session: {e}")
     
     def authenticate_user_fast(self, email: str, password: str) -> Optional[User]:
-        """Ultra-fast user authentication with minimal database queries and timeout protection"""
+        """Ultra-fast user authentication with minimal database queries"""
         try:
-            # Set a query timeout at the session level
-            self.db.execute("SET statement_timeout = '5s'")
-            
             # Single optimized query - select only needed fields
             user = self.db.query(
                 User.id,
@@ -88,9 +92,6 @@ class OptimizedAuthService:
     def get_user_by_id_fast(self, user_id: str) -> Optional[User]:
         """Ultra-fast user retrieval by ID"""
         try:
-            # Set a query timeout at the session level
-            self.db.execute("SET statement_timeout = '5s'")
-            
             # Single optimized query - select only needed fields
             user = self.db.query(
                 User.id,
@@ -138,7 +139,7 @@ async def login_fast(
     request: Request,
     login_data: FastLoginRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_simple_optimized_db)
 ):
     """
     Ultra-fast user login
@@ -235,7 +236,7 @@ async def login_fast(
 async def get_current_user_fast(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_simple_optimized_db)
 ):
     """
     Ultra-fast current user retrieval
