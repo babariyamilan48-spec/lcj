@@ -471,7 +471,75 @@ class ResultService:
         return UserProfile(**profile_dict)
     
     @staticmethod
-    @cache_async_result(ttl=900, key_prefix="user_analytics")
+    @cache_async_result(ttl=900, key_prefix="all_test_results")
+    async def get_all_test_results(user_id: str) -> Dict[str, Any]:
+        """Get all test results organized by test type for comprehensive analysis"""
+        user_results = await ResultService.get_user_results(str(user_id))
+        
+        if not user_results:
+            return {}
+        
+        # Organize results by test type (get latest result for each test type)
+        organized_results = {}
+        
+        for result in user_results:
+            test_id = result.test_id
+            if test_id:
+                # Keep only the latest result for each test type
+                if test_id not in organized_results or result.timestamp > organized_results[test_id]['timestamp']:
+                    organized_results[test_id] = {
+                        'test_id': result.test_id,
+                        'test_name': result.test_name,
+                        'analysis': result.analysis,
+                        'score': result.score,
+                        'percentage': result.percentage,
+                        'percentage_score': result.percentage_score,
+                        'total_score': result.total_score,
+                        'dimensions_scores': result.dimensions_scores,
+                        'recommendations': result.recommendations,
+                        'answers': result.answers,
+                        'duration_minutes': result.duration_minutes,
+                        'total_questions': result.total_questions,
+                        'timestamp': result.timestamp.isoformat() if hasattr(result.timestamp, 'isoformat') else str(result.timestamp),
+                        'completed_at': result.completed_at.isoformat() if hasattr(result.completed_at, 'isoformat') else str(result.completed_at),
+                        'user_id': str(user_id)
+                    }
+        
+        logger.info(f"Retrieved {len(organized_results)} unique test results for user {user_id}")
+        logger.info(f"Test types found: {list(organized_results.keys())}")
+        
+        # Add AI insights to the results if they exist
+        try:
+            ai_insights = await ResultService.get_user_ai_insights(user_id)
+            if ai_insights:
+                # Add AI insights as a special test type
+                organized_results['comprehensive-ai-insights'] = {
+                    'test_id': 'comprehensive-ai-insights',
+                    'test_name': 'સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)',
+                    'analysis': 'AI_INSIGHTS',
+                    'score': 100,
+                    'percentage': 100,
+                    'percentage_score': 100,
+                    'total_score': 100,
+                    'dimensions_scores': {},
+                    'recommendations': [],
+                    'answers': {},
+                    'duration_minutes': None,
+                    'total_questions': 0,
+                    'timestamp': ai_insights.get('generated_at'),
+                    'completed_at': ai_insights.get('generated_at'),
+                    'user_id': str(user_id),
+                    'insights_data': ai_insights.get('insights_data'),
+                    'model_used': ai_insights.get('model_used'),
+                    'insights_type': ai_insights.get('insights_type', 'comprehensive')
+                }
+                logger.info(f"Added AI insights to all-results for user {user_id}")
+        except Exception as ai_error:
+            logger.warning(f"Could not add AI insights to all-results for user {user_id}: {ai_error}")
+        
+        return organized_results
+
+    @staticmethod
     async def get_user_analytics(user_id: str) -> Dict[str, Any]:
         """Get user analytics data - OPTIMIZED with caching"""
         user_results = await ResultService.get_user_results(user_id)

@@ -141,10 +141,11 @@ const VARKResults: React.FC<VARKResultsProps> = ({ calculatedResult, testResults
   // Enhance styles with detailed data
   const enhancedStyles = allStyles.map((style: any) => ({
     ...style,
-    ...varkDetailedData[style.type.toLowerCase() as keyof typeof varkDetailedData] || {}
+    ...varkDetailedData[(style.type && typeof style.type === 'string' ? style.type.toLowerCase() : 'visual') as keyof typeof varkDetailedData] || {}
   }));
 
   const getStyleIcon = (type: string) => {
+    if (!type || typeof type !== 'string') return <Eye className="w-6 h-6" />;
     switch (type.toLowerCase()) {
       case 'visual': return <Eye className="w-6 h-6" />;
       case 'aural': 
@@ -163,7 +164,7 @@ const VARKResults: React.FC<VARKResultsProps> = ({ calculatedResult, testResults
       'read-write': isPrimary ? 'from-green-500 to-emerald-600' : 'from-green-300 to-emerald-400',
       kinesthetic: isPrimary ? 'from-purple-500 to-violet-600' : 'from-purple-300 to-violet-400'
     };
-    return baseColors[type.toLowerCase() as keyof typeof baseColors] || 'from-gray-400 to-gray-500';
+    return baseColors[(type && typeof type === 'string' ? type.toLowerCase() : 'visual') as keyof typeof baseColors] || 'from-gray-400 to-gray-500';
   };
 
   // Calculate completion percentage

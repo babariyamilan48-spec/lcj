@@ -36,6 +36,10 @@ const BigFiveResults: React.FC<BigFiveResultsProps> = ({ calculatedResult, testR
   const completionRate = totalQuestions > 0 ? 100 : 0;
 
   const getTraitIcon = (level: string) => {
+    if (!level || typeof level !== 'string') {
+      return <Minus className="w-4 h-4" />;
+    }
+    
     switch (level.toLowerCase()) {
       case 'ઉચ્ચ':
       case 'high':

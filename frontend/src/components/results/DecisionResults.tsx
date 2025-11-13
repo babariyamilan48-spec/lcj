@@ -37,6 +37,7 @@ const DecisionResults: React.FC<DecisionResultsProps> = ({ calculatedResult, tes
   const completionRate = totalQuestions > 0 ? 100 : 0;
 
   const getStyleIcon = (type: string) => {
+    if (!type || typeof type !== 'string') return <Brain className="w-6 h-6" />;
     switch (type.toLowerCase()) {
       case 'rational': return <Brain className="w-6 h-6" />;
       case 'intuitive': return <Zap className="w-6 h-6" />;
@@ -55,7 +56,7 @@ const DecisionResults: React.FC<DecisionResultsProps> = ({ calculatedResult, tes
       avoidant: isPrimary ? 'from-red-500 to-pink-600' : 'from-red-300 to-pink-400',
       spontaneous: isPrimary ? 'from-yellow-500 to-orange-600' : 'from-yellow-300 to-orange-400'
     };
-    return colors[type.toLowerCase() as keyof typeof colors] || 'from-gray-400 to-gray-500';
+    return colors[(type && typeof type === 'string' ? type.toLowerCase() : 'rational') as keyof typeof colors] || 'from-gray-400 to-gray-500';
   };
 
   return (

@@ -38,6 +38,7 @@ const IntelligenceResults: React.FC<IntelligenceResultsProps> = ({ calculatedRes
   const completionRate = totalQuestions > 0 ? 100 : 0;
 
   const getIntelligenceIcon = (type: string) => {
+    if (!type || typeof type !== 'string') return <Brain className="w-6 h-6" />;
     switch (type.toLowerCase()) {
       case 'linguistic': return <Brain className="w-6 h-6" />;
       case 'logical': return <BarChart3 className="w-6 h-6" />;

@@ -39,6 +39,7 @@ const RIASECResults: React.FC<RIASECResultsProps> = ({ calculatedResult, testRes
   const completionRate = totalQuestions > 0 ? 100 : 0;
 
   const getInterestIcon = (type: string) => {
+    if (!type || typeof type !== 'string') return <Wrench className="w-6 h-6" />;
     switch (type.toLowerCase()) {
       case 'realistic': return <Wrench className="w-6 h-6" />;
       case 'investigative': return <Search className="w-6 h-6" />;

@@ -20,6 +20,7 @@ const SVSResults: React.FC<SVSResultsProps> = ({ calculatedResult, testResults }
   const completionRate = totalQuestions > 0 ? 100 : 0;
 
   const getValueIcon = (type: string) => {
+    if (!type || typeof type !== 'string') return <Award className="w-6 h-6" />;
     switch (type.toLowerCase()) {
       case 'achievement': return <Award className="w-6 h-6" />;
       case 'power': return <TrendingUp className="w-6 h-6" />;

@@ -51,6 +51,9 @@ export default function ProfilePage() {
   // Remove this useEffect - fetchResults is already called by useTestResults hook automatically
   const { analyticsData, loading: analyticsLoading } = useAnalytics(userId);
   
+  // State for download modal
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  
   // Fallback: If results are empty, try to get them from analyticsData
   const effectiveResults = results && results.length > 0 
     ? results 
@@ -965,6 +968,20 @@ export default function ProfilePage() {
                   Refresh Results
                 </button>
                 {pagination.total > 0 && (
+                  <button
+                    onClick={() => {
+                      // Show preview modal first, then open report
+                      setShowDownloadModal(true);
+                    }}
+                    className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center space-x-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Download All</span>
+                  </button>
+                )}
+                {pagination.total > 0 && (
                   <div className="text-sm text-gray-500">
                     {pagination.total} total test{pagination.total !== 1 ? 's' : ''}
                   </div>
@@ -1082,6 +1099,82 @@ export default function ProfilePage() {
         )}
 
       </div>
+
+      {/* Download All Modal */}
+      {showDownloadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
+          >
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">બધા ટેસ્ટ પરિણામો ડાઉનલોડ કરો</h3>
+                <p className="text-sm text-gray-600">વ્યાપક રિપોર્ટ બનાવો</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-4">
+                આ તમારા બધા ટેસ્ટ પરિણામો અને AI વિશ્લેષણને એક જ દસ્તાવેજમાં સમાવતી વ્યાપક રિપોર્ટ બનાવશે.
+              </p>
+              
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">શું સમાવેશ થાય છે:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• બધા {pagination.total} પૂર્ણ થયેલા ટેસ્ટ</li>
+                  <li>• વિગતવાર વિશ્લેષણ અને સ્કોર</li>
+                  <li>• AI વિશ્લેષણ (જો ઉપલબ્ધ હોય)</li>
+                  <li>• સારાંશ આંકડાકીય માહિતી</li>
+                  <li>• ભલામણો</li>
+                </ul>
+              </div>
+
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center space-x-2 text-blue-800">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm font-medium">પ્રિન્ટ ડાયલોગ</span>
+                </div>
+                <p className="text-xs text-blue-700 mt-1">
+                  તમારી રિપોર્ટ સાથે નવી વિન્ડો ખુલશે. PDF તરીકે સાચવવા અથવા પ્રિન્ટ કરવા માટે તમારા બ્રાઉઝરના પ્રિન્ટ ફંક્શનનો ઉપયોગ કરો.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDownloadModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                રદ કરો
+              </button>
+              <button
+                onClick={() => {
+                  setShowDownloadModal(false);
+                  // Open comprehensive report in new window for printing
+                  const reportUrl = `/comprehensive-report/${userId}`;
+                  window.open(reportUrl, '_blank', 'width=1200,height=800');
+                }}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                <span>રિપોર્ટ બનાવો</span>
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       <ModernFooter />
       <Toaster />
