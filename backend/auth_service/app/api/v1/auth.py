@@ -22,6 +22,7 @@ from auth_service.app.schemas.user import (
 from auth_service.app.services.auth import (
     register_user,
     authenticate_user,
+    authenticate_user_with_details,
     generate_tokens_for_user,
     ensure_password_provider,
     check_user_login_eligibility,
@@ -76,9 +77,30 @@ def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)
 @router.post("/login")
 @limiter.limit("5/minute")
 def login(request: Request, payload: LoginInput, db: Session = Depends(get_db)):
-    user = authenticate_user(db, payload.email, payload.password)
+    user, error_type = authenticate_user_with_details(db, payload.email, payload.password)
+    
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+        if error_type == 'user_not_found':
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="No account found with this email. Please sign up first."
+            )
+        elif error_type == 'incorrect_password':
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Incorrect password. Please try again."
+            )
+        elif error_type == 'inactive_user':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="Your account is inactive. Please contact support."
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Login failed. Please check your credentials."
+            )
+    
     ensure_password_provider(user)
     check_user_login_eligibility(user)
     access_token, refresh_token = generate_tokens_for_user(user, db)

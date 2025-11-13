@@ -130,6 +130,20 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
         return None
     return user
 
+def authenticate_user_with_details(db: Session, email: str, password: str) -> tuple[Optional[User], str]:
+    """
+    Authenticate user and return detailed error information
+    Returns: (user, error_type) where error_type can be 'user_not_found', 'incorrect_password', 'inactive_user', or 'success'
+    """
+    user = get_user_by_email(db, email)
+    if not user:
+        return None, 'user_not_found'
+    if not verify_password(password, user.password_hash or ""):
+        return None, 'incorrect_password'
+    if not user.is_active:
+        return None, 'inactive_user'
+    return user, 'success'
+
 def generate_tokens_for_user(user: User, db: Session, device: str | None = None):
     # Create DB refresh token record
     jti = uuid.uuid4().hex

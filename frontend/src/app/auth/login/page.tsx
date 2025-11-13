@@ -22,6 +22,7 @@ function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, isAuthenticated, user } = useAuth();
+  const [userNotFound, setUserNotFound] = React.useState(false);
   
   // Redirect if already authenticated (respect admin role)
   React.useEffect(() => {
@@ -59,6 +60,7 @@ function LoginPageContent() {
             validationSchema={LoginSchema}
             onSubmit={async (values, { setSubmitting }) => {
               setSubmitting(true);
+              setUserNotFound(false); // Reset user not found state
               try {
                 const result = await login(values.email, values.password);
                 if (result.success) {
@@ -83,9 +85,14 @@ function LoginPageContent() {
                   modernToast.auth.loginError();
                 }
               } catch (err: any) {
-                // Display the actual error message from the backend
+                // Check if this is a user not found error
                 const errorMessage = err.message || 'Login failed. Please try again.';
-                modernToast.auth.loginError();
+                if (errorMessage.includes('No account found') || errorMessage.includes('Please sign up first')) {
+                  setUserNotFound(true);
+                } else {
+                  setUserNotFound(false);
+                  modernToast.auth.loginError();
+                }
               } finally {
                 setSubmitting(false);
               }
@@ -131,6 +138,44 @@ function LoginPageContent() {
               </Form>
             )}
           </Formik>
+          
+          {/* User Not Found Message */}
+          {userNotFound && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Account not found
+                  </h3>
+                  <p className="mt-1 text-sm text-blue-700">
+                    No account exists with this email address. Please create an account first.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <motion.a
+                  href="/auth/signup"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Create Account
+                </motion.a>
+              </div>
+            </motion.div>
+          )}
       <Toaster position="top-right" />
     </AuthCard>
   );

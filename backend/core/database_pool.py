@@ -30,22 +30,22 @@ class OptimizedDatabasePool:
                 logger.warning("DATABASE_URL not found, using default")
                 return
             
-            # Optimized engine configuration
+            # Optimized engine configuration for Supabase
             self.engine = create_engine(
                 database_url,
-                # Connection pool settings
+                # Connection pool settings - optimized for Supabase
                 poolclass=QueuePool,
-                pool_size=20,  # Number of connections to maintain
-                max_overflow=30,  # Additional connections when pool is full
-                pool_timeout=30,  # Timeout when getting connection from pool
-                pool_recycle=3600,  # Recycle connections every hour
+                pool_size=5,  # Reduced for Supabase connection limits
+                max_overflow=10,  # Reduced overflow
+                pool_timeout=5,  # Faster timeout for getting connection from pool
+                pool_recycle=1800,  # Recycle connections every 30 minutes
                 pool_pre_ping=True,  # Validate connections before use
                 
-                # Connection settings
+                # Connection settings - optimized for Supabase
                 connect_args={
-                    "connect_timeout": 10,  # Connection timeout
+                    "connect_timeout": 5,  # Faster connection timeout
                     "application_name": "lcj_optimized_api",
-                    "options": "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"  # 30s query, 60s idle timeout
+                    "options": "-c statement_timeout=10000 -c idle_in_transaction_session_timeout=30000"  # 10s query, 30s idle timeout
                 },
                 
                 # Engine settings
@@ -77,14 +77,15 @@ class OptimizedDatabasePool:
             """Set connection-level settings for optimization"""
             try:
                 with dbapi_connection.cursor() as cursor:
-                    # Set connection timeout
-                    cursor.execute("SET statement_timeout = '30s'")
-                    # Set lock timeout
-                    cursor.execute("SET lock_timeout = '10s'")
-                    # Set idle timeout
-                    cursor.execute("SET idle_in_transaction_session_timeout = '60s'")
+                    # Set aggressive timeouts for fast responses
+                    cursor.execute("SET statement_timeout = '10s'")  # 10 second query timeout
+                    cursor.execute("SET lock_timeout = '5s'")        # 5 second lock timeout
+                    cursor.execute("SET idle_in_transaction_session_timeout = '30s'")  # 30 second idle timeout
+                    cursor.execute("SET tcp_keepalives_idle = '600'")  # TCP keepalive
+                    cursor.execute("SET tcp_keepalives_interval = '30'")  # TCP keepalive interval
+                    cursor.execute("SET tcp_keepalives_count = '3'")   # TCP keepalive count
                     
-                logger.debug("Connection settings applied")
+                logger.debug("Optimized connection settings applied")
             except Exception as e:
                 logger.warning(f"Failed to set connection settings: {e}")
         

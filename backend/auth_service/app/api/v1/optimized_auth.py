@@ -52,9 +52,12 @@ class OptimizedAuthService:
         except Exception as e:
             logger.warning(f"Error closing auth database session: {e}")
     
-    async def authenticate_user_fast(self, email: str, password: str) -> Optional[User]:
-        """Ultra-fast user authentication with minimal database queries"""
+    def authenticate_user_fast(self, email: str, password: str) -> Optional[User]:
+        """Ultra-fast user authentication with minimal database queries and timeout protection"""
         try:
+            # Set a query timeout at the session level
+            self.db.execute("SET statement_timeout = '5s'")
+            
             # Single optimized query - select only needed fields
             user = self.db.query(
                 User.id,
@@ -82,9 +85,12 @@ class OptimizedAuthService:
             logger.error(f"Fast auth error: {e}")
             return None
     
-    async def get_user_by_id_fast(self, user_id: str) -> Optional[User]:
+    def get_user_by_id_fast(self, user_id: str) -> Optional[User]:
         """Ultra-fast user retrieval by ID"""
         try:
+            # Set a query timeout at the session level
+            self.db.execute("SET statement_timeout = '5s'")
+            
             # Single optimized query - select only needed fields
             user = self.db.query(
                 User.id,
@@ -145,7 +151,7 @@ async def login_fast(
         
         with OptimizedAuthService(db) as auth_service:
             # Fast authentication
-            user = await auth_service.authenticate_user_fast(
+            user = auth_service.authenticate_user_fast(
                 login_data.email, 
                 login_data.password
             )
@@ -153,10 +159,19 @@ async def login_fast(
             if not user:
                 processing_time = (time.time() - start_time) * 1000
                 logger.warning(f"Fast login failed for {login_data.email} in {processing_time:.2f}ms")
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid email or password"
-                )
+                
+                # Check if user exists to provide better error message
+                user_exists = auth_service.db.query(User.email).filter(User.email == login_data.email).first()
+                if not user_exists:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="No account found with this email. Please sign up first."
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Invalid email or password"
+                    )
             
             # Fast token generation
             access_token, refresh_token = create_token_pair(str(user.id), user.email)
@@ -240,7 +255,7 @@ async def get_current_user_fast(
         
         with OptimizedAuthService(db) as auth_service:
             # Fast user retrieval
-            user = await auth_service.get_user_by_id_fast(user_id)
+            user = auth_service.get_user_by_id_fast(user_id)
             
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
