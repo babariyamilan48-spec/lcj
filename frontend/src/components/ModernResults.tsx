@@ -104,12 +104,12 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
   const [hasProcessed, setHasProcessed] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
-  
+
   // Use centralized hook instead of direct API calls - consistent user ID logic
   const authUserId = user?.id || '';
   const storageUserId = localStorage.getItem('userId') || '';
   const userId = authUserId || storageUserId;
-  
+
   // Always call hooks - conditional rendering comes after
   const { overview: userOverview, loading: isLoadingOverview, error: overviewError } = useUserOverview(userId || 'default');
 
@@ -144,7 +144,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
       const authUserId = user?.id || '';
       const storageUserId = localStorage.getItem('userId') || '';
       const userId = authUserId || storageUserId;
-      
+
       if (!userId) {
         console.error('🚨 No user ID available for saving test result');
         setSaveStatus('error');
@@ -186,7 +186,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
       const authUserId = user?.id || '';
       const storageUserId = localStorage.getItem('userId') || '';
       const userId = authUserId || storageUserId;
-      
+
       if (!userId) {
         throw new Error('No user ID available for AI insights');
       }
@@ -209,7 +209,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
   // Check test completion status callback
   const checkTestCompletion = useCallback(async () => {
     if (!userId) return null;
-    
+
     try {
       const statusResponse = await completionStatusService.getCompletionStatus(userId, true);
       const status = {
@@ -311,12 +311,12 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
 
           // Auto-save the result
           await autoSaveResult(enhancedResult);
-          
+
           // CRITICAL FIX: Refresh completion status after test is saved
           console.log('🔄 Refreshing completion status after test completion...');
           await checkTestCompletion();
         } else {
-          
+
         }
       } catch (error) {
         console.error('Error processing results:', error);
@@ -351,7 +351,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
     const testName = testResults?.testName || 'Test Result';
     const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     const filename = `${testName}_Report_${timestamp}`;
-    
+
     document.title = filename;
     window.print();
     document.title = originalTitle;
@@ -627,8 +627,8 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
         return <DecisionResults calculatedResult={calculatedResult} testResults={testResults} />;
 
       case 'life-situation':
-        return <LifeSituationResults 
-          calculatedResult={calculatedResult} 
+        return <LifeSituationResults
+          calculatedResult={calculatedResult}
           testResults={testResults}
           userAnswers={(testResults as any)?.userAnswers}
           questions={(testResults as any)?.questions}
@@ -936,7 +936,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
 
               {/* Calculation Loading State - Show when calculating test results and no results yet */}
               {isCalculating && !calculatedResult && (
-                <TestCalculationLoader 
+                <TestCalculationLoader
                   title="Calculating Your Results"
                   message="Processing your answers and generating personalized insights..."
                   variant="detailed"
@@ -998,11 +998,11 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
                         {!calculatedResult?.testType && 'તમારા પરીક્ષણ પરિણામો'}
                       </p>
                       <div className="space-y-2">
-                        <div className="inline-flex items-center px-4 py-2 bg-primary-50 text-primary-700 rounded-full border border-primary-200">
+                        {/* <div className="inline-flex items-center px-4 py-2 bg-primary-50 text-primary-700 rounded-full border border-primary-200">
                           <span className="font-semibold">
                             {calculatedResult?.testType ? `${calculatedResult.testType.toUpperCase()} Test` : 'Test Completed'}
                           </span>
-                        </div>
+                        </div> */}
                         {calculatedResult && (
                           <div className="inline-flex items-center px-4 py-2 bg-green-50 text-green-700 rounded-full border border-green-200">
                             <span className="font-semibold">

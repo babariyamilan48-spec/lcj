@@ -47,12 +47,12 @@ def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)
     print(f"[SIGNUP] Received signup request for email: {payload.email}")
     print(f"[SIGNUP] Username: {payload.username}")
     print(f"[SIGNUP] Password length: {len(payload.password)}")
-    
+
     try:
         print(f"[SIGNUP] Calling register_user...")
         user = register_user(db, payload)
         print(f"[SIGNUP] User created successfully: {user.email}")
-        
+
         print(f"[SIGNUP] Creating UserOut response...")
         out = UserOut(
             id=str(user.id),
@@ -78,29 +78,29 @@ def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)
 @limiter.limit("5/minute")
 def login(request: Request, payload: LoginInput, db: Session = Depends(get_db)):
     user, error_type = authenticate_user_with_details(db, payload.email, payload.password)
-    
+
     if not user:
         if error_type == 'user_not_found':
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="No account found with this email. Please sign up first."
             )
         elif error_type == 'incorrect_password':
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect password. Please try again."
             )
         elif error_type == 'inactive_user':
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, 
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Your account is inactive. Please contact support."
             )
         else:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Login failed. Please check your credentials."
             )
-    
+
     ensure_password_provider(user)
     check_user_login_eligibility(user)
     access_token, refresh_token = generate_tokens_for_user(user, db)
@@ -179,24 +179,23 @@ def verify_email_request(request: Request, payload: VerifyEmailRequestInput, db:
     db.add(otp)
     db.commit()
     # Send email (prints if skipped)
-    from core.email import send_email, otp_email_html, is_email_configured
-    import anyio
-    
+    from core.email import send_email_sync, otp_email_html, is_email_configured
+
     if not is_email_configured():
         return resp(
-            message="Email service not configured. Please contact administrator to set up SMTP settings.",
+            message="Email service not configured. Please contact administrator to set up email settings.",
             status_code=503
         )
-    
+
     html = otp_email_html("Verify your email", otp.code, "This code expires in 10 minutes.")
-    email_sent = anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
-    
+    email_sent = send_email_sync("Verify your email", [payload.email], html)
+
     if not email_sent:
         return resp(
             message="Failed to send verification email. Please try again later or contact support.",
             status_code=503
         )
-    
+
     return resp(message="Verification code sent successfully.")
 
 @router.post("/verify-email/confirm")
@@ -227,11 +226,11 @@ def me(current_user=Depends(get_current_user)):
 def change_password(payload: ChangePasswordInput, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     print(f"Password change endpoint reached for user: {current_user.email}")  # Debug log
     print(f"Payload: old_password='{payload.old_password}', new_password='{payload.new_password}'")  # Debug log
-    
+
     if payload.old_password == payload.new_password:
         print("Error: New password same as old password")  # Debug log
         raise HTTPException(status_code=400, detail="New password must differ from old password")
-    
+
     try:
         from auth_service.app.services.auth import change_password as svc_change_password
         print("Calling service change_password function...")  # Debug log
@@ -311,4 +310,3 @@ def delete_account(current_user=Depends(get_current_user), db: Session = Depends
     from auth_service.app.services.auth import delete_account as svc_delete_account
     svc_delete_account(db, current_user)
     return resp(message="Account deleted.")
-

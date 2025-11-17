@@ -1777,15 +1777,34 @@ class ResultService:
             
             if ai_insights:
                 print(f"Found existing AI insights for user {user_id}")
+                
+                # Parse insights_data if it's a JSON string
+                insights_data = ai_insights.insights_data
+                print(f"DEBUG: insights_data type: {type(insights_data)}")
+                print(f"DEBUG: insights_data is string: {isinstance(insights_data, str)}")
+                
+                if isinstance(insights_data, str):
+                    try:
+                        import json
+                        print(f"DEBUG: Attempting to parse JSON string of length {len(insights_data)}")
+                        insights_data = json.loads(insights_data)
+                        print(f"DEBUG: Successfully parsed JSON, new type: {type(insights_data)}")
+                    except json.JSONDecodeError as e:
+                        print(f"DEBUG: Failed to parse JSON: {e}")
+                        logger.error(f"Failed to parse insights_data JSON for user {user_id}: {e}")
+                        insights_data = ai_insights.insights_data  # Keep as string if parsing fails
+                else:
+                    print(f"DEBUG: insights_data is already parsed, type: {type(insights_data)}")
+                
                 return {
                     "id": ai_insights.id,
-                    "user_id": ai_insights.user_id,
+                    "user_id": str(ai_insights.user_id),  # Convert UUID to string
                     "insights_type": ai_insights.insights_type,
-                    "insights_data": ai_insights.insights_data,
+                    "insights_data": insights_data,  # Now parsed JSON object
                     "model_used": ai_insights.model_used,
                     "status": ai_insights.status,
                     "generated_at": ai_insights.generated_at.isoformat(),
-                    "timestamp": ai_insights.generated_at  # For compatibility
+                    "timestamp": ai_insights.generated_at.isoformat()  # For compatibility, also as string
                 }
             
             print(f"No existing AI insights found for user {user_id}")

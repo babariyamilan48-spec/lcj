@@ -13,8 +13,23 @@ import asyncio
 import time
 import logging
 from datetime import datetime, timedelta
-import jwt
-import bcrypt
+
+# Handle missing dependencies gracefully
+try:
+    import jwt
+    JWT_AVAILABLE = True
+except ImportError:
+    print("[AUTH] ⚠️ PyJWT not available. JWT functionality will be disabled.")
+    JWT_AVAILABLE = False
+    jwt = None
+
+try:
+    import bcrypt
+    BCRYPT_AVAILABLE = True
+except ImportError:
+    print("[AUTH] ⚠️ bcrypt not available. Password hashing will be disabled.")
+    BCRYPT_AVAILABLE = False
+    bcrypt = None
 from contextlib import asynccontextmanager
 
 from core.database_singleton import get_db

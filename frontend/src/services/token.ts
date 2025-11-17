@@ -115,5 +115,9 @@ export const tokenStore = {
     }
     return !!(accessToken && currentUserId);
   },
+  // Get current user ID for session tracking
+  getUserId: () => {
+    return currentUserId;
+  },
 };
 

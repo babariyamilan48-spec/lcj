@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from core.config.settings import settings
 from core.middleware.compression import CompressionMiddleware, ResponseOptimizationMiddleware, JSONOptimizationMiddleware
+from core.middleware.session_monitoring import SessionMonitoringMiddleware
 
 def middleware_health_check():
     """Check middleware health status"""
@@ -25,7 +26,10 @@ logger = logging.getLogger(__name__)
 def setup_middlewares(app: FastAPI) -> None:
     """Setup optimized middlewares for maximum performance"""
     
-    # Add performance optimization middlewares first
+    # Add session monitoring middleware first (for tracking)
+    app.add_middleware(SessionMonitoringMiddleware)
+    
+    # Add performance optimization middlewares
     app.add_middleware(JSONOptimizationMiddleware)
     app.add_middleware(ResponseOptimizationMiddleware)
     app.add_middleware(CompressionMiddleware, minimum_size=500, compression_level=6)
@@ -66,6 +70,7 @@ def setup_middlewares(app: FastAPI) -> None:
     )
     
     logger.info("Performance optimization middlewares enabled")
+    logger.info("- Session monitoring: Enabled")
     logger.info("- JSON optimization: Enabled")
     logger.info("- Response compression: Enabled (min 500 bytes)")
     logger.info("- Response optimization: Enabled")
@@ -75,6 +80,7 @@ def setup_middlewares(app: FastAPI) -> None:
 def middleware_health_check():
     """Check middleware configuration health"""
     return {
+        "session_monitoring": "enabled",
         "compression": "enabled",
         "json_optimization": "enabled",
         "response_optimization": "enabled",

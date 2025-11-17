@@ -12,6 +12,7 @@ from auth_service.app.api.v1.api import api_router as auth_router  # noqa: E402
 from question_service.app.api.v1.api import api_router as question_router  # noqa: E402
 from results_service.app.api.v1.api import api_router as results_router  # noqa: E402
 from contact_service.app.api.v1.api import api_router as contact_router  # noqa: E402
+from core.api.session_management import router as session_management_router  # noqa: E402
 
 # Create unified FastAPI application
 app = create_app({
@@ -26,18 +27,37 @@ app.include_router(question_router, prefix="/api/v1/question_service", tags=["Qu
 app.include_router(results_router, prefix="/api/v1/results_service", tags=["Results"])
 app.include_router(contact_router, prefix="/api/v1/contact_service", tags=["Contact"])
 
+# Include session management router
+app.include_router(session_management_router, prefix="/api/v1/core", tags=["Session Management"])
+
 # Health check endpoints for individual services
 @app.get("/health")
 async def health_check():
-    """Fast health check without heavy performance monitoring"""
+    """Fast health check with session management monitoring"""
     try:
         # Quick database check
         from core.database import check_db_health
         db_status = check_db_health()
         
+        # Session management health check
+        try:
+            from core.session_manager import get_session_health
+            session_status = get_session_health()
+        except Exception as e:
+            session_status = {"status": "error", "error": str(e)}
+        
+        # Determine overall status
+        overall_status = "healthy"
+        if db_status.get("status") != "healthy":
+            overall_status = "degraded"
+        if session_status.get("status") not in ["healthy", "warning"]:
+            overall_status = "degraded"
+        if session_status.get("status") == "critical":
+            overall_status = "critical"
+        
         return {
-            "status": "healthy" if db_status.get("status") == "healthy" else "degraded",
-            "service": "unified_lcj_api",
+            "status": overall_status,
+            "service": "unified_lcj_api_with_session_management",
             "services": {
                 "auth": "healthy",
                 "questions": "healthy", 
@@ -45,12 +65,13 @@ async def health_check():
                 "contact": "healthy"
             },
             "database": db_status,
+            "session_management": session_status,
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
         return {
             "status": "unhealthy",
-            "service": "unified_lcj_api", 
+            "service": "unified_lcj_api_with_session_management", 
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }
@@ -99,10 +120,10 @@ async def root():
         "message": "LCJ Career Assessment System - Unified API (OPTIMIZED)",
         "version": "1.0.0",
         "services": {
-            "auth": "/api/v1/auth",
-            "questions": "/api/v1/questions",
-            "results": "/api/v1/results",
-            "contact": "/api/v1/contact"
+            "auth": "/api/v1/auth_service/auth",
+            "questions": "/api/v1/question_service",
+            "results": "/api/v1/results_service",
+            "contact": "/api/v1/contact_service"
         },
         "monitoring": {
             "health": "/health",
@@ -111,32 +132,42 @@ async def root():
         },
         "docs": "/docs",
         "optimizations": [
+            "Centralized Session Management",
             "Redis Caching",
             "Response Compression",
             "Database Connection Pooling",
             "Query Optimization",
-            "JSON Optimization"
+            "JSON Optimization",
+            "Session Monitoring",
+            "User Session Isolation"
         ]
     }
 
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 LCJ Unified API Server starting up... (OPTIMIZED)")
+    print("🚀 LCJ Unified API Server starting up... (SESSION OPTIMIZED)")
     print("📋 Available services:")
-    print("   • Auth Service: /api/v1/auth")
-    print("   • Question Service: /api/v1/questions")
-    print("   • Results Service: /api/v1/results")
-    print("   • Contact Service: /api/v1/contact")
+    print("   • Auth Service: /api/v1/auth_service/auth")
+    print("   • Question Service: /api/v1/question_service")
+    print("   • Results Service: /api/v1/results_service")
+    print("   • Contact Service: /api/v1/contact_service")
+    print("   • Session Management: /api/v1/core/session-management")
     print("📖 API Documentation: http://localhost:8000/docs")
     print("💚 Health Check: http://localhost:8000/health")
     print("⚡ Performance Dashboard: http://localhost:8000/performance")
-    print("🔧 Optimizations enabled:")
+    print("🔧 Session Management Features:")
+    print("   • Centralized session management with guaranteed cleanup")
+    print("   • User session isolation (one session per user operation)")
+    print("   • Real-time session monitoring and leak detection")
+    print("   • Automatic session cleanup based on thresholds")
+    print("   • Session health monitoring and alerting")
+    print("🚀 Performance Optimizations:")
     print("   • Redis caching with intelligent TTL")
     print("   • Response compression (gzip)")
-    print("   • Database connection pooling (20+ connections)")
+    print("   • Database connection pooling with session management")
     print("   • Query optimization with eager loading")
     print("   • JSON response optimization")
-    print("   • Performance monitoring")
+    print("   • Background session cleanup tasks")
 
 @app.on_event("shutdown")
 async def shutdown_event():

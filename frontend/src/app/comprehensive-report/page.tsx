@@ -164,8 +164,15 @@ const ComprehensiveReportPage = () => {
         if (insightsResponse && insightsResponse.success && insightsResponse.insights) {
           // Check if this is a redirect response (AI insights already exist)
           if (insightsResponse.insights.redirect_to_history) {
-            // Redirect to profile page with test history tab
-            window.location.href = '/profile?tab=history&highlight=ai-insights';
+            console.log('🔄 Redirecting to test history - AI insights already exist');
+            // Show a brief message before redirecting
+            setProgressMessage('AI રિપોર્ટ પહેલેથી જ તૈયાર છે. ટેસ્ટ હિસ્ટરીમાં રીડાયરેક્ટ કરી રહ્યું છે...');
+            setProgressPercentage(100);
+            
+            // Redirect after a short delay to show the message
+            setTimeout(() => {
+              window.location.href = '/profile?tab=history&highlight=ai-insights';
+            }, 1500);
             return;
           }
           
@@ -180,9 +187,15 @@ const ComprehensiveReportPage = () => {
           setError('AI insights are currently unavailable. Please try again later.');
           setErrorType('ai_generation');
         }
-      } catch (insightError) {
+      } catch (insightError: any) {
         console.error('Failed to generate insights:', insightError);
-        setError('AI insights service is temporarily unavailable. Please try again in a few minutes.');
+        
+        // Check if this is a timeout error
+        if (insightError.message?.includes('timeout') || insightError.message?.includes('સમય લાગી રહ્યો છે')) {
+          setError('AI રિપોર્ટ બનાવવામાં સમય લાગી રહ્યો છે. કૃપા કરીને ફરીથી પ્રયાસ કરો અથવા પ્રોફાઈલ પેજ પર જઈને ટેસ્ટ હિસ્ટરી તપાસો.');
+        } else {
+          setError(insightError.message || 'AI insights service is temporarily unavailable. Please try again in a few minutes.');
+        }
         setErrorType('ai_generation');
       }
       setGeneratingInsights(false);
@@ -331,14 +344,27 @@ const ComprehensiveReportPage = () => {
               >
                 ફરી પ્રયાસ કરો
               </motion.button>
-              <motion.button
-                onClick={() => window.location.href = '/profile'}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-8 py-3 bg-gradient-to-r from-gray-500 to-slate-500 text-white rounded-xl font-semibold hover:from-gray-600 hover:to-slate-600 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                પ્રોફાઈલ પર પાછા જાઓ
-              </motion.button>
+              
+              {/* Show "Go to Test History" button for timeout errors */}
+              {error?.includes('સમય લાગી રહ્યો છે') || error?.includes('timeout') ? (
+                <motion.button
+                  onClick={() => window.location.href = '/profile?tab=history&highlight=ai-insights'}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  ટેસ્ટ હિસ્ટરી જુઓ
+                </motion.button>
+              ) : (
+                <motion.button
+                  onClick={() => window.location.href = '/profile'}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-8 py-3 bg-gradient-to-r from-gray-500 to-slate-500 text-white rounded-xl font-semibold hover:from-gray-600 hover:to-slate-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  પ્રોફાઈલ પર પાછા જાઓ
+                </motion.button>
+              )}
             </div>
           )}
         </motion.div>

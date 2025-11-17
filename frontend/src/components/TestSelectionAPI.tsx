@@ -139,6 +139,31 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
     }
   };
 
+  // Function to sort tests in the desired order
+  const getSortedTests = (testsToSort: ApiTest[]): ApiTest[] => {
+    const testOrder = ['mbti', 'intelligence', 'riasec', 'bigfive', 'decision', 'vark', 'life'];
+    
+    return testsToSort.sort((a, b) => {
+      const aId = a.test_id?.toLowerCase() || '';
+      const bId = b.test_id?.toLowerCase() || '';
+      
+      const aIndex = testOrder.findIndex(order => aId.includes(order));
+      const bIndex = testOrder.findIndex(order => bId.includes(order));
+      
+      // If both found in order, sort by order
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      
+      // If only one found, it comes first
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      
+      // If neither found, maintain original order
+      return 0;
+    });
+  };
+
   const handleCloseInstructions = () => {
     setShowInstructions(false);
     setSelectedTest(null);
@@ -252,7 +277,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
 
         {/* Clean Test Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          {tests && tests.length > 0 ? tests.map((test, index) => {
+          {tests && tests.length > 0 ? getSortedTests(tests).map((test, index) => {
             const isCompleted = completedTests.includes(test.test_id);
             return (
               <motion.div

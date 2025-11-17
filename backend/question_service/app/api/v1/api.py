@@ -7,13 +7,16 @@ from question_service.app.api.optimized_test_results import router as optimized_
 
 api_router = APIRouter()
 
-# Optimized endpoints (prioritized for performance)
-api_router.include_router(optimized_questions_router, prefix="/optimized", tags=["optimized-questions"])
-api_router.include_router(optimized_test_results_router, prefix="/test-results", tags=["optimized-test-results"])
+# Main endpoints with optimized session management (replaces standard endpoints)
+api_router.include_router(optimized_questions_router, prefix="", tags=["questions-optimized"])
+api_router.include_router(optimized_test_results_router, prefix="/test-results", tags=["test-results-optimized"])
 
-# Standard endpoints
-api_router.include_router(tests_router, prefix="/tests", tags=["tests"])
-api_router.include_router(questions_router, prefix="/questions", tags=["questions"])
-api_router.include_router(test_results_router, tags=["test-results"])
+# Legacy optimized endpoints
+api_router.include_router(optimized_questions_router, prefix="/optimized", tags=["optimized-questions"])
+
+# Standard endpoints (legacy - for backward compatibility)
+api_router.include_router(tests_router, prefix="/legacy/tests", tags=["tests-legacy"])
+api_router.include_router(questions_router, prefix="/legacy/questions", tags=["questions-legacy"])
+api_router.include_router(test_results_router, prefix="/legacy", tags=["test-results-legacy"])
 
 router = api_router  # Export as 'router' for gateway compatibility

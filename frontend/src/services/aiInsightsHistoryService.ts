@@ -106,7 +106,8 @@ class AIInsightsHistoryService {
       const response = await api.get(`/api/v1/results_service/ai-insights/${userId}`);
       
       if (response.data.success) {
-        return response.data.ai_insights;
+        // Backend returns data in response.data.data, not response.data.ai_insights
+        return response.data.data;
       } else {
         return null;
       }

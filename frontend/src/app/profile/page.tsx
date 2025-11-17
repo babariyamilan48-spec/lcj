@@ -447,11 +447,11 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gray-50">
       <ModernNavbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-8">
         {/* Profile Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-6">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
               <div className="relative">
                 {profile?.avatar ? (
                   <img
@@ -460,28 +460,28 @@ export default function ProfilePage() {
                     className="w-24 h-24 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold mx-auto sm:mx-0">
                     {(profile?.firstName?.[0] || profile?.name?.[0] || user?.name?.[0] || 'U').toUpperCase()}
                   </div>
                 )}
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-500 rounded-full border-4 border-white flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-white" />
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-8 sm:h-8 bg-green-500 rounded-full border-2 sm:border-4 border-white flex items-center justify-center">
+                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                 </div>
               </div>
 
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+              <div className="text-center sm:text-left">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                   {profile?.firstName && profile?.lastName
                     ? `${profile.firstName} ${profile.lastName}`
                     : profile?.name || user?.name || 'User'}
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 mt-1 text-sm sm:text-base">
                   {profile?.email || user?.email || 'user@example.com'}
                 </p>
                 {profile?.bio && (
-                  <p className="text-gray-500 mt-1 max-w-md">{profile.bio}</p>
+                  <p className="text-gray-500 mt-1 max-w-md text-sm sm:text-base">{profile.bio}</p>
                 )}
-                <div className="flex items-center mt-2 space-x-4">
+                <div className="flex flex-col sm:flex-row sm:items-center mt-2 space-y-2 sm:space-y-0 sm:space-x-4">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     <User className="w-3 h-3 mr-1" />
                     Premium Member
@@ -500,19 +500,28 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+              {!isEditing && (
+                <button
+                  onClick={handleEdit}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 w-full sm:w-auto"
+                >
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Edit Profile
+                </button>
+              )}
               {isEditing && (
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
                   <button
                     onClick={handleSaveProfile}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto"
                   >
                     <Save className="w-4 h-4 mr-2" />
                     Save
                   </button>
                   <button
                     onClick={handleCancel}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 w-full sm:w-auto"
                   >
                     <X className="w-4 h-4 mr-2" />
                     Cancel
@@ -524,9 +533,9 @@ export default function ProfilePage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-sm mb-8">
+        <div className="bg-white rounded-lg shadow-sm mb-6 sm:mb-8">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 px-4 sm:px-6 overflow-x-auto">
               {[
                 { id: 'overview', name: 'Overview', icon: User },
                 { id: 'tests', name: 'Test History', icon: BarChart3 }
@@ -544,7 +553,7 @@ export default function ProfilePage() {
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                  } whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 min-w-0 flex-shrink-0`}
                 >
                   <tab.icon className="w-4 h-4" />
                   <span>{tab.name}</span>
@@ -556,19 +565,19 @@ export default function ProfilePage() {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
             {/* Main Content */}
-            <div className="xl:col-span-3 space-y-8">
+            <div className="lg:col-span-2 xl:col-span-3 space-y-6 lg:space-y-8">
               {/* Stats Overview */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border border-gray-100 p-8"
+                className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 lg:p-8"
               >
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 mb-6 sm:mb-8">
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Performance Overview</h3>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Performance Overview</h3>
                     <p className="text-gray-600">Your learning journey at a glance</p>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -590,12 +599,12 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.1 }}
-                    className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200"
+                    className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-xl border border-blue-200"
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
@@ -615,7 +624,7 @@ export default function ProfilePage() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.3 }}
-                    className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200"
+                    className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 sm:p-6 rounded-xl border border-purple-200"
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
@@ -638,9 +647,9 @@ export default function ProfilePage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8"
+                className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 lg:p-8"
               >
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 mb-6">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-1">Test History</h3>
                     <p className="text-gray-600">Your completed assessments and results</p>
@@ -668,9 +677,9 @@ export default function ProfilePage() {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.1 * index }}
-                          className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200"
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 space-y-3 sm:space-y-0"
                         >
-                          <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full space-y-3 sm:space-y-0">
                             <div className="flex items-center space-x-4">
                               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                                 <BookOpen className="w-6 h-6 text-white" />
@@ -688,7 +697,7 @@ export default function ProfilePage() {
                             
                             <button
                               onClick={() => window.location.href = `/test-result/${test.test_id}`}
-                              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                              className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors w-full sm:w-auto"
                             >
                               <Eye className="w-4 h-4 mr-2" />
                               View Results
@@ -739,7 +748,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Profile Info Sidebar */}
-            <div className="xl:col-span-1 space-y-6">
+            <div className="lg:col-span-1 xl:col-span-1 space-y-6">
               {!isEditing ? (
                 <>
                   {/* Profile Information Card */}
@@ -954,16 +963,16 @@ export default function ProfilePage() {
 
         {/* Test History Tab */}
         {activeTab === 'tests' && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Test History</h3>
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                 <button
                   onClick={() => {
                     
                     fetchResults();
                   }}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                  className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 w-full sm:w-auto text-center"
                 >
                   Refresh Results
                 </button>
@@ -973,7 +982,7 @@ export default function ProfilePage() {
                       // Show preview modal first, then open report
                       setShowDownloadModal(true);
                     }}
-                    className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center space-x-1"
+                    className="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center justify-center space-x-1 w-full sm:w-auto"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1003,13 +1012,13 @@ export default function ProfilePage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className={`border rounded-lg p-6 hover:shadow-md transition-all duration-300 ${
+                      className={`border rounded-lg p-4 sm:p-6 hover:shadow-md transition-all duration-300 ${
                         test.test_id === 'comprehensive-ai-insights' && highlightAI
                           ? 'border-orange-400 bg-orange-50 shadow-lg ring-2 ring-orange-200'
                           : 'border-gray-200'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                         <div className="flex items-center space-x-4">
                           <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
                             test.test_id === 'comprehensive-ai-insights' 
@@ -1043,10 +1052,10 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         {/* Action Buttons */}
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-3 sm:space-x-4">
                           <button
                             onClick={() => window.location.href = `/test-result/${test.test_id}`}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto"
                           >
                             <Eye className="w-4 h-4 mr-2" />
                             View Results
@@ -1059,11 +1068,11 @@ export default function ProfilePage() {
 
                 {/* Pagination */}
                 {pagination.total_pages > 1 && (
-                  <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-8 pt-6 border-t border-gray-200 space-y-4 sm:space-y-0">
                     <div className="text-sm text-gray-500">
                       Page {pagination.page} of {pagination.total_pages}
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 justify-center sm:justify-start">
                       <button
                         onClick={() => fetchResults(pagination.page - 1)}
                         disabled={pagination.page <= 1}
@@ -1107,7 +1116,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
+            className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4"
           >
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -1153,7 +1162,7 @@ export default function ProfilePage() {
             <div className="flex space-x-3">
               <button
                 onClick={() => setShowDownloadModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-center"
               >
                 રદ કરો
               </button>

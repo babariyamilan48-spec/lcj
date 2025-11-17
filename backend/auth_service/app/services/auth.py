@@ -9,7 +9,7 @@ from auth_service.app.schemas.user import SignupInput
 from auth_service.app.utils.jwt import get_password_hash, verify_password, create_token_pair, decode_token
 from core.config import settings
 from core.firebase import verify_firebase_id_token
-from core.email import send_email, otp_email_html, is_email_configured
+from core.email import send_email_sync as send_email, otp_email_html, is_email_configured
 from auth_service.app.models.user import RefreshToken
 import uuid
 
@@ -28,7 +28,7 @@ def check_user_login_eligibility(user: User) -> None:
 
 def register_user(db: Session, payload: SignupInput) -> User:
     print(f"[REGISTER] Starting registration for email: {payload.email}")
-    
+
     # Test database connectivity
     try:
         print(f"[REGISTER] Testing database connectivity...")
@@ -38,7 +38,7 @@ def register_user(db: Session, payload: SignupInput) -> User:
     except Exception as e:
         print(f"[REGISTER] Database connection failed: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database connection failed")
-    
+
     print(f"[REGISTER] Checking for existing user...")
     existing = get_user_by_email(db, payload.email)
     if existing:
@@ -50,7 +50,7 @@ def register_user(db: Session, payload: SignupInput) -> User:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password too short")
 
     print(f"[REGISTER] Creating user with email: {payload.email}, username: {payload.username}")
-    
+
     try:
         print(f"[REGISTER] Creating User object...")
         user = User(
@@ -92,31 +92,39 @@ def register_user(db: Session, payload: SignupInput) -> User:
         import traceback
         print(f"[REGISTER] OTP traceback: {traceback.format_exc()}")
         return user
+
+    # Prepare and send verification email
+    print(f"[REGISTER] Preparing verification email...")
     
-    # send verification email (mailer prints whether it was sent or skipped)
-    print(f"[REGISTER] Preparing to send verification email...")
-    html = otp_email_html("Verify your email", otp.code, "This code expires in 10 minutes.")
-    import anyio
-    
-    print(f"[REGISTER] Checking email configuration...")
-    if not is_email_configured():
-        # Still create the user but warn about email configuration
-        print(f"[AUTH] ⚠️ User {payload.email} registered but verification email not sent - SMTP not configured")
-        print(f"[AUTH] 💡 Please set SMTP_USER, SMTP_PASSWORD, and SMTP_FROM environment variables")
-        return user
-    
-    print(f"[REGISTER] Email is configured, attempting to send...")
-    try:
-        email_sent = anyio.from_thread.run(send_email, "Verify your email", [payload.email], html)
-        print(f"[REGISTER] Email send result: {email_sent}")
-        if not email_sent:
-            print(f"[AUTH] ⚠️ User {payload.email} registered but verification email failed to send")
-    except Exception as e:
-        print(f"[AUTH] ⚠️ User {payload.email} registered but verification email error: {e}")
-        print(f"[AUTH] 💡 Check your SMTP configuration, especially SMTP_FROM email address")
-        import traceback
-        print(f"[AUTH] Email error traceback: {traceback.format_exc()}")
-    
+    if is_email_configured():
+        try:
+            # Import here to avoid circular imports
+            from core.email import send_email_sync, otp_email_html
+            
+            # Generate the email HTML
+            html = otp_email_html(
+                title="Verify your email",
+                otp=otp.code,
+                note="This code expires in 10 minutes."
+            )
+            
+            # Send the email directly
+            print(f"[REGISTER] Sending verification email to {payload.email}...")
+            email_sent = send_email_sync("Verify your email", [payload.email], html)
+            
+            if email_sent:
+                print(f"[REGISTER] Verification email sent successfully to {payload.email}")
+            else:
+                print(f"[AUTH] ⚠️ Failed to send verification email to {payload.email}")
+                
+        except Exception as e:
+            print(f"[AUTH] ⚠️ Error sending verification email to {payload.email}: {e}")
+            import traceback
+            print(f"[AUTH] Email error traceback: {traceback.format_exc()}")
+    else:
+        print(f"[AUTH] ⚠️ Email not configured. Skipping verification email for {payload.email}")
+        print(f"[AUTH] 💡 Please set SENDINBLUE_API_KEY and MAIL_FROM environment variables")
+
     print(f"[REGISTER] Registration process completed for {payload.email}")
     return user
 
@@ -130,19 +138,19 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
         return None
     return user
 
-def authenticate_user_with_details(db: Session, email: str, password: str) -> tuple[Optional[User], str]:
+def authenticate_user_with_details(db: Session, email: str, password: str) -> dict:
     """
     Authenticate user and return detailed error information
-    Returns: (user, error_type) where error_type can be 'user_not_found', 'incorrect_password', 'inactive_user', or 'success'
+    Returns: dict with 'status' and 'user' keys
     """
     user = get_user_by_email(db, email)
     if not user:
-        return None, 'user_not_found'
+        return {"status": "user_not_found", "user": None}
     if not verify_password(password, user.password_hash or ""):
-        return None, 'incorrect_password'
+        return {"status": "incorrect_password", "user": None}
     if not user.is_active:
-        return None, 'inactive_user'
-    return user, 'success'
+        return {"status": "inactive_user", "user": None}
+    return {"status": "success", "user": user}
 
 def generate_tokens_for_user(user: User, db: Session, device: str | None = None):
     # Create DB refresh token record
@@ -181,11 +189,11 @@ def issue_reset_otp(db: Session, user: Optional[User]) -> None:
             pass
         html = otp_email_html("Reset your password", otp.code, "Enter this code to reset your password.")
         import anyio
-        
+
         if not is_email_configured():
             print(f"[AUTH] ⚠️ Password reset requested for {user.email} but SMTP not configured")
             return
-            
+
         email_sent = anyio.from_thread.run(send_email, "Reset your password", [user.email], html)
         if not email_sent:
             print(f"[AUTH] ⚠️ Password reset email failed to send to {user.email}")
@@ -277,19 +285,19 @@ def update_profile(db: Session, user: User, username: Optional[str], avatar: Opt
 def change_password(db: Session, user: User, old_password: str, new_password: str) -> None:
     print(f"Changing password for user: {user.email}")  # Debug log
     print(f"User has password_hash: {bool(user.password_hash)}")  # Debug log
-    
+
     if not user.password_hash:
         print("Error: Password auth not enabled")  # Debug log
         raise HTTPException(status_code=400, detail="Password auth is not enabled for this account")
-    
+
     print(f"Verifying old password...")  # Debug log
     password_valid = verify_password(old_password, user.password_hash)
     print(f"Old password verification result: {password_valid}")  # Debug log
-    
+
     if not password_valid:
         print("Error: Old password verification failed")  # Debug log
         raise HTTPException(status_code=401, detail="Incorrect old password")
-    
+
     print("Setting new password hash...")  # Debug log
     user.password_hash = get_password_hash(new_password)
     db.add(user)
@@ -299,4 +307,3 @@ def change_password(db: Session, user: User, old_password: str, new_password: st
 def delete_account(db: Session, user: User) -> None:
     db.delete(user)
     db.commit()
-

@@ -40,7 +40,7 @@ class AIInsightsAsyncService {
         `${this.baseUrl}/ai-insights/comprehensive-async`,
         request,
         {
-          timeout: 10000, // 10 second timeout for starting the task
+          timeout: 30000, // 30 second timeout for starting the task (increased for redirect check)
           headers: {
             'Content-Type': 'application/json'
           }
@@ -49,6 +49,11 @@ class AIInsightsAsyncService {
       
       return response.data;
     } catch (error: any) {
+      // Check if this is a timeout error and provide better message
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        throw new Error('AI રિપોર્ટ બનાવવામાં સમય લાગી રહ્યો છે. કૃપા કરીને ફરીથી પ્રયાસ કરો.');
+      }
+      
       throw new Error(
         error.response?.data?.detail || 
         error.message || 
