@@ -29,6 +29,7 @@ class DatabaseDependencies:
         """
         FastAPI dependency for general database session
         Uses optimized pool with fallback to singleton
+        Ensures proper cleanup to prevent connection leaks
         """
         session = None
         try:
@@ -39,20 +40,27 @@ class DatabaseDependencies:
                 session = db_singleton.SessionLocal()
             
             yield session
-            session.commit()
+            
+            # Only commit if no exception occurred
+            if session.is_active:
+                try:
+                    session.commit()
+                except Exception as commit_error:
+                    logger.error(f"Commit error: {commit_error}")
+                    session.rollback()
+                    raise
             
         except Exception as e:
             logger.error(f"Database session error: {e}")
-            if session:
+            if session and session.is_active:
                 try:
                     session.rollback()
                 except Exception as rollback_error:
                     logger.error(f"Rollback error: {rollback_error}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database connection error"
-            )
+            # Don't raise HTTPException here - let FastAPI handle it
+            raise
         finally:
+            # Always close the session to return connection to pool
             if session:
                 try:
                     session.close()

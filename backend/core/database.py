@@ -9,19 +9,19 @@ from core.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# Optimized engine configuration
+# Optimized engine configuration for Supabase (30 connection limit)
 engine_config = {
     "poolclass": QueuePool,
-    "pool_size": max(settings.DATABASE_POOL_SIZE, 20),  # Increased pool size
-    "max_overflow": max(settings.DATABASE_MAX_OVERFLOW, 40),  # Increased overflow
+    "pool_size": settings.DATABASE_POOL_SIZE,  # Use settings value (5)
+    "max_overflow": settings.DATABASE_MAX_OVERFLOW,  # Use settings value (10)
     "pool_pre_ping": True,
-    "pool_recycle": 3600,  # Recycle connections every hour
-    "pool_timeout": 30,  # Timeout for getting connection from pool
+    "pool_recycle": 900,  # Recycle connections every 15 minutes
+    "pool_timeout": 20,  # Timeout for getting connection from pool
     "echo": False,
     "connect_args": {
-        "connect_timeout": 10,
+        "connect_timeout": 15,
         "application_name": "lcj_backend",
-        "options": "-c default_transaction_isolation=read_committed"
+        "options": "-c default_transaction_isolation=read_committed -c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"
     }
 }
 

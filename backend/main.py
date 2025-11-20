@@ -14,6 +14,7 @@ from results_service.app.api.v1.api import api_router as results_router  # noqa:
 from contact_service.app.api.v1.api import api_router as contact_router  # noqa: E402
 from core.api.session_management import router as session_management_router  # noqa: E402
 from core.api.session_singleton_management import router as session_singleton_router  # noqa: E402
+from core.api.pool_monitor import router as pool_monitor_router  # noqa: E402
 
 # Create unified FastAPI application
 app = create_app({
@@ -31,6 +32,7 @@ app.include_router(contact_router, prefix="/api/v1/contact_service", tags=["Cont
 # Include session management routers
 app.include_router(session_management_router, prefix="/api/v1/core", tags=["Session Management"])
 app.include_router(session_singleton_router, prefix="/api/v1/core", tags=["Session Management"])
+app.include_router(pool_monitor_router, prefix="/api/v1/core", tags=["Pool Monitoring"])
 
 # Health check endpoints for individual services
 @app.get("/health")

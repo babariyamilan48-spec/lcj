@@ -110,13 +110,20 @@ class OptimizedDatabasePool:
         session = self.SessionLocal()
         try:
             yield session
-            session.commit()
+            # Only commit if session is still active
+            if session.is_active:
+                session.commit()
         except Exception as e:
-            session.rollback()
+            if session.is_active:
+                session.rollback()
             logger.error(f"Database session error: {e}")
             raise
         finally:
-            session.close()
+            # Always close to return connection to pool
+            try:
+                session.close()
+            except Exception as close_error:
+                logger.error(f"Error closing session: {close_error}")
     
     def get_session_sync(self) -> Session:
         """

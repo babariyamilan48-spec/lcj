@@ -13,10 +13,10 @@ class Settings(BaseSettings):
     # CORS
     allowed_hosts: List[str] = ["*"]
 
-    # Database - Optimized for performance
+    # Database - Optimized for Supabase (30 connection limit)
     DATABASE_URL: str = "postgresql+psycopg2://lcj_user:lcj_password@localhost:5432/lcj"
-    DATABASE_POOL_SIZE: int = 20  # Increased for better performance
-    DATABASE_MAX_OVERFLOW: int = 40  # Increased overflow capacity
+    DATABASE_POOL_SIZE: int = 5  # Conservative for Supabase 30 connection limit
+    DATABASE_MAX_OVERFLOW: int = 10  # Limited overflow to prevent exhaustion
     
     # Redis Cache Configuration
     REDIS_URL: str = "redis://localhost:6379/0"
