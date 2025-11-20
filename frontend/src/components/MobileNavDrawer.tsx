@@ -21,12 +21,14 @@ interface MobileNavDrawerProps {
   currentPage?: string;
   onTabChange?: (tab: string) => void;
   showProfileTabs?: boolean;
+  onNavigate?: (screen: 'home' | 'selection' | 'quiz' | 'results' | 'about' | 'contact' | 'profile') => void;
 }
 
 export default function MobileNavDrawer({ 
   currentPage = 'home',
   onTabChange,
-  showProfileTabs = false
+  showProfileTabs = false,
+  onNavigate
 }: MobileNavDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -34,8 +36,8 @@ export default function MobileNavDrawer({
   const router = useRouter();
 
   const mainNavItems = [
-    { id: 'home', label: 'ઘર', icon: Home, href: '/home' },
-    { id: 'profile', label: 'પ્રોફાઇલ', icon: User, href: '/profile' },
+    { id: 'home', label: 'ઘર', icon: Home, screen: 'home' as const },
+    { id: 'profile', label: 'પ્રોફાઇલ', icon: User, screen: 'profile' as const },
   ];
 
   const profileTabs = [
@@ -43,8 +45,17 @@ export default function MobileNavDrawer({
     { id: 'tests', label: 'Test History', icon: BarChart3 },
   ];
 
-  const handleNavClick = (href: string) => {
-    router.push(href);
+  const handleNavClick = (screen: 'home' | 'selection' | 'quiz' | 'results' | 'about' | 'contact' | 'profile') => {
+    if (onNavigate) {
+      onNavigate(screen);
+    } else {
+      // Fallback to router if no callback provided
+      if (screen === 'profile') {
+        router.push('/profile');
+      } else if (screen === 'home') {
+        router.push('/home');
+      }
+    }
     setIsOpen(false);
   };
 
@@ -151,7 +162,7 @@ export default function MobileNavDrawer({
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  onClick={() => handleNavClick(item.href)}
+                  onClick={() => handleNavClick(item.screen)}
                   className={`w-full flex items-center space-x-4 px-4 py-3 rounded-lg transition-all ${
                     currentPage === item.id
                       ? 'bg-orange-100 text-orange-600 font-semibold shadow-sm'

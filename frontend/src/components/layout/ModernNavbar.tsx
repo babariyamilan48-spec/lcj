@@ -69,18 +69,26 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
     { id: 'contact', label: 'સંપર્ક', icon: Phone, screen: 'contact' as const },
   ];
 
-  const handleNavigation = (screen: 'home' | 'selection' | 'quiz' | 'results' | 'about' | 'contact') => {
-    if (onNavigate) {
+  const handleNavigation = (screen: 'home' | 'selection' | 'quiz' | 'results' | 'about' | 'contact' | 'profile') => {
+    // Always close mobile menu first
+    setIsMobileMenuOpen(false);
+    
+    if (screen === 'profile') {
+      // Always navigate to profile page directly
+      router.push('/profile');
+    } else if (onNavigate) {
       onNavigate(screen);
     } else {
       // Handle routing properly for home page
       if (screen === 'home') {
         router.push('/home');
-      } else {
+      } else if (screen === 'about' || screen === 'contact') {
         router.push(`/${screen}`);
+      } else {
+        // For other screens, navigate to home first
+        router.push('/home');
       }
     }
-    setIsMobileMenuOpen(false);
   };
 
   const handleLogout = () => {
@@ -331,7 +339,7 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
       </AnimatePresence>
 
       {/* Mobile Navigation Drawer */}
-      <MobileNavDrawer currentPage={currentScreen} />
+      <MobileNavDrawer currentPage={currentScreen} onNavigate={handleNavigation} />
     </nav>
   );
 };
