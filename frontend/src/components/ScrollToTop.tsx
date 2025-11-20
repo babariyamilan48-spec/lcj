@@ -41,7 +41,7 @@ export default function ScrollToTop({
       {isVisible && (
         <button
           onClick={scrollToTop}
-          className={`fixed bottom-8 right-8 p-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center justify-center ${className}`}
+          className={`fixed bottom-8 right-8 p-3 rounded-full bg-orange-600 hover:bg-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center justify-center ${className}`}
           aria-label="Scroll to top"
           title="ઉપર જાઓ"
         >

@@ -87,49 +87,48 @@ const ModernFooter: React.FC = () => {
     <footer className="bg-gray-900 text-white">
       {/* Main Footer Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8">
-          {/* Brand Section */}
-          <div className="lg:col-span-2">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="space-y-4"
-            >
-              <div className="mb-6">
-                <Logo 
-                  size="lg"
-                  variant="full"
-                  className="[&_h1]:text-white [&_p]:text-gray-400"
-                />
-              </div>
-              
-              <p className="text-gray-300 text-sm leading-relaxed max-w-md">
-                અમારા વ્યાપક મનોવૈજ્ઞાનિક મૂલ્યાંકન પ્લેટફોર્મ સાથે તમારી સાચી ક્ષમતા શોધો. 
-                તમારા કારકિર્દી વિકાસ અને વ્યક્તિગત વિકાસ માટે વ્યક્તિગત સૂચનો મેળવો.
-              </p>
-
-              {/* Features */}
-              <div className="space-y-2">
-                {features.map((feature, index) => {
-                  const Icon = feature.icon;
-                  return (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: index * 0.1 }}
-                      className="flex items-center space-x-2 text-sm text-gray-300"
-                    >
-                      <Icon className="w-4 h-4 text-orange-400" />
-                      <span>{feature.text}</span>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.div>
+        {/* Brand Section - Full width on mobile, col-span-2 on desktop */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="col-span-2 space-y-4 mb-8 lg:mb-16 pb-8 border-b border-gray-800 md:border-b-0 md:pb-0"
+        >
+          <div className="mb-6">
+            <Logo 
+              size="lg"
+              variant="full"
+              className="[&_h1]:text-white [&_p]:text-gray-400"
+            />
           </div>
+          
+          <p className="text-gray-300 text-sm leading-relaxed max-w-md">
+            અમારા વ્યાપક મનોવૈજ્ઞાનિક મૂલ્યાંકન પ્લેટફોર્મ સાથે તમારી સાચી ક્ષમતા શોધો. 
+            તમારા કારકિર્દી વિકાસ અને વ્યક્તિગત વિકાસ માટે વ્યક્તિગત સૂચનો મેળવો.
+          </p>
 
+          {/* Features */}
+          <div className="space-y-2">
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                  className="flex items-center space-x-2 text-sm text-gray-300"
+                >
+                  <Icon className="w-4 h-4 text-orange-400" />
+                  <span>{feature.text}</span>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* Footer Links Grid - 2 columns on mobile, 2 on tablet, 4 on desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mt-8 md:mt-0">
           {/* Footer Links */}
           {footerSections.map((section, sectionIndex) => (
             <motion.div
@@ -139,8 +138,8 @@ const ModernFooter: React.FC = () => {
               transition={{ duration: 0.6, delay: sectionIndex * 0.1 }}
               className="space-y-4"
             >
-              <h4 className="text-lg font-semibold text-white">{section.title}</h4>
-              <ul className="space-y-3">
+              <h4 className="text-base md:text-lg font-semibold text-white">{section.title}</h4>
+              <ul className="space-y-2 md:space-y-3">
                 {section.links.map((link, linkIndex) => (
                   <motion.li
                     key={link.name}
@@ -150,7 +149,7 @@ const ModernFooter: React.FC = () => {
                   >
                     <Link
                       href={link.href}
-                      className="text-gray-300 hover:text-white text-sm transition-colors duration-200 hover:translate-x-1 inline-block"
+                      className="text-gray-300 hover:text-white text-xs md:text-sm transition-colors duration-200 hover:translate-x-1 inline-block"
                     >
                       {link.name}
                     </Link>
