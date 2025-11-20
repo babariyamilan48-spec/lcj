@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import math
 
-from core.database_singleton import get_db
+from core.database_dependencies_singleton import get_user_db, get_db
 from contact_service.app.services.contact_service import ContactService
 from contact_service.app.schemas.contact import (
     ContactCreate, 

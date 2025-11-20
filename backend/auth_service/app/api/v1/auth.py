@@ -3,7 +3,7 @@ import secrets
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.orm import Session
-from core.database_singleton import get_db
+from core.database_dependencies_singleton import get_user_db, get_db
 from auth_service.app.deps.auth import get_current_user
 from core.app_factory import resp
 from auth_service.app.schemas.user import (
@@ -44,16 +44,8 @@ router = APIRouter()
 @router.post("/signup")
 @limiter.limit("5/minute")
 def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)):
-    print(f"[SIGNUP] Received signup request for email: {payload.email}")
-    print(f"[SIGNUP] Username: {payload.username}")
-    print(f"[SIGNUP] Password length: {len(payload.password)}")
-
     try:
-        print(f"[SIGNUP] Calling register_user...")
         user = register_user(db, payload)
-        print(f"[SIGNUP] User created successfully: {user.email}")
-
-        print(f"[SIGNUP] Creating UserOut response...")
         out = UserOut(
             id=str(user.id),
             email=user.email,
@@ -63,15 +55,9 @@ def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)
             providers=user.providers,
             role=user.role,
         )
-        print(f"[SIGNUP] Returning success response...")
         response = resp(out.model_dump(), message="Account created. Please verify your email.")
-        print(f"[SIGNUP] Response created successfully")
         return response
     except Exception as e:
-        print(f"[SIGNUP] Error during signup: {e}")
-        print(f"[SIGNUP] Exception type: {type(e)}")
-        import traceback
-        print(f"[SIGNUP] Full traceback: {traceback.format_exc()}")
         raise
 
 @router.post("/login")
@@ -118,28 +104,40 @@ def login(request: Request, payload: LoginInput, db: Session = Depends(get_db)):
 @router.post("/token/refresh")
 @limiter.limit("10/minute")
 def refresh_token(request: Request, payload: TokenRefreshInput, db: Session = Depends(get_db)):
-    claims = validate_refresh_token(payload.refresh_token)
-    jti = claims.get("jti")
-    uid = claims.get("uid")
-    if not jti or not uid:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-    # Check DB token
-    from auth_service.app.models.user import RefreshToken
+    try:
+        claims = validate_refresh_token(payload.refresh_token)
+        jti = claims.get("jti")
+        uid = claims.get("uid")
+        if not jti or not uid:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        # Check DB token
+        from auth_service.app.models.user import RefreshToken
 
-    rt = db.query(RefreshToken).filter(RefreshToken.jti == jti, RefreshToken.is_revoked.is_(False)).first()
-    if not rt or str(rt.user_id) != uid or rt.expires_at <= datetime.now(timezone.utc):
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-    # Issue a new pair and rotate refresh token
-    from auth_service.app.models.user import User
+        rt = db.query(RefreshToken).filter(RefreshToken.jti == jti, RefreshToken.is_revoked.is_(False)).first()
+        if not rt or str(rt.user_id) != uid or rt.expires_at <= datetime.now(timezone.utc):
+            raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+        # Issue a new pair and rotate refresh token
+        from auth_service.app.models.user import User
 
-    user = db.query(User).filter(User.id == rt.user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    rt.is_revoked = True
-    db.add(rt)
-    db.commit()
-    access_token, refresh_token = generate_tokens_for_user(user, db)
-    return resp({"token": Token(access_token=access_token, refresh_token=refresh_token).model_dump()}, message="Token refreshed.")
+        user = db.query(User).filter(User.id == rt.user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        rt.is_revoked = True
+        db.add(rt)
+        db.commit()
+        
+        # Generate new tokens - this will create a new refresh token and commit
+        try:
+            access_token, refresh_token = generate_tokens_for_user(user, db)
+            return resp({"token": Token(access_token=access_token, refresh_token=refresh_token).model_dump()}, message="Token refreshed.")
+        except Exception as token_error:
+            logger.error(f"Error generating new tokens: {token_error}")
+            raise HTTPException(status_code=500, detail="Failed to generate new tokens")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to refresh token")
 
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
@@ -210,7 +208,7 @@ def verify_email_confirm(request: Request, payload: VerifyEmailConfirmInput, db:
     return resp(message="Email verified.")
 
 @router.get("/me")
-def me(current_user=Depends(get_current_user)):
+def me(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     out = UserOut(
         id=str(current_user.id),
         email=current_user.email,
@@ -260,7 +258,6 @@ def logout(payload: Optional[LogoutInput] = None, current_user=Depends(get_curre
 @limiter.limit("5/minute")
 async def google_login(
     request: Request,
-    db: Session = Depends(get_db),
     id_token_query: str | None = Query(default=None, alias="id_token"),
 ):
     token = id_token_query
@@ -277,8 +274,15 @@ async def google_login(
     claims = verify_google_token(token)
     if not claims:
         raise HTTPException(status_code=401, detail="Invalid Firebase ID token")
-    user = upsert_user_from_google(db, claims)
-    access_token, refresh_token = generate_tokens_for_user(user, db)
+    
+    # Get user email from claims for session management
+    user_email = claims.get("email", "google-user")
+    from core.database_dependencies_singleton import get_user_db as get_user_db_func
+    from core.user_session_singleton import user_session_context
+    
+    with user_session_context(user_email) as db:
+        user = upsert_user_from_google(db, claims)
+        access_token, refresh_token = generate_tokens_for_user(user, db)
     out = UserOut(
         id=str(user.id),
         email=user.email,

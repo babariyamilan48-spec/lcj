@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Printer, Download, FileText, Calendar, User, Award, TrendingUp, Brain } from 'lucide-react';
+import { Printer, Download, FileText, Calendar, User, Award, TrendingUp, Brain, ArrowLeft } from 'lucide-react';
 import { MBTIResults, IntelligenceResults, BigFiveResults, RIASECResults, VARKResults, SVSResults, DecisionResults } from '@/components/results';
 import LifeSituationResults from '@/components/results/LifeSituationResults';
 import ComprehensiveAIInsights from '@/components/ComprehensiveAIInsights';
-import { calculateTestResult } from '@/utils/testResultCalculators';
 import api from '@/services/api';
 
 interface ComprehensiveReportData {
@@ -41,75 +40,42 @@ const TestResultSection = ({ testId, testData, index, userId, getTestDisplayName
   formatScore: (score: any) => string;
 }) => {
   const [calculatedResult, setCalculatedResult] = useState<any>(null);
-  const [isCalculating, setIsCalculating] = useState(true);
+  const [isCalculating, setIsCalculating] = useState(false);
 
   // Prepare test results data
   const testResults = {
     testId: testId,
     answers: testData?.answers || {},
-    timestamp: testData?.completed_at,
+    timestamp: testData?.created_at || testData?.completed_at,
     sessionId: testData?.id || `${testId}_${index}`
   };
 
-  // Calculate result from answers (same as individual test pages)
+  // Use pre-calculated data directly (no recalculation)
   useEffect(() => {
-    const calculateResult = async () => {
-      if (testData?.answers && Object.keys(testData.answers).length > 0) {
-        try {
-          console.log(`🔄 Calculating result for ${testId} from answers...`);
-          const result = await calculateTestResult(
-            testId,
-            testData.answers,
-            userId,
-            testData?.id || `${testId}_${index}`
-          );
-          
-          if (result) {
-            setCalculatedResult({
-              ...result,
-              testType: testId,
-              completedAt: testData?.completed_at,
-              totalQuestions: Object.keys(testData.answers).length
-            });
-          } else {
-            // Fallback to stored analysis
-            setCalculatedResult({
-              type: getTestDisplayName(testId, testData?.test_name),
-              testType: testId,
-              completedAt: testData?.completed_at,
-              totalQuestions: testData?.total_questions || 0,
-              score: testData?.score || testData?.percentage_score || 0,
-              ...testData?.analysis
-            });
-          }
-        } catch (error) {
-          console.error(`❌ Error calculating ${testId}:`, error);
-          // Fallback to stored analysis
-          setCalculatedResult({
-            type: getTestDisplayName(testId, testData?.test_name),
-            testType: testId,
-            completedAt: testData?.completed_at,
-            totalQuestions: testData?.total_questions || 0,
-            score: testData?.score || testData?.percentage_score || 0,
-            ...testData?.analysis
-          });
-        }
-      } else {
-        // No answers available, use stored analysis
-        setCalculatedResult({
-          type: getTestDisplayName(testId, testData?.test_name),
-          testType: testId,
-          completedAt: testData?.completed_at,
-          totalQuestions: testData?.total_questions || 0,
-          score: testData?.score || testData?.percentage_score || 0,
-          ...testData?.analysis
-        });
-      }
-      setIsCalculating(false);
-    };
-    
-    calculateResult();
-  }, [testId, testData, userId, index, getTestDisplayName]);
+    if (testData) {
+      console.log(`✅ Using pre-calculated data for ${testId}`);
+      
+      // Use the pre-calculated analysis directly
+      const result = {
+        type: getTestDisplayName(testId, testData?.test_name),
+        testType: testId,
+        completedAt: testData?.created_at || testData?.completed_at,
+        totalQuestions: testData?.total_questions || 0,
+        score: testData?.score || testData?.percentage_score || 0,
+        // Use pre-calculated data
+        ...(testData?.analysis || testData?.calculated_result || {}),
+        traits: testData?.traits,
+        careers: testData?.careers,
+        strengths: testData?.strengths,
+        recommendations: testData?.recommendations,
+        dimensions_scores: testData?.dimensions_scores,
+        primary_result: testData?.primary_result
+      };
+      
+      setCalculatedResult(result);
+    }
+    setIsCalculating(false);
+  }, [testId, testData, getTestDisplayName]);
 
   if (isCalculating) {
     return (
@@ -155,8 +121,8 @@ const TestResultSection = ({ testId, testData, index, userId, getTestDisplayName
   return (
     <section className="mb-16 print:mb-12 print:break-inside-avoid">
       {/* Test Header */}
-      <div className="mb-8 pb-4 border-b-2 border-gray-200">
-        <div className="flex items-center space-x-3 mb-2">
+      <div className="mb-8 pb-4 print:pb-6 border-b-2 border-gray-200">
+        <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
             <span className="text-blue-600 font-bold text-sm">{index + 1}</span>
           </div>
@@ -164,17 +130,10 @@ const TestResultSection = ({ testId, testData, index, userId, getTestDisplayName
             {getTestDisplayName(testId, testData?.test_name)}
           </h2>
         </div>
-        <p className="text-gray-600 text-sm">
-          Completed: {testData?.completed_at ? new Date(testData.completed_at).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }) : 'N/A'}
-        </p>
       </div>
 
       {/* Render the exact same component as individual test pages */}
-      <div className="test-result-content">
+      <div className="test-result-content print:mt-6">
         {(() => {
           try {
             switch (testId) {
@@ -232,9 +191,13 @@ const TestResultSection = ({ testId, testData, index, userId, getTestDisplayName
 
 const ComprehensiveReportPage = () => {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const viewMode = searchParams.get('view'); // Get the view query parameter
   const [reportData, setReportData] = useState<ComprehensiveReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>('');
 
   useEffect(() => {
     const fetchReportData = async () => {
@@ -257,8 +220,28 @@ const ComprehensiveReportPage = () => {
     }
   }, [params.userId]);
 
+  // Fetch user profile to get username
+  useEffect(() => {
+    const fetchUsername = async () => {
+      try {
+        const response = await api.get('/api/v1/auth_service/user/profile');
+        if (response.data?.data?.username) {
+          setUsername(response.data.data.username);
+        }
+      } catch (err) {
+        console.error('Error fetching username:', err);
+      }
+    };
+
+    fetchUsername();
+  }, []);
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleBack = () => {
+    router.push('/profile');
   };
 
   const getTestDisplayName = (testId: string, testName?: string): string => {
@@ -283,6 +266,29 @@ const ComprehensiveReportPage = () => {
     if (typeof score === 'number') return `${Math.round(score)}%`;
     if (typeof score === 'string') return score.includes('%') ? score : `${score}%`;
     return '0%';
+  };
+
+  // Define the standard test order
+  const testOrder = ['mbti', 'intelligence', 'riasec', 'bigfive', 'decision', 'vark', 'life-situation'];
+
+  // Sort tests according to the standard order
+  const getSortedTestResults = () => {
+    const entries = Object.entries(reportData?.test_results || {});
+    return entries.sort(([testIdA], [testIdB]) => {
+      const indexA = testOrder.indexOf(testIdA);
+      const indexB = testOrder.indexOf(testIdB);
+      
+      // If both are in the standard order, sort by their position
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      // If only A is in the standard order, it comes first
+      if (indexA !== -1) return -1;
+      // If only B is in the standard order, it comes first
+      if (indexB !== -1) return 1;
+      // If neither is in the standard order, keep original order
+      return 0;
+    });
   };
 
   if (loading) {
@@ -325,21 +331,86 @@ const ComprehensiveReportPage = () => {
           .print\\:break-before-page {
             break-before: page;
           }
+          .print-title-page {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            page-break-after: always;
+            break-after: page;
+          }
         }
         
         /* Test result content styling */
         .test-result-content {
           /* Ensure proper spacing and layout for individual test components */
         }
+        
+        @media print {
+          .print-content > section:first-of-type {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+          }
+          
+          /* Print header and footer */
+          @page {
+            margin: 1.5cm 1cm;
+            @top-center {
+              content: "જીવન પરિવર્તન સફર - Life Changing Journey";
+              font-size: 10pt;
+              font-weight: normal;
+              color: #4b5563;
+              text-align: center;
+              padding-bottom: 0.3cm;
+            }
+            @bottom-center {
+              content: "Page " counter(page) " of " counter(pages);
+              font-size: 11pt;
+              color: #4b5563;
+              font-weight: 500;
+            }
+          }
+        }
       `}</style>
 
       <div className="min-h-screen bg-gray-50">
+        {/* Back Button - Top Navigation */}
+        <div className="no-print bg-white border-b border-gray-200 p-4">
+          <div className="max-w-7xl mx-auto">
+            <motion.button
+              onClick={handleBack}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center space-x-2 px-4 py-2.5 text-sm bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg transition-colors duration-200 font-medium"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>પાછળ</span>
+            </motion.button>
+          </div>
+        </div>
+
         {/* Header - Hidden in print */}
         <div className="no-print bg-gradient-to-r from-orange-500 to-red-500 text-white p-6">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Comprehensive Test Report</h1>
-              <p className="text-orange-100">Complete analysis of all your assessments</p>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={handleBack}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                title="Back to Profile"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold">
+                  {viewMode === 'ai-insights-only' ? 'AI Analysis Report' : 'Comprehensive Test Report'}
+                </h1>
+                <p className="text-orange-100">
+                  {viewMode === 'ai-insights-only' ? 'Your personalized AI insights and recommendations' : 'Complete analysis of all your assessments'}
+                </p>
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <button
@@ -354,108 +425,135 @@ const ComprehensiveReportPage = () => {
         </div>
 
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto p-6 print-content">
-          {/* Print Header - Only visible in print */}
-          <div className="print-header hidden print:block text-center mb-8 pb-4 border-b-2 border-gray-200">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Comprehensive Assessment Report</h1>
-            <p className="text-gray-600">Complete Personality and Career Analysis</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Generated on {reportData.summary.report_generation_date}
-            </p>
+        <div 
+          className="max-w-7xl mx-auto p-6 print-content print:p-0 print:m-0"
+          style={{ '--print-username': `"User: ${username || 'User'}"` } as React.CSSProperties}
+        >
+          {/* Title Page - Only visible in print */}
+          <div className="print-title-page hidden print:flex print:flex-col print:items-center print:justify-center print:h-screen print:break-after-page print:relative">
+            {/* Main Content - Center */}
+            <div className="print:text-center">
+              <h1 className="print:text-8xl font-bold text-gray-800 text-center mb-8" style={{ fontSize: '120px', lineHeight: '1.2' }}>
+                જીવન પરિવર્તન સફર
+              </h1>
+              <p className="text-2xl text-gray-600 text-center mb-4">Life Changing Journey</p>
+              <p className="text-lg text-gray-500 text-center">
+                Your Comprehensive Assessment Report
+              </p>
+            </div>
+            
+            {/* Course Maker Info - Right Side */}
+            <div className="print:absolute print:right-8 print:bottom-16 print:text-right">
+              <p className="print:text-2xl print:font-bold print:text-gray-900 print:mb-2">Milan Babariya</p>
+              <p className="print:text-lg print:text-gray-600">+91 6354571342</p>
+            </div>
           </div>
 
-          {/* Executive Summary */}
-          <section className="mb-12 print:mb-8">
-            <h2 className="text-2xl print:text-xl font-bold text-gray-900 mb-6 border-b-2 border-orange-600 pb-2">
-              Executive Summary
-            </h2>
-            
-            <div className="grid md:grid-cols-3 gap-6 print:gap-4">
-              <div className="bg-blue-50 print:bg-white print:border print:border-gray-300 rounded-lg p-6 print:p-4 text-center">
-                <div className="flex items-center justify-center mb-3">
-                  <User className="w-6 h-6 text-blue-600" />
-                  <h3 className="font-semibold text-gray-900 ml-2">Tests Completed</h3>
-                </div>
-                <p className="text-3xl print:text-2xl font-bold text-blue-600">
-                  {reportData.summary.total_tests_completed}
-                </p>
-              </div>
-              
-              <div className="bg-green-50 print:bg-white print:border print:border-gray-300 rounded-lg p-6 print:p-4 text-center">
-                <div className="flex items-center justify-center mb-3">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
-                  <h3 className="font-semibold text-gray-900 ml-2">Average Score</h3>
-                </div>
-                <p className="text-3xl print:text-2xl font-bold text-green-600">
-                  {formatScore(reportData.summary.average_score)}
-                </p>
-              </div>
-              
-              <div className="bg-purple-50 print:bg-white print:border print:border-gray-300 rounded-lg p-6 print:p-4 text-center">
-                <div className="flex items-center justify-center mb-3">
-                  <Brain className="w-6 h-6 text-purple-600" />
-                  <h3 className="font-semibold text-gray-900 ml-2">AI Analysis</h3>
-                </div>
-                <p className="text-lg print:text-base font-semibold text-purple-600">
-                  {reportData.metadata.includes_ai_insights ? 'Available' : 'Not Available'}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* Individual Test Results - Same as Individual Pages */}
-          {Object.entries(reportData.test_results)
-            .filter(([testId]) => testId !== 'comprehensive-ai-insights') // Handle AI insights separately
-            .map(([testId, testData]: [string, any], index) => (
-              <TestResultSection 
-                key={testId}
-                testId={testId}
-                testData={testData}
-                index={index}
-                userId={params.userId as string}
-                getTestDisplayName={getTestDisplayName}
-                formatScore={formatScore}
-              />
-            ))}
-
-          {/* AI Insights Section - Same as Individual Page */}
-          {reportData.ai_insights && (
-            <section className="mb-16 print:mb-12 print:break-inside-avoid">
-              {/* AI Header */}
-              <div className="mb-8 pb-4 border-b-2 border-gray-200">
-                <div className="flex items-center space-x-3 mb-2">
-                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <Brain className="w-5 h-5 text-orange-600" />
+          {/* Show only AI Insights if view mode is set */}
+          {viewMode === 'ai-insights-only' ? (
+            <>
+              {/* AI Insights Only View */}
+              {reportData.ai_insights ? (
+                <section className="mb-16 print:mb-12 print:break-inside-avoid">
+                  {/* AI Header */}
+                  <div className="mb-8 pb-4 border-b-2 border-gray-200">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <Brain className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <h2 className="text-2xl print:text-xl font-bold text-gray-900">
+                        સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)
+                      </h2>
+                    </div>
+                    <p className="text-gray-600 text-sm">
+                      Generated: {reportData.ai_insights.generated_at ? new Date(reportData.ai_insights.generated_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      }) : 'N/A'} • Model: {reportData.ai_insights.model_used}
+                    </p>
                   </div>
-                  <h2 className="text-2xl print:text-xl font-bold text-gray-900">
-                    સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)
-                  </h2>
-                </div>
-                <p className="text-gray-600 text-sm">
-                  Generated: {reportData.ai_insights.generated_at ? new Date(reportData.ai_insights.generated_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  }) : 'N/A'} • Model: {reportData.ai_insights.model_used}
-                </p>
-              </div>
 
-              {/* Render the exact same AI component as individual pages */}
-              <div className="test-result-content">
-                <ComprehensiveAIInsights 
-                  insights={typeof reportData.ai_insights.insights_data === 'string' 
-                    ? JSON.parse(reportData.ai_insights.insights_data) 
-                    : reportData.ai_insights.insights_data
-                  } 
-                />
-              </div>
-            </section>
+                  {/* Render the exact same AI component as individual pages */}
+                  <div className="test-result-content">
+                    <ComprehensiveAIInsights 
+                      insights={typeof reportData.ai_insights.insights_data === 'string' 
+                        ? JSON.parse(reportData.ai_insights.insights_data) 
+                        : reportData.ai_insights.insights_data
+                      } 
+                    />
+                  </div>
+                </section>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">AI insights not available yet</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Full Comprehensive Report View */}
+              {/* Individual Test Results - Sorted in standard order */}
+              {getSortedTestResults()
+                .filter(([testId]) => testId !== 'comprehensive-ai-insights') // Handle AI insights separately
+                .map(([testId, testData]: [string, any], index) => (
+                  <TestResultSection 
+                    key={testId}
+                    testId={testId}
+                    testData={testData}
+                    index={index}
+                    userId={params.userId as string}
+                    getTestDisplayName={getTestDisplayName}
+                    formatScore={formatScore}
+                  />
+                ))}
+
+              {/* AI Insights Section - Same as Individual Page */}
+              {reportData.ai_insights && (
+                <section className="mb-16 print:mb-12 print:break-inside-avoid">
+                  {/* AI Header */}
+                  <div className="mb-8 pb-4 border-b-2 border-gray-200">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <Brain className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <h2 className="text-2xl print:text-xl font-bold text-gray-900">
+                        સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)
+                      </h2>
+                    </div>
+                    <p className="text-gray-600 text-sm">
+                      Generated: {reportData.ai_insights.generated_at ? new Date(reportData.ai_insights.generated_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      }) : 'N/A'} • Model: {reportData.ai_insights.model_used}
+                    </p>
+                  </div>
+
+                  {/* Render the exact same AI component as individual pages */}
+                  <div className="test-result-content">
+                    <ComprehensiveAIInsights 
+                      insights={typeof reportData.ai_insights.insights_data === 'string' 
+                        ? JSON.parse(reportData.ai_insights.insights_data) 
+                        : reportData.ai_insights.insights_data
+                      } 
+                    />
+                  </div>
+                </section>
+              )}
+            </>
           )}
 
           {/* Report Footer */}
           <footer className="mt-16 print:mt-8 pt-8 print:pt-4 border-t border-gray-300 text-center text-sm text-gray-500">
-            <p>This comprehensive report was generated on {reportData.summary.report_generation_date}</p>
-            <p className="mt-1">LCJ Career Assessment System • Comprehensive Analysis Report</p>
+            <div className="print:hidden">
+              <p>This comprehensive report was generated on {reportData.summary.report_generation_date}</p>
+              <p className="mt-1">LCJ Career Assessment System • Comprehensive Analysis Report</p>
+            </div>
+            {/* Username for print footer */}
+            <div id="print-footer-username" className="hidden print:block print:text-xs print:text-gray-600 print:border-t print:pt-2 print:mt-4">
+              User: {username || 'User'}
+            </div>
           </footer>
         </div>
       </div>

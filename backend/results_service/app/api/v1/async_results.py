@@ -3,7 +3,8 @@ Async API endpoints for handling background AI report generation and PDF creatio
 These endpoints use Celery tasks to prevent blocking and handle multiple users efficiently.
 """
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Depends
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -23,6 +24,7 @@ from core.tasks.pdf_generation_tasks import (
 
 # Import ResultService for one-time restriction check
 from results_service.app.services.result_service import ResultService
+from core.database_dependencies_singleton import get_user_db, get_db
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +73,7 @@ class TaskStatusResponse(BaseModel):
     error: Optional[str] = None
 
 @router.post("/ai-insights/generate-async", response_model=TaskResponse)
-async def generate_ai_insights_async(request: AsyncAIInsightRequest):
+async def generate_ai_insights_async(request: AsyncAIInsightRequest, db: Session = Depends(get_db)):
     """
     Start asynchronous AI insights generation.
     Returns immediately with task ID for status tracking.
@@ -108,7 +110,7 @@ async def generate_ai_insights_async(request: AsyncAIInsightRequest):
         )
 
 @router.post("/ai-insights/comprehensive-async", response_model=TaskResponse)
-async def generate_comprehensive_ai_insights_async(request: AsyncComprehensiveAIRequest):
+async def generate_comprehensive_ai_insights_async(request: AsyncComprehensiveAIRequest, db: Session = Depends(get_db)):
     """
     Start asynchronous comprehensive AI insights generation.
     Returns immediately with task ID for status tracking.
@@ -150,7 +152,7 @@ async def generate_comprehensive_ai_insights_async(request: AsyncComprehensiveAI
         )
 
 @router.post("/pdf/generate-async", response_model=TaskResponse)
-async def generate_pdf_report_async(request: AsyncPDFRequest):
+async def generate_pdf_async(request: AsyncPDFRequest, db: Session = Depends(get_db)):
     """
     Start asynchronous PDF report generation.
     Returns immediately with task ID for status tracking.
@@ -183,7 +185,7 @@ async def generate_pdf_report_async(request: AsyncPDFRequest):
         )
 
 @router.post("/pdf/comprehensive-async", response_model=TaskResponse)
-async def generate_comprehensive_pdf_async(request: AsyncComprehensivePDFRequest):
+async def generate_comprehensive_pdf_async(request: AsyncComprehensivePDFRequest, db: Session = Depends(get_db)):
     """
     Start asynchronous comprehensive PDF generation with AI insights.
     Returns immediately with task ID for status tracking.
@@ -215,7 +217,7 @@ async def generate_comprehensive_pdf_async(request: AsyncComprehensivePDFRequest
         )
 
 @router.get("/task-status/{task_id}", response_model=TaskStatusResponse)
-async def get_task_status_endpoint(task_id: str, http_response: Response):
+async def get_task_status_endpoint(task_id: str, http_response: Response, db: Session = Depends(get_db)):
     """
     Get the status of a running or completed task.
     """

@@ -5,12 +5,14 @@ New robust API endpoints for managing test completion status with proper error h
 caching, and UUID validation.
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
+from sqlalchemy.orm import Session
 from typing import Dict, Any
 import logging
 
 from core.rate_limit import limiter
 from core.cache import cache_async_result
+from core.database_dependencies_singleton import get_user_db, get_db
 from results_service.app.services.completion_status_service import CompletionStatusService
 
 logger = logging.getLogger(__name__)
@@ -20,7 +22,7 @@ router = APIRouter(prefix="/completion-status", tags=["completion-status"])
 
 @router.get("/{user_id}")
 @limiter.limit("100/minute")
-async def get_completion_status(request: Request, user_id: str, force_refresh: bool = False) -> Dict[str, Any]:
+async def get_completion_status(request: Request, user_id: str, force_refresh: bool = False, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Get comprehensive test completion status for a user
     
@@ -72,7 +74,7 @@ async def get_completion_status(request: Request, user_id: str, force_refresh: b
 
 @router.get("/{user_id}/progress")
 @limiter.limit("100/minute")
-async def get_progress_summary(request: Request, user_id: str) -> Dict[str, Any]:
+async def get_progress_summary(request: Request, user_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Get test progress summary for dashboard display
     
@@ -109,7 +111,7 @@ async def get_progress_summary(request: Request, user_id: str) -> Dict[str, Any]
 
 @router.get("/{user_id}/completed-tests")
 @limiter.limit("100/minute")
-async def get_completed_tests(request: Request, user_id: str) -> Dict[str, Any]:
+async def get_completed_tests(request: Request, user_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Get list of completed tests for a user
     
@@ -150,7 +152,7 @@ async def get_completed_tests(request: Request, user_id: str) -> Dict[str, Any]:
 
 @router.post("/{user_id}/mark-completed/{test_id}")
 @limiter.limit("50/minute")
-async def mark_test_completed(request: Request, user_id: str, test_id: str) -> Dict[str, Any]:
+async def mark_test_completed(request: Request, user_id: str, test_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Mark a test as completed and invalidate cache
     
@@ -192,7 +194,7 @@ async def mark_test_completed(request: Request, user_id: str, test_id: str) -> D
 
 @router.delete("/{user_id}/cache")
 @limiter.limit("20/minute")
-async def clear_completion_cache(request: Request, user_id: str) -> Dict[str, Any]:
+async def clear_completion_cache(request: Request, user_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Clear completion status cache for a user (for testing/debugging)
     
@@ -231,7 +233,7 @@ async def clear_completion_cache(request: Request, user_id: str) -> Dict[str, An
 
 
 @router.get("/debug/{user_id}")
-async def debug_user_database(request: Request, user_id: str) -> Dict[str, Any]:
+async def debug_user_database(request: Request, user_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Debug endpoint to check what's actually in the database for a user
     """

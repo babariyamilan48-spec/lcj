@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from core.database_singleton import get_db
+from core.database_dependencies_singleton import get_db
 from auth_service.app.deps.auth import get_current_admin_user
 from auth_service.app.models.user import User
 from auth_service.app.schemas.user import UserOut
@@ -12,8 +12,8 @@ router = APIRouter()
 
 @router.get("/users")
 def get_all_users(
+    current_admin: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # Temporarily disabled for testing
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=100),
     search: Optional[str] = Query(None),
@@ -72,8 +72,8 @@ def get_all_users(
 @router.post("/users")
 def create_user(
     user_data: dict,
-    db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user)  # Temporarily disabled for testing
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
 ):
     """Create a new user (Admin only)"""
     
@@ -131,8 +131,8 @@ def create_user(
 def update_user(
     user_id: str,
     user_data: dict,
-    db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user)  # Temporarily disabled for testing
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
 ):
     """Update user status or role (Admin only)"""
     
@@ -179,8 +179,8 @@ def update_user(
 @router.delete("/users/{user_id}")
 def delete_user(
     user_id: str,
-    db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user)  # Temporarily disabled for testing
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
 ):
     """Delete a user (Admin only)"""
     
@@ -200,8 +200,8 @@ def delete_user(
 
 @router.get("/analytics/users")
 def get_user_analytics(
-    db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user)  # Temporarily disabled for testing
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
 ):
     """Get user analytics (Admin only)"""
     

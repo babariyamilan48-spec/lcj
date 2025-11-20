@@ -18,6 +18,8 @@ from results_service.app.services.optimized_result_service_v2 import OptimizedRe
 from results_service.app.services.markdown_report_service import MarkdownReportService
 from results_service.app.services.pdf_generator import PDFGeneratorService
 from core.services.ai_service import AIInsightService
+from core.database_dependencies_singleton import get_user_db
+from core.user_session_singleton import user_session_context
 from core.session_manager import force_close_user_sessions
 from core.cache import cache_async_result, QueryCache
 from core.middleware.compression import compress_json_response, optimize_large_response

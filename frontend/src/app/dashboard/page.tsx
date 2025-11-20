@@ -12,6 +12,7 @@ import * as Yup from 'yup';
 import { useRouter } from 'next/navigation';
 import { tokenStore } from '@/services/token';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import BackButton from '@/components/BackButton';
 
 const ProfileSchema = Yup.object({
   username: Yup.string().min(2, 'Too short').max(32, 'Too long').optional(),
@@ -54,6 +55,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-4xl flex-col gap-8 p-6">
+        <div className="mt-4">
+          <BackButton className="bg-white/10 hover:bg-white/20 text-white border border-white/20" />
+        </div>
         <motion.div className="mx-auto mt-8 rounded-2xl bg-white/10 p-6 text-center text-indigo-100 ring-1 ring-white/20 backdrop-blur-md" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           <p className="text-lg">{quote}</p>
         </motion.div>

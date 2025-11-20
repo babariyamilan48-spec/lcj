@@ -1,8 +1,13 @@
 /**
- * API Interceptor for Automatic Optimization
- * Intercepts all API calls and redirects them to optimized endpoints
+ * API Interceptor for Automatic Optimization & Token Refresh
+ * Intercepts all API calls and:
+ * 1. Redirects them to optimized endpoints
+ * 2. Automatically refreshes tokens on 401 errors
  * Works with both Axios and Fetch
  */
+
+import { tokenStore } from '@/services/token';
+import { API_ENDPOINTS } from '@/config/api';
 
 // Check if optimized endpoints should be used
 const useOptimized = process.env.NEXT_PUBLIC_USE_OPTIMIZED === 'true' || 
@@ -11,6 +16,120 @@ const useOptimized = process.env.NEXT_PUBLIC_USE_OPTIMIZED === 'true' ||
 
 // Store original fetch (safely handle SSR)
 const originalFetch = typeof window !== 'undefined' ? window.fetch : global.fetch;
+
+// Token refresh state management
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+/**
+ * Subscribe to token refresh events
+ */
+const subscribeTokenRefresh = (callback: (token: string) => void) => {
+  refreshSubscribers.push(callback);
+};
+
+/**
+ * Notify all subscribers when token is refreshed
+ */
+const notifyTokenRefresh = (token: string) => {
+  refreshSubscribers.forEach(callback => callback(token));
+  refreshSubscribers = [];
+};
+
+/**
+ * Check if access token is expired
+ */
+const isAccessTokenExpired = (): boolean => {
+  try {
+    const token = tokenStore.getAccessToken();
+    if (!token) return true;
+    
+    // Decode JWT to check expiration
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    
+    const decoded = JSON.parse(atob(parts[1]));
+    const expirationTime = decoded.exp * 1000; // Convert to milliseconds
+    const currentTime = Date.now();
+    
+    // Consider token expired if less than 1 minute remaining
+    return currentTime >= expirationTime - 60000;
+  } catch (e) {
+    console.error('Error checking token expiration:', e);
+    return true;
+  }
+};
+
+/**
+ * Attempt to refresh the access token using the refresh token
+ */
+const refreshAccessToken = async (): Promise<string | null> => {
+  try {
+    const refreshToken = tokenStore.getRefreshToken();
+    
+    if (!refreshToken) {
+      console.warn('⚠️ No refresh token available for token refresh');
+      return null;
+    }
+
+    const response = await originalFetch(`${API_ENDPOINTS.AUTH.BASE}${API_ENDPOINTS.AUTH.REFRESH_TOKEN}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Bypass-Interceptor': 'true',
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!response.ok) {
+      console.error('❌ Token refresh failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.success && data.data && data.data.token) {
+      const { access_token, refresh_token: newRefreshToken } = data.data.token;
+      
+      // Update tokens
+      const currentUserId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+      tokenStore.setTokens(access_token, newRefreshToken, currentUserId);
+      
+      console.log('✅ Token refreshed successfully');
+      return access_token;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error refreshing token:', error);
+    return null;
+  }
+};
+
+/**
+ * Handle token refresh failure - force logout
+ */
+const handleTokenRefreshFailure = () => {
+  // Clear tokens
+  tokenStore.clear();
+  
+  // Redirect to login
+  if (typeof window !== 'undefined') {
+    // Clear all user data
+    try {
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('at');
+      localStorage.removeItem('rt');
+    } catch (e) {
+      console.error('Error clearing localStorage:', e);
+    }
+    
+    // Redirect to login page
+    console.log('🔄 Redirecting to login due to token expiration');
+    window.location.href = '/auth/login?session_expired=true';
+  }
+};
 
 // Comprehensive endpoint mapping
 const ENDPOINT_REDIRECTS: Record<string, string> = {
@@ -77,7 +196,54 @@ if (useOptimized && typeof window !== 'undefined') {
       };
       
       const startTime = performance.now();
-      const response = await originalFetch(newUrl, optimizedInit);
+      let response = await originalFetch(newUrl, optimizedInit);
+      
+      // Handle 401 Unauthorized - only refresh if token is actually expired
+      if (response.status === 401 && isAccessTokenExpired()) {
+        console.warn('⚠️ 401 Unauthorized - Access token expired, attempting to refresh');
+        
+        if (!isRefreshing) {
+          isRefreshing = true;
+          
+          const newToken = await refreshAccessToken();
+          
+          isRefreshing = false;
+          
+          if (newToken) {
+            // Notify subscribers of new token
+            notifyTokenRefresh(newToken);
+            
+            // Retry the original request with new token
+            const retryHeaders = new Headers(optimizedInit.headers || {});
+            retryHeaders.set('Authorization', `Bearer ${newToken}`);
+            
+            response = await originalFetch(newUrl, {
+              ...optimizedInit,
+              headers: retryHeaders,
+            });
+          } else {
+            // Token refresh failed - force logout
+            handleTokenRefreshFailure();
+            return response;
+          }
+        } else {
+          // Wait for ongoing refresh to complete
+          return new Promise((resolve) => {
+            subscribeTokenRefresh((newToken: string) => {
+              const retryHeaders = new Headers(optimizedInit.headers || {});
+              retryHeaders.set('Authorization', `Bearer ${newToken}`);
+              
+              resolve(
+                originalFetch(newUrl, {
+                  ...optimizedInit,
+                  headers: retryHeaders,
+                })
+              );
+            });
+          });
+        }
+      }
+      
       const endTime = performance.now();
       const responseTime = endTime - startTime;
       
@@ -136,7 +302,55 @@ if (useOptimized && typeof window !== 'undefined') {
         }
       };
       
-      return originalFetch(newUrl, optimizedInit);
+      let response = await originalFetch(newUrl, optimizedInit);
+      
+      // Handle 401 Unauthorized - only refresh if token is actually expired
+      if (response.status === 401 && isAccessTokenExpired()) {
+        console.warn('⚠️ 401 Unauthorized - Access token expired, attempting to refresh');
+        
+        if (!isRefreshing) {
+          isRefreshing = true;
+          
+          const newToken = await refreshAccessToken();
+          
+          isRefreshing = false;
+          
+          if (newToken) {
+            // Notify subscribers of new token
+            notifyTokenRefresh(newToken);
+            
+            // Retry the original request with new token
+            const retryHeaders = new Headers(optimizedInit.headers || {});
+            retryHeaders.set('Authorization', `Bearer ${newToken}`);
+            
+            response = await originalFetch(newUrl, {
+              ...optimizedInit,
+              headers: retryHeaders,
+            });
+          } else {
+            // Token refresh failed - force logout
+            handleTokenRefreshFailure();
+            return response;
+          }
+        } else {
+          // Wait for ongoing refresh to complete
+          return new Promise((resolve) => {
+            subscribeTokenRefresh((newToken: string) => {
+              const retryHeaders = new Headers(optimizedInit.headers || {});
+              retryHeaders.set('Authorization', `Bearer ${newToken}`);
+              
+              resolve(
+                originalFetch(newUrl, {
+                  ...optimizedInit,
+                  headers: retryHeaders,
+                })
+              );
+            });
+          });
+        }
+      }
+      
+      return response;
     }
   }
   
@@ -144,7 +358,55 @@ if (useOptimized && typeof window !== 'undefined') {
   console.log(`❌ No optimization found for: ${methodUrl}`);
   
   // No optimization available, use original
-  return originalFetch(input, init);
+  let response = await originalFetch(input, init);
+  
+  // Handle 401 Unauthorized - only refresh if token is actually expired (for non-optimized endpoints)
+  if (response.status === 401 && !headers['X-Bypass-Interceptor'] && isAccessTokenExpired()) {
+    console.warn('⚠️ 401 Unauthorized - Access token expired, attempting to refresh');
+    
+    if (!isRefreshing) {
+      isRefreshing = true;
+      
+      const newToken = await refreshAccessToken();
+      
+      isRefreshing = false;
+      
+      if (newToken) {
+        // Notify subscribers of new token
+        notifyTokenRefresh(newToken);
+        
+        // Retry the original request with new token
+        const retryHeaders = new Headers(init?.headers || {});
+        retryHeaders.set('Authorization', `Bearer ${newToken}`);
+        
+        response = await originalFetch(input, {
+          ...init,
+          headers: retryHeaders,
+        });
+      } else {
+        // Token refresh failed - force logout
+        handleTokenRefreshFailure();
+        return response;
+      }
+    } else {
+      // Wait for ongoing refresh to complete
+      return new Promise((resolve) => {
+        subscribeTokenRefresh((newToken: string) => {
+          const retryHeaders = new Headers(init?.headers || {});
+          retryHeaders.set('Authorization', `Bearer ${newToken}`);
+          
+          resolve(
+            originalFetch(input, {
+              ...init,
+              headers: retryHeaders,
+            })
+          );
+        });
+      });
+    }
+  }
+  
+  return response;
   };
 }
 
@@ -194,7 +456,7 @@ if (useOptimized && typeof window !== 'undefined') {
       return Promise.reject(error);
     });
     
-    // Add response interceptor for performance tracking
+    // Add response interceptor for performance tracking and token refresh
     axios.interceptors.response.use((response) => {
       if (response.config.headers?.['X-Optimized-Request']) {
         // Simple performance estimation since we can't easily track start time
@@ -206,7 +468,41 @@ if (useOptimized && typeof window !== 'undefined') {
         console.log(`📊 Total optimized calls: ${interceptedCalls}, Total time saved: ${(totalSavedTime / 1000).toFixed(1)}s`);
       }
       return response;
-    }, (error) => {
+    }, async (error) => {
+      // Handle 401 Unauthorized - token expired
+      if (error.response?.status === 401 && !error.config.headers?.['X-Bypass-Interceptor']) {
+        console.warn('⚠️ Axios 401 Unauthorized - Attempting to refresh token');
+        
+        if (!isRefreshing) {
+          isRefreshing = true;
+          
+          const newToken = await refreshAccessToken();
+          
+          isRefreshing = false;
+          
+          if (newToken) {
+            // Notify subscribers of new token
+            notifyTokenRefresh(newToken);
+            
+            // Retry the original request with new token
+            error.config.headers['Authorization'] = `Bearer ${newToken}`;
+            return axios(error.config);
+          } else {
+            // Token refresh failed - force logout
+            handleTokenRefreshFailure();
+            return Promise.reject(error);
+          }
+        } else {
+          // Wait for ongoing refresh to complete
+          return new Promise((resolve) => {
+            subscribeTokenRefresh((newToken: string) => {
+              error.config.headers['Authorization'] = `Bearer ${newToken}`;
+              resolve(axios(error.config));
+            });
+          });
+        }
+      }
+      
       return Promise.reject(error);
     });
     
@@ -246,6 +542,7 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined') {
   if (useOptimized) {
     console.log('🚀 API Interceptor initialized - All API calls will be automatically optimized!');
+    console.log('✅ Automatic token refresh enabled - Tokens will be refreshed on 401 errors');
   } else {
     console.log('⚠️ Using legacy API endpoints - Optimization disabled');
   }

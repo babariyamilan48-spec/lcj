@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from core.database_singleton import get_db
+from core.database_dependencies_singleton import get_user_db, get_db
 from results_service.app.services.result_service import ResultService
 from datetime import datetime
 import logging
@@ -10,16 +10,43 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 @router.get("/comprehensive-report/{user_id}")
-async def get_comprehensive_report(user_id: str):
+async def get_comprehensive_report(user_id: str, db: Session = Depends(get_db)):
     """
     Generate a comprehensive report combining all test results for a user
     This endpoint provides data for the "Download All" functionality
+    Uses pre-calculated results for instant performance
     """
     try:
         logger.info(f"Generating comprehensive report for user {user_id}")
         
-        # Get all test results
-        all_results = await ResultService.get_all_test_results(user_id)
+        from question_service.app.services.calculated_result_service import CalculatedResultService
+        
+        # Get pre-calculated results by test (latest for each test type)
+        calculated_results = CalculatedResultService.get_latest_results_by_test(db, user_id)
+        logger.info(f"Found {len(calculated_results)} pre-calculated results for user {user_id}")
+        
+        # If no calculated results found, fallback to get_all_test_results for backward compatibility
+        if not calculated_results:
+            logger.warning(f"No pre-calculated results found for user {user_id}, falling back to test_results table")
+            all_results = await ResultService.get_all_test_results(user_id)
+        else:
+            # Convert to format expected by frontend
+            all_results = {}
+            for test_id, result in calculated_results.items():
+                logger.info(f"Processing test {test_id}: {result.result_summary}")
+                all_results[test_id] = {
+                    'test_id': test_id,
+                    'test_name': result.result_summary or f"Test: {test_id}",
+                    'analysis': result.calculated_result or {},
+                    'primary_result': result.primary_result,
+                    'traits': result.traits or [],
+                    'careers': result.careers or [],
+                    'strengths': result.strengths or [],
+                    'recommendations': result.recommendations or [],
+                    'dimensions_scores': result.dimensions_scores or {},
+                    'created_at': result.created_at.isoformat() if result.created_at else None,
+                    'updated_at': result.updated_at.isoformat() if result.updated_at else None,
+                }
         
         # Get AI insights
         ai_insights = None

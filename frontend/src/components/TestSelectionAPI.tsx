@@ -312,7 +312,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
                 {/* Clean Icon Container */}
                 <div className="flex justify-center mb-6">
                   <div
-                    className="w-24 h-24 rounded-xl flex items-center justify-center text-4xl transition-transform duration-300 group-hover:scale-110"
+                    className="w-32 h-32 rounded-xl flex items-center justify-center text-6xl transition-transform duration-300 group-hover:scale-110"
                     style={{ color: test.color || '#FF7D2D' }}
                   >
                     {getTestIcon(test.test_id, test.name)}
@@ -342,11 +342,11 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
                   <div className="flex justify-between items-center text-sm text-slate-500">
                     <div className="flex items-center">
                       <span className="mr-1">⏱️</span>
-                      <span>{test.duration || '30 મિનિટ'}</span>
+                      <span>{test.duration && test.duration !== 'null' ? test.duration : '30 મિનિટ'}</span>
                     </div>
                     <div className="flex items-center">
                       <span className="mr-1">❓</span>
-                      <span>{test.questions_count} પ્રશ્નો</span>
+                      <span>{test.questions_count && test.questions_count > 0 ? test.questions_count : '?'} પ્રશ્નો</span>
                     </div>
                   </div>
                 </div>
@@ -421,7 +421,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
               )}
 
               <div className="text-center mb-6">
-                <div className="w-16 h-16 mx-auto rounded-xl flex items-center justify-center text-2xl mb-3" style={{ color: selectedTest.color || '#FF7D2D' }}>
+                <div className="w-20 h-20 mx-auto rounded-xl flex items-center justify-center text-4xl mb-3" style={{ color: selectedTest.color || '#FF7D2D' }}>
                   {getTestIcon(selectedTest.id, selectedTest.name)}
                 </div>
                 <h3 className="text-xl font-bold text-slate-800 mb-2">
@@ -452,12 +452,12 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
                 <div className="bg-gray-50 p-3 rounded-lg text-center">
                   <div className="text-xl mb-1">⏱️</div>
                   <div className="text-xs text-slate-500 mb-1">અવધિ</div>
-                  <div className="text-xs font-semibold text-slate-700">{selectedTest.duration}</div>
+                  <div className="text-xs font-semibold text-slate-700">{selectedTest.duration && selectedTest.duration !== 'null' ? selectedTest.duration : '30 મિનિટ'}</div>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg text-center">
                   <div className="text-xl mb-1">❓</div>
                   <div className="text-xs text-slate-500 mb-1">પ્રશ્નો</div>
-                  <div className="text-xs font-semibold text-slate-700">{selectedTest.questions}</div>
+                  <div className="text-xs font-semibold text-slate-700">{selectedTest.questions && selectedTest.questions > 0 ? selectedTest.questions : '?'}</div>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg text-center">
                   <div className="text-xl mb-1">✅</div>

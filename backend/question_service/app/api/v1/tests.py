@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
-from core.database_singleton import get_db
+from core.database_dependencies_singleton import get_db
 from core.app_factory import resp
 from question_service.app.deps.auth import get_current_user
 from question_service.app.models.test import Test
@@ -19,6 +19,7 @@ async def get_tests(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     is_active: Optional[bool] = None,
+    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all tests with pagination"""
@@ -35,7 +36,8 @@ async def get_tests(
 @limiter.limit("100/minute")
 async def get_test(
     request: Request,
-    test_id: str, 
+    test_id: str,
+    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get a specific test by test_id"""

@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import ModernNavbar from '@/components/layout/ModernNavbar';
 import ModernFooter from '@/components/layout/ModernFooter';
+import BackButton from '@/components/BackButton';
+import MobileNavDrawer from '@/components/MobileNavDrawer';
 import { modernToast } from '@/utils/toast';
 import { useUserProfile, useTestResults, useAnalytics, useReportDownload } from '@/hooks/useResultsService';
 import { resultsService } from '@/services/resultsService';
@@ -84,20 +86,37 @@ export default function ProfilePage() {
     }
   };
 
+  // Define the 7 standard tests in order
+  const STANDARD_TESTS = [
+    'mbti',
+    'intelligence',
+    'riasec',
+    'bigfive',
+    'decision',
+    'vark',
+    'life-situation'
+  ];
+
   // Test name mappings to proper Gujarati names
   const getTestDisplayName = (testId: string, testName?: string) => {
     const testNameMappings: Record<string, string> = {
       'mbti': 'મારા સ્વભાવની ઓળખ',
       'intelligence': 'મારી બુદ્ધિની ઓળખ', 
-      'bigfive': 'મારા વ્યક્તિત્વની ઓળખ',
       'riasec': 'મારા રસ-રુચિ ની ઓળખ',
+      'bigfive': 'મારા વ્યક્તિત્વની ઓળખ',
       'decision': 'મારી નિર્ણય શૈલીની ઓળખ',
       'vark': 'મારી શીખવાની શૈલીની ઓળખ',
       'life-situation': 'મારી જીવન પરિસ્થિતિની ઓળખ',
-      'comprehensive-ai-insights': 'સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)'
+      'comprehensive-ai-insights': 'સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ'
     };
 
     return testNameMappings[testId] || testName || testId;
+  };
+
+  // Get test order for sorting
+  const getTestOrder = (testId: string): number => {
+    const index = STANDARD_TESTS.indexOf(testId);
+    return index === -1 ? 999 : index;
   };
 
   const [isEditing, setIsEditing] = useState(false);
@@ -207,11 +226,12 @@ export default function ProfilePage() {
   }, []);
 
   if (!isAuthenticated || !user) {
+    // Show loading screen instead of login message (user might be redirecting from test)
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Please log in to view your profile</h1>
-          <a href="/auth/login" className="text-blue-600 hover:text-blue-800">Go to Login</a>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your profile...</p>
         </div>
       </div>
     );
@@ -416,12 +436,18 @@ export default function ProfilePage() {
     
     return null;
   })();
-  // Prioritize AI insights in recent tests display
-  const recentTests = (() => {
-    if (!effectiveResults || effectiveResults.length === 0) return [];
+  // Filter and sort all results to only include 7 standard tests
+  const filteredAndSortedResults = (() => {
+    if (!results || results.length === 0) return [];
+    
+    // Filter to only include the 7 standard tests (plus AI insights)
+    const filteredTests = results.filter((test: any) => 
+      test.test_id === 'comprehensive-ai-insights' || 
+      STANDARD_TESTS.includes(test.test_id)
+    );
     
     // Find AI insights
-    const aiInsights = effectiveResults.filter((test: any) => 
+    const aiInsights = filteredTests.filter((test: any) => 
       test.test_id === 'comprehensive-ai-insights' || 
       test.id?.toString().includes('ai_insights') ||
       test.test_name?.includes('AI વિશ્લેષણ') ||
@@ -429,15 +455,59 @@ export default function ProfilePage() {
     );
     
     // Get other tests (non-AI insights)
-    const otherTests = effectiveResults.filter((test: any) => 
+    const otherTests = filteredTests.filter((test: any) => 
       !(test.test_id === 'comprehensive-ai-insights' || 
         test.id?.toString().includes('ai_insights') ||
         test.test_name?.includes('AI વિશ્લેષણ') ||
         test.test_name?.includes('AI Analysis'))
     );
     
-    // Combine: AI insights first, then most recent other tests
-    const combined = [...aiInsights, ...otherTests.slice(0, 3 - aiInsights.length)];
+    // Sort other tests by test order
+    const sortedOtherTests = otherTests.sort((a: any, b: any) => {
+      const aOrder = getTestOrder(a.test_id);
+      const bOrder = getTestOrder(b.test_id);
+      return aOrder - bOrder;
+    });
+    
+    // Combine: AI insights first, then sorted other tests
+    return [...aiInsights, ...sortedOtherTests];
+  })();
+
+  // Prioritize AI insights in recent tests display
+  const recentTests = (() => {
+    if (!effectiveResults || effectiveResults.length === 0) return [];
+    
+    // Filter to only include the 7 standard tests (plus AI insights)
+    const filteredTests = effectiveResults.filter((test: any) => 
+      test.test_id === 'comprehensive-ai-insights' || 
+      STANDARD_TESTS.includes(test.test_id)
+    );
+    
+    // Find AI insights
+    const aiInsights = filteredTests.filter((test: any) => 
+      test.test_id === 'comprehensive-ai-insights' || 
+      test.id?.toString().includes('ai_insights') ||
+      test.test_name?.includes('AI વિશ્લેષણ') ||
+      test.test_name?.includes('AI Analysis')
+    );
+    
+    // Get other tests (non-AI insights)
+    const otherTests = filteredTests.filter((test: any) => 
+      !(test.test_id === 'comprehensive-ai-insights' || 
+        test.id?.toString().includes('ai_insights') ||
+        test.test_name?.includes('AI વિશ્લેષણ') ||
+        test.test_name?.includes('AI Analysis'))
+    );
+    
+    // Sort other tests by test order
+    const sortedOtherTests = otherTests.sort((a: any, b: any) => {
+      const aOrder = getTestOrder(a.test_id);
+      const bOrder = getTestOrder(b.test_id);
+      return aOrder - bOrder;
+    });
+    
+    // Combine: AI insights first, then sorted other tests
+    const combined = [...aiInsights, ...sortedOtherTests.slice(0, 3 - aiInsights.length)];
     
     return combined.slice(0, 3);
   })();
@@ -448,6 +518,9 @@ export default function ProfilePage() {
       <ModernNavbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-8">
+        <div className="mb-6">
+          <BackButton />
+        </div>
         {/* Profile Header */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
@@ -500,35 +573,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
-              {!isEditing && (
-                <button
-                  onClick={handleEdit}
-                  className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 w-full sm:w-auto"
-                >
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  Edit Profile
-                </button>
-              )}
-              {isEditing && (
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                  <button
-                    onClick={handleSaveProfile}
-                    className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Save
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 w-full sm:w-auto"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
@@ -544,10 +588,7 @@ export default function ProfilePage() {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id);
-                    // Always trigger API call when switching to tests tab
-                    if (tab.id === 'tests' && userId) {
-                      fetchResults();
-                    }
+                    // Don't fetch again - data is already loaded by useTestResults hook
                   }}
                   className={`${
                     activeTab === tab.id
@@ -1003,10 +1044,10 @@ export default function ProfilePage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 <span className="ml-3 text-gray-600">Loading test history...</span>
               </div>
-            ) : results && results.length > 0 ? (
+            ) : filteredAndSortedResults && filteredAndSortedResults.length > 0 ? (
               <>
                 <div className="space-y-4">
-                  {results.map((test: any, index: number) => (
+                  {filteredAndSortedResults.map((test: any, index: number) => (
                     <motion.div
                       key={test.id || index}
                       initial={{ opacity: 0, y: 20 }}
@@ -1054,7 +1095,13 @@ export default function ProfilePage() {
                         {/* Action Buttons */}
                         <div className="flex items-center space-x-3 sm:space-x-4">
                           <button
-                            onClick={() => window.location.href = `/test-result/${test.test_id}`}
+                            onClick={() => {
+                              if (test.test_id === 'comprehensive-ai-insights') {
+                                window.location.href = `/comprehensive-report/${userId}?view=ai-insights-only`;
+                              } else {
+                                window.location.href = `/test-result/${test.test_id}`;
+                              }
+                            }}
                             className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto"
                           >
                             <Eye className="w-4 h-4 mr-2" />
@@ -1171,7 +1218,10 @@ export default function ProfilePage() {
                   setShowDownloadModal(false);
                   // Open comprehensive report in new window for printing
                   const reportUrl = `/comprehensive-report/${userId}`;
-                  window.open(reportUrl, '_blank', 'width=1200,height=800');
+                  const newWindow = window.open(reportUrl, '_blank');
+                  if (newWindow) {
+                    newWindow.focus();
+                  }
                 }}
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
               >
@@ -1184,6 +1234,13 @@ export default function ProfilePage() {
           </motion.div>
         </div>
       )}
+
+      {/* Mobile Navigation Drawer with Profile Tabs */}
+      <MobileNavDrawer 
+        currentPage={activeTab}
+        onTabChange={setActiveTab}
+        showProfileTabs={true}
+      />
 
       <ModernFooter />
       <Toaster />

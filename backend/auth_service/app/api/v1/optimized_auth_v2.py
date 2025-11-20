@@ -6,14 +6,18 @@ Ensures proper session lifecycle and prevents session leaks
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any, Optional
+from sqlalchemy.orm import Session
 import logging
 import time
 import uuid
 
-from ...schemas.user import SignupInput, UserOut, VerifyEmailRequestInput, VerifyEmailConfirmInput
+from ...schemas.user import SignupInput, UserOut, VerifyEmailRequestInput, VerifyEmailConfirmInput, TokenRefreshInput
 from ...schemas.auth import LoginRequest, LoginResponse, UserResponse
 from ...services.auth import authenticate_user_with_details, generate_tokens_for_user, register_user, verify_and_consume_otp, get_user_by_email
-from core.session_manager import get_session, get_session_health, force_close_user_sessions
+from core.database_dependencies_singleton import get_user_db, get_db
+from core.user_session_singleton import user_session_context
+from core.session_manager import get_session_health, force_close_user_sessions
+from core.database_pool import optimized_db_pool
 from core.cache import cache
 from core.email import send_email_sync as send_email, otp_email_html, is_email_configured
 from core.rate_limit import limiter
@@ -39,7 +43,7 @@ async def signup_optimized_v2(
     start_time = time.time()
     
     try:
-        with get_session("user_signup") as session:
+        with optimized_db_pool.get_session() as session:
             try:
                 # Register the user
                 user = register_user(session, signup_data)
@@ -84,6 +88,9 @@ async def signup_optimized_v2(
                     "token_type": "bearer"
                 }
                 
+            except HTTPException:
+                # Re-raise HTTPException from register_user (email/username already taken, etc.)
+                raise
             except ValueError as e:
                 if "already exists" in str(e):
                     raise HTTPException(
@@ -100,6 +107,9 @@ async def signup_optimized_v2(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="An error occurred during signup"
                 )
+    except HTTPException:
+        # Re-raise HTTPException from register_user
+        raise
     except Exception as e:
         logger.error(f"Session error during signup: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -127,7 +137,7 @@ async def login_optimized_v2(
             )
         
         # Use centralized session manager for authentication
-        with get_session("user_authentication") as session:
+        with optimized_db_pool.get_session() as session:
             try:
                 # Authenticate user with detailed error information
                 auth_result = authenticate_user_with_details(
@@ -234,7 +244,8 @@ async def login_optimized_v2(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_optimized_v2(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    background_tasks: BackgroundTasks = None
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db)
 ) -> UserResponse:
     """
     Get current user with optimized session management
@@ -245,15 +256,33 @@ async def get_current_user_optimized_v2(
         # Extract token
         token = credentials.credentials
         
-        # Simple token validation (implement your token validation logic)
-        if not token or not token.startswith("access_token_for_"):
+        if not token:
+            raise HTTPException(
+                status_code=401,
+                detail="No token provided"
+            )
+        
+        # Validate JWT token and extract claims
+        from auth_service.app.utils.jwt import decode_token
+        try:
+            claims = decode_token(token)
+            if not claims:
+                raise ValueError("Token decoding returned None")
+            logger.debug(f"Token validation successful, claims: {claims}")
+        except Exception as e:
+            logger.error(f"Token validation failed: {e}", exc_info=True)
             raise HTTPException(
                 status_code=401,
                 detail="Invalid or expired token"
             )
         
-        # Extract user ID from token (this is a simple example)
-        user_id_str = token.replace("access_token_for_", "")
+        # Extract user ID from token claims
+        user_id_str = claims.get("uid")
+        if not user_id_str:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token: missing user ID"
+            )
         
         try:
             user_uuid = uuid.UUID(user_id_str)
@@ -282,76 +311,68 @@ async def get_current_user_optimized_v2(
         except Exception as cache_error:
             logger.warning(f"Cache lookup failed: {cache_error}")
         
-        # Use centralized session manager for user lookup
-        with get_session("get_current_user") as session:
-            try:
-                # Import user model
-                from ...models.user import User
-                
-                user = session.query(User).filter(User.id == user_uuid).first()
-                
-                if not user:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="User not found"
-                    )
-                
-                if not user.is_active:
-                    raise HTTPException(
-                        status_code=403,
-                        detail="User account is inactive"
-                    )
-                
-                # Update cache
-                session_data = {
-                    "user_id": user_id_str,
-                    "email": user.email,
-                    "is_active": user.is_active,
-                    "last_access": time.time()
-                }
-                
-                try:
-                    cache.set(cache_key, session_data, ttl=3600)
-                except Exception as cache_error:
-                    logger.warning(f"Failed to update user session cache: {cache_error}")
-                
-                # Log performance
-                duration = time.time() - start_time
-                logger.debug(f"Get current user completed in {duration:.3f}s for user {user.email}")
-                
-                # Background task to cleanup any orphaned sessions for this user
-                if background_tasks:
-                    background_tasks.add_task(
-                        _cleanup_user_sessions_background,
-                        user_id_str
-                    )
-                
-                return UserResponse(
-                    id=str(user.id),
-                    email=user.email,
-                    username=user.username,
-                    is_active=user.is_active,
-                    is_verified=user.is_verified,
-                    role=user.role,
-                    avatar=user.avatar,
-                    providers=user.providers or ["password"]
-                )
-                
-            except HTTPException:
-                # Re-raise HTTP exceptions
-                raise
-            except Exception as e:
-                logger.error(f"User lookup error: {e}")
+        # Use database session for user lookup
+        try:
+            # Import user model
+            from ...models.user import User
+            
+            user = db.query(User).filter(User.id == user_uuid).first()
+            
+            if not user:
                 raise HTTPException(
-                    status_code=500,
-                    detail="User service temporarily unavailable"
+                    status_code=404,
+                    detail="User not found"
                 )
+            
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=403,
+                    detail="User account is inactive"
+                )
+            
+            # Update cache
+            session_data = {
+                "user_id": user_id_str,
+                "email": user.email,
+                "is_active": user.is_active,
+                "last_access": time.time()
+            }
+            
+            try:
+                cache.set(cache_key, session_data, ttl=3600)
+            except Exception as cache_error:
+                logger.warning(f"Failed to update user session cache: {cache_error}")
+            
+            # Log performance
+            duration = time.time() - start_time
+            logger.debug(f"Get current user completed in {duration:.3f}s for user {user.email}")
+            
+            return UserResponse(
+                id=str(user.id),
+                email=user.email,
+                username=user.username,
+                is_active=user.is_active,
+                is_verified=user.is_verified,
+                role=user.role,
+                avatar=user.avatar,
+                providers=user.providers or ["password"]
+            )
+            
+        except HTTPException:
+            # Re-raise HTTP exceptions
+            raise
+        except Exception as e:
+            logger.error(f"User lookup error: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail="User service temporarily unavailable"
+            )
         
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
     except Exception as e:
-        logger.error(f"Get current user error: {e}")
+        logger.error(f"Get current user error: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="Authentication service temporarily unavailable"
@@ -413,7 +434,7 @@ async def verify_email_request_optimized(
     Request email verification OTP
     """
     try:
-        with get_session("verify_email_request") as session:
+        with optimized_db_pool.get_session() as session:
             user = get_user_by_email(session, payload.email)
             if not user:
                 raise HTTPException(
@@ -487,7 +508,7 @@ async def verify_email_confirm_optimized(
     Confirm email verification with OTP
     """
     try:
-        with get_session("verify_email_confirm") as session:
+        with optimized_db_pool.get_session() as session:
             # Verify and consume OTP
             user = verify_and_consume_otp(
                 session,
@@ -539,7 +560,7 @@ async def auth_health_check_optimized_v2() -> Dict[str, Any]:
         # Test database connection
         connection_test = False
         try:
-            with get_session("health_check") as session:
+            with optimized_db_pool.get_session() as session:
                 from sqlalchemy import text
                 result = session.execute(text("SELECT 1")).scalar()
                 connection_test = (result == 1)
@@ -633,3 +654,91 @@ async def auth_health_check_fast_alias() -> Dict[str, Any]:
     Fast health check endpoint - alias for the main health check
     """
     return await auth_health_check_optimized_v2()
+
+@router.post("/token/refresh")
+@limiter.limit("10/minute")
+async def refresh_token_optimized(
+    request: Request,
+    payload: TokenRefreshInput,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Refresh access token using refresh token
+    """
+    try:
+        refresh_token_value = payload.refresh_token
+        if not refresh_token_value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Refresh token is required"
+            )
+        
+        # Import required functions
+        from auth_service.app.services.auth import validate_refresh_token, generate_tokens_for_user
+        from auth_service.app.models.user import RefreshToken, User
+        from datetime import datetime, timezone
+        
+        # Validate refresh token JWT
+        claims = validate_refresh_token(refresh_token_value)
+        jti = claims.get("jti")
+        uid = claims.get("uid")
+        
+        if not jti or not uid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        
+        # Check DB token
+        rt = db.query(RefreshToken).filter(
+            RefreshToken.jti == jti, 
+            RefreshToken.is_revoked.is_(False)
+        ).first()
+        
+        if not rt or str(rt.user_id) != uid or rt.expires_at <= datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token"
+            )
+        
+        # Get user
+        user = db.query(User).filter(User.id == rt.user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found"
+            )
+        
+        # Revoke old refresh token
+        rt.is_revoked = True
+        db.add(rt)
+        db.commit()
+        
+        # Generate new token pair - this will create a new refresh token and commit
+        try:
+            access_token, new_refresh_token = generate_tokens_for_user(user, db)
+            
+            return resp(
+                {
+                    "token": {
+                        "access_token": access_token,
+                        "refresh_token": new_refresh_token
+                    }
+                },
+                message="Token refreshed successfully"
+            )
+        except Exception as token_error:
+            logger.error(f"Error generating new tokens: {token_error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate new tokens"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to refresh token"
+        )

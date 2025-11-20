@@ -42,7 +42,7 @@ interface Question {
 const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
   const { selectedTest, userAnswers, setUserAnswers, currentQuestionIndex, setCurrentQuestionIndex, testProgress, setTestProgress } = useAppStore();
   const { user } = useAuth();
-  
+
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: QuestionOption }>({});
@@ -54,7 +54,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
 
   // Use the API hook to fetch questions
   const { questions: apiQuestions, loading, error, fetchTestQuestions } = useQuestions();
-  
+
   // Use the quiz submission hook
   const { submitting, submitQuizResult } = useQuizSubmission();
 
@@ -83,10 +83,10 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
       loading,
       error
     });
-    
+
     if (apiQuestions && apiQuestions.length > 0) {
       console.log('✅ Converting API questions to local format:', apiQuestions.length, 'questions');
-      
+
       const convertedQuestions: Question[] = apiQuestions.map((apiQ: ApiQuestion) => ({
         question: apiQ.question_text,
         options: apiQ.options.map((opt: ApiOption) => ({
@@ -100,7 +100,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
 
       console.log('✅ Converted questions:', convertedQuestions.length);
       setQuestions(convertedQuestions);
-      
+
       if (convertedQuestions.length > 0) {
         setCurrentQuestion(convertedQuestions[0]);
         // Reset progress when starting new test
@@ -203,13 +203,13 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
   const handleNext = () => {
     // Only proceed if an option is selected for the current question and quiz not completed
     if (!selectedAnswers[currentQuestionIndex] || isCompleted) return;
-    
+
     // Clear any pending auto-advance timeout
     if (autoAdvanceTimeout.current) {
       clearTimeout(autoAdvanceTimeout.current);
       autoAdvanceTimeout.current = null;
     }
-    
+
     const nextIndex = currentQuestionIndex + 1;
     if (nextIndex < questions.length) {
       setCurrentQuestionIndex(nextIndex);
@@ -252,7 +252,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
       recommendations: generateRecommendations(),
       detailedResults: analyzeAnswers()
     };
-    
+
     return results;
   };
 
@@ -264,17 +264,20 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
       "Seek opportunities for continuous learning",
       "Network with professionals in your field of interest"
     ];
-    
+
     return recommendations;
   };
 
   const calculateScore = () => {
-    // Simple scoring - count correct answers or use weights
-    let totalScore = 0;
-    Object.values(userAnswers).forEach((answer: any) => {
-      totalScore += answer.score || answer.weight || 1;
-    });
-    return totalScore;
+    // Calculate percentage score based on number of questions answered correctly
+    // If all questions are answered, score is 100%
+    const answeredCount = Object.keys(userAnswers).length;
+    const totalQuestions = questions.length;
+    
+    if (totalQuestions === 0) return 0;
+    
+    // Return percentage (0-100)
+    return Math.round((answeredCount / totalQuestions) * 100);
   };
 
   // Remove duplicate handleComplete function - only use handleCompleteAndRedirect
@@ -288,7 +291,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
     // Mark as completed immediately to prevent race conditions
     setIsCompleted(true);
     setIsSubmitting(true);
-    
+
     // Clear any pending timeouts
     if (autoAdvanceTimeout.current) {
       clearTimeout(autoAdvanceTimeout.current);
@@ -297,7 +300,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
 
     const endTime = new Date();
     const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-    
+
     const results = {
       testId: selectedTest?.id,
       testName: selectedTest?.name,
@@ -313,7 +316,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
     try {
       // Submit to database
       const answersArray = Object.values(userAnswers);
-      
+
       await submitQuizResult(
         user.id, // Send UUID as string, not integer
         selectedTest?.id || '',
@@ -326,7 +329,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
       // Mark submission time to prevent duplicate saves in ModernResults
       const lastSubmissionKey = `lastSubmission_${selectedTest?.id}`;
       localStorage.setItem(lastSubmissionKey, Date.now().toString());
-      
+
       // Redirect to results page immediately without AI insights
       onComplete(results);
     } catch (error) {
@@ -336,7 +339,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
         window.location.href = `/profile`;
         return;
       }
-      
+
       // Still complete the quiz locally even if DB submission fails
       onComplete(results);
     } finally {
@@ -347,7 +350,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
   const analyzeAnswers = () => {
     // Analyze answers to provide detailed insights
     const analysis: any = {};
-    
+
     // Group answers by dimension if available
     Object.entries(userAnswers).forEach(([questionIndex, answerData]) => {
       const answer = answerData as any;
@@ -355,15 +358,15 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
         if (!analysis[answer.dimension]) {
           analysis[answer.dimension] = [];
         }
-        analysis[answer.dimension].push({ 
-          question: answer.question, 
+        analysis[answer.dimension].push({
+          question: answer.question,
           answer: answer.answer,
           weight: answer.weight,
           score: answer.score
         });
       }
     });
-    
+
     return analysis;
   };
 
@@ -465,7 +468,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-gradient-to-r from-secondary-200 to-primary-200 rounded-full opacity-30 blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
         <div className="absolute top-1/2 left-10 w-24 h-24 bg-gradient-to-r from-orange-200 to-primary-200 rounded-full opacity-35 blur-lg animate-pulse" style={{ animationDelay: '2s' }} />
         <div className="absolute top-1/4 right-1/4 w-20 h-20 bg-gradient-to-r from-primary-300 to-secondary-300 rounded-full opacity-25 blur-xl animate-pulse" style={{ animationDelay: '3s' }} />
-        
+
         {/* Floating icons with theme colors */}
         <div className="absolute top-20 right-10 text-primary-400 opacity-50 animate-bounce" style={{ animationDelay: '0.5s' }}>
           <Sparkles size={20} />
@@ -479,7 +482,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
         <div className="absolute bottom-1/3 left-1/4 text-primary-300 opacity-40 animate-bounce" style={{ animationDelay: '3.5s' }}>
           <Brain size={16} />
         </div>
-        
+
         {/* Subtle geometric patterns */}
         <div className="absolute top-10 left-1/2 w-16 h-16 border border-primary-200 rounded-lg opacity-20 rotate-45 animate-pulse" style={{ animationDelay: '4s' }} />
         <div className="absolute bottom-10 right-1/3 w-12 h-12 border border-secondary-200 rounded-full opacity-15 animate-pulse" style={{ animationDelay: '5s' }} />
@@ -528,13 +531,13 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
                         stroke="currentColor"
                         strokeWidth="2.5"
                         fill="none"
-                        strokeDasharray={`${((currentQuestionIndex + 1) / questions.length) * 100}, 100`}
+                        strokeDasharray={`${(Object.keys(userAnswers).length / questions.length) * 100}, 100`}
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
                       <span className="text-xs font-bold text-primary-600">
-                        {Math.round(((currentQuestionIndex + 1) / questions.length) * 100)}%
+                        {Math.round((Object.keys(userAnswers).length / questions.length) * 100)}%
                       </span>
                     </div>
                   </div>
@@ -597,8 +600,8 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
                     >
                       <div className="flex items-center">
                         <div className={`w-4 h-4 sm:w-5 sm:h-5 border-2 rounded-full mr-2 sm:mr-3 flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
-                          isOptionSelected(option) 
-                            ? 'border-primary-500 bg-primary-500' 
+                          isOptionSelected(option)
+                            ? 'border-primary-500 bg-primary-500'
                             : 'border-gray-300 group-hover:border-primary-400'
                         }`}>
                           {isOptionSelected(option) && (
@@ -638,7 +641,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
                       <ChevronLeft size={16} className="mr-1" />
                       પાછળ
                     </motion.button>
-                    
+
                     {/* Progress Indicator */}
                     <div className="flex items-center bg-primary-50 px-3 py-1.5 rounded-full border border-primary-100">
                       <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse mr-2" />
@@ -646,7 +649,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
                         {currentQuestionIndex + 1} / {questions.length}
                       </span>
                     </div>
-                    
+
                     {/* Next Button */}
                     <motion.button
                       whileHover={{ scale: 1.02 }}
@@ -663,7 +666,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
                       <ChevronRight size={16} className="ml-1" />
                     </motion.button>
                   </div>
-                  
+
                 </div>
               </div>
             </motion.div>
@@ -683,7 +686,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
                 <Heart size={12} className="text-orange-500 ml-1 sm:ml-2 sm:w-3.5 sm:h-3.5" />
               </div>
               <p className="text-primary-700 text-xs sm:text-sm font-semibold italic leading-relaxed">
-                "આત્મા ની અવાજ સાંભળો, તમારો સાચો માર્ગ મળશે"
+                "એક વાર તમે તમારી આત્માનો અવાજ સાંભળી લ્યો તમને તમારો સાચો રસ્તો મળી જશે.."
               </p>
               <p className="text-primary-600 text-xs mt-0.5 font-medium">
                 - આંતરિક શાંતિનો સંદેશ
@@ -698,7 +701,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
     {(isSubmitting || submitting) && (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-2xl p-8 max-w-md mx-4">
-          <TestCalculationLoader 
+          <TestCalculationLoader
             title="Submitting Your Test"
             message="Saving your answers and calculating results..."
             variant="compact"

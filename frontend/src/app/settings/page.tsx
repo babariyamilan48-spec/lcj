@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import ModernNavbar from '@/components/layout/ModernNavbar';
 import ModernFooter from '@/components/layout/ModernFooter';
+import BackButton from '@/components/BackButton';
 import { modernToast } from '@/utils/toast';
 
 export default function SettingsPage() {
@@ -360,6 +361,9 @@ export default function SettingsPage() {
       <ModernNavbar />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <div className="mb-6">
+          <BackButton />
+        </div>
         <div className="grid lg:grid-cols-4 gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-1">

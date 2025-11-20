@@ -32,9 +32,7 @@ except ImportError:
     bcrypt = None
 from contextlib import asynccontextmanager
 
-from core.database_singleton import get_db
-from core.database_pool import get_optimized_db
-from core.simple_database_dependencies import get_simple_optimized_db
+from core.database_dependencies_singleton import get_user_db, get_db
 from core.app_factory import resp
 from core.cache import cache_async_result
 from core.rate_limit import limiter
@@ -61,7 +59,7 @@ class OptimizedAuthService:
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensure database session is properly closed"""
+        """Handle context manager exit - don't close session as it's managed by FastAPI"""
         try:
             if self.db:
                 if exc_type is not None:
@@ -70,9 +68,9 @@ class OptimizedAuthService:
                 else:
                     # Commit on success
                     self.db.commit()
-                self.db.close()
+                # Don't close the session - it's managed by FastAPI's dependency injection
         except Exception as e:
-            logger.warning(f"Error closing auth database session: {e}")
+            logger.warning(f"Error in auth service context manager: {e}")
     
     def authenticate_user_fast(self, email: str, password: str) -> Optional[User]:
         """Ultra-fast user authentication with minimal database queries"""
@@ -152,9 +150,9 @@ class FastUserResponse(BaseModel):
 @limiter.limit("10/minute")  # Rate limiting for security
 async def login_fast(
     request: Request,
-    login_data: FastLoginRequest,
+    payload: LoginInput,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_simple_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast user login
@@ -163,21 +161,21 @@ async def login_fast(
     start_time = time.time()
     
     try:
-        logger.debug(f"Fast login attempt for: {login_data.email}")
+        logger.debug(f"Fast login attempt for: {payload.email}")
         
         with OptimizedAuthService(db) as auth_service:
             # Fast authentication
             user = auth_service.authenticate_user_fast(
-                login_data.email, 
-                login_data.password
+                payload.email, 
+                payload.password
             )
             
             if not user:
                 processing_time = (time.time() - start_time) * 1000
-                logger.warning(f"Fast login failed for {login_data.email} in {processing_time:.2f}ms")
+                logger.warning(f"Fast login failed for {payload.email} in {processing_time:.2f}ms")
                 
                 # Check if user exists to provide better error message
-                user_exists = auth_service.db.query(User.email).filter(User.email == login_data.email).first()
+                user_exists = auth_service.db.query(User.email).filter(User.email == payload.email).first()
                 if not user_exists:
                     raise HTTPException(
                         status_code=404,
@@ -192,8 +190,7 @@ async def login_fast(
             # Fast token generation
             access_token, refresh_token = create_token_pair(str(user.id), user.email)
             
-            # Update last login in background (non-blocking)
-            background_tasks.add_task(update_last_login, str(user.id))
+            # Note: last_login tracking disabled - column not in database
             
             # Prepare response
             user_data = {
@@ -235,7 +232,7 @@ async def login_fast(
             }
         }
         
-        logger.info(f"Fast login successful for {login_data.email} in {processing_time:.2f}ms")
+        logger.info(f"Fast login successful for {payload.email} in {processing_time:.2f}ms")
         return resp(result, True, "Login successful", "success")
         
     except HTTPException:
@@ -251,7 +248,7 @@ async def login_fast(
 async def get_current_user_fast(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_simple_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast current user retrieval
@@ -336,22 +333,6 @@ async def auth_health_fast(request: Request):
         processing_time = (time.time() - start_time) * 1000
         logger.error(f"Auth health check failed in {processing_time:.2f}ms: {str(e)}")
         return resp(None, False, str(e), "Auth service health check failed", 500)
-
-# Background task for non-blocking operations
-async def update_last_login(user_id: str):
-    """Update user's last login timestamp in background"""
-    try:
-        from core.database import SessionLocal
-        
-        with SessionLocal() as db:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                user.last_login = datetime.utcnow()
-                db.commit()
-                logger.debug(f"Updated last login for user {user_id}")
-                
-    except Exception as e:
-        logger.error(f"Failed to update last login for user {user_id}: {e}")
 
 # Export router
 __all__ = ["router"]

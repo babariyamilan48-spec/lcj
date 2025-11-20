@@ -12,7 +12,9 @@ import uuid
 
 from ...schemas.result import TestResult, TestResultCreate, AnalyticsData
 from ...services.optimized_result_service_v2 import OptimizedResultServiceV2
-from core.session_manager import get_session_health, cleanup_sessions, force_close_user_sessions
+from core.database_dependencies_singleton import get_user_db
+from core.user_session_singleton import user_session_context
+from core.session_manager import force_close_user_sessions
 
 logger = logging.getLogger(__name__)
 

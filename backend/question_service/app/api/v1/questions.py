@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
-from core.database_singleton import get_db
+from core.database_dependencies_singleton import get_db
 from core.app_factory import resp
 from question_service.app.deps.auth import get_current_user
 # Removed: from app.models.user import User
@@ -25,6 +25,7 @@ async def get_questions(
     test_id: Optional[int] = None,
     section_id: Optional[int] = None,
     is_active: Optional[bool] = None,
+    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all questions with pagination and filtering - OPTIMIZED"""
@@ -64,7 +65,8 @@ async def get_questions(
 @limiter.limit("200/minute")  # Increased due to caching
 async def get_question(
     request: Request,
-    question_id: int, 
+    question_id: int,
+    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get a specific question by ID - OPTIMIZED with caching"""
@@ -83,9 +85,9 @@ async def get_question(
 @limiter.limit("10/minute")
 async def create_question(
     request: Request,
-    question_data: QuestionCreate, 
-    db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user)
+    question_data: QuestionCreate,
+    current_user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Create a new question (Admin only)"""
     try:
@@ -103,10 +105,10 @@ async def create_question(
 @limiter.limit("10/minute")
 async def update_question(
     request: Request,
-    question_id: int, 
-    question_data: QuestionUpdate, 
-    db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user)
+    question_id: int,
+    question_data: QuestionUpdate,
+    current_user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Update a question (Admin only)"""
     try:
@@ -127,9 +129,9 @@ async def update_question(
 @limiter.limit("10/minute")
 async def delete_question(
     request: Request,
-    question_id: int, 
-    db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user)
+    question_id: int,
+    current_user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Delete a question (Admin only)"""
     try:

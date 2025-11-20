@@ -6,6 +6,7 @@ from .question import Question
 from .option import Option
 from .test_result import TestResult, TestResultDetail, TestResultConfiguration
 from .ai_insights import AIInsights
+from .calculated_result import CalculatedTestResult
 
 __all__ = [
     "Test",
@@ -16,5 +17,6 @@ __all__ = [
     "TestResult",
     "TestResultDetail",
     "TestResultConfiguration",
-    "AIInsights"
+    "AIInsights",
+    "CalculatedTestResult"
 ]

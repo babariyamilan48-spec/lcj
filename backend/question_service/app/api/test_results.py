@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from core.database_singleton import get_db
+from core.database_dependencies_singleton import get_user_db, get_db
 from ..deps.auth import get_current_user
 from auth_service.app.models.user import User
 from ..models.test_result import TestResult, TestResultDetail, TestResultConfiguration
@@ -211,15 +211,15 @@ async def get_user_latest_summary(
 ):
     """
     Get latest test results summary for user - optimized for overview tab
-    Returns dynamic data from calculated results with configuration fallback
+    Returns pre-calculated results for instant performance
     """
     try:
-        service = TestResultService(db)
+        from question_service.app.services.calculated_result_service import CalculatedResultService
         
-        # Get all test results for the user
-        all_results = service.get_user_results(user_id)
+        # Get pre-calculated results by test (latest for each test type)
+        latest_results_by_test = CalculatedResultService.get_latest_results_by_test(db, user_id)
         
-        if not all_results:
+        if not latest_results_by_test:
             return {
                 "user_id": user_id,
                 "total_unique_tests": 0,
@@ -231,27 +231,8 @@ async def get_user_latest_summary(
                 "last_activity": None
             }
         
-        # Get only the latest result for each test type
-        latest_results = {}
-        for result in all_results:
-            print(f"DEBUG - Processing result: ID={result.id}, test_id={result.test_id}, completed_at={result.completed_at}, primary_result={result.primary_result}")
-            
-            if result.test_id not in latest_results:
-                latest_results[result.test_id] = result
-                print(f"DEBUG - First result for {result.test_id}: ID={result.id}")
-            elif result.completed_at and latest_results[result.test_id].completed_at:
-                if result.completed_at > latest_results[result.test_id].completed_at:
-                    print(f"DEBUG - Replacing {result.test_id}: Old ID={latest_results[result.test_id].id} -> New ID={result.id}")
-                    latest_results[result.test_id] = result
-                else:
-                    print(f"DEBUG - Keeping older result for {result.test_id}: ID={latest_results[result.test_id].id}")
-            else:
-                # Handle case where completed_at might be None
-                if not latest_results[result.test_id].completed_at or (result.completed_at and result.id > latest_results[result.test_id].id):
-                    print(f"DEBUG - Using newer ID for {result.test_id}: ID={result.id}")
-                    latest_results[result.test_id] = result
-        
-        print(f"DEBUG - Final latest results: {[(test_id, result.id, result.primary_result) for test_id, result in latest_results.items()]}")
+        # Already have latest results by test from pre-calculated data
+        latest_results = latest_results_by_test
         
         # Build summary response with proper data extraction
         summary_data = []

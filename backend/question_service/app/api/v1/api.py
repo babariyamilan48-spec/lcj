@@ -4,12 +4,16 @@ from question_service.app.api.v1.questions import router as questions_router
 from question_service.app.api.v1.optimized_questions import router as optimized_questions_router
 from question_service.app.api.test_results import router as test_results_router
 from question_service.app.api.optimized_test_results import router as optimized_test_results_router
+from question_service.app.api.calculated_results import router as calculated_results_router
 
 api_router = APIRouter()
 
 # Main endpoints with optimized session management (replaces standard endpoints)
 api_router.include_router(optimized_questions_router, prefix="", tags=["questions-optimized"])
 api_router.include_router(optimized_test_results_router, prefix="/test-results", tags=["test-results-optimized"])
+
+# Pre-calculated results endpoints (for quick retrieval without recalculation)
+api_router.include_router(calculated_results_router, prefix="", tags=["calculated-results"])
 
 # Legacy optimized endpoints
 api_router.include_router(optimized_questions_router, prefix="/optimized", tags=["optimized-questions"])

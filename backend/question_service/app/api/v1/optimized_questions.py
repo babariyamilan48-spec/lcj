@@ -12,8 +12,7 @@ import time
 import logging
 from datetime import datetime
 
-from core.database_singleton import get_db
-from core.database_pool import get_optimized_db
+from core.database_dependencies_singleton import get_db
 from core.app_factory import resp
 from core.cache import cache_async_result
 from core.middleware.compression import compress_json_response, optimize_large_response
@@ -45,7 +44,8 @@ async def get_questions_fast(
     test_id: Optional[int] = None,
     section_id: Optional[int] = None,
     is_active: Optional[bool] = None,
-    db: Session = Depends(get_optimized_db)
+    current_user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast question retrieval with pagination and filtering
@@ -100,7 +100,7 @@ async def get_questions_fast(
 async def get_question_with_options_fast(
     request: Request,
     question_id: int,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast single question retrieval with options
@@ -140,7 +140,7 @@ async def get_question_with_options_fast(
 async def get_test_questions_fast(
     request: Request,
     test_id: int,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast test questions retrieval with all options
@@ -191,7 +191,7 @@ async def get_tests_fast(
     request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast tests list retrieval
@@ -206,15 +206,20 @@ async def get_tests_fast(
         from question_service.app.models.test import Test
         
         with OptimizedQuestionService(db) as service:
-            # Get tests with basic info only
+            # Get tests with all required fields
             tests_query = db.query(
                 Test.id,
                 Test.test_id,
                 Test.name,
                 Test.english_name,
                 Test.description,
+                Test.icon,
+                Test.color,
+                Test.questions_count,
+                Test.duration,
                 Test.is_active,
-                Test.created_at
+                Test.created_at,
+                Test.updated_at
             ).filter(Test.is_active == True)
             
             total = tests_query.count()
@@ -223,14 +228,47 @@ async def get_tests_fast(
             # Convert to dictionaries
             tests_list = []
             for test in tests:
+                # Get sections and dimensions for this test
+                from question_service.app.models.test_section import TestSection
+                from question_service.app.models.test_dimension import TestDimension
+                
+                sections = db.query(TestSection).filter(TestSection.test_id == test.id).all()
+                dimensions = db.query(TestDimension).filter(TestDimension.test_id == test.id).all()
+                
                 test_dict = {
                     "id": test.id,
                     "test_id": test.test_id,
                     "name": test.name,
                     "english_name": test.english_name,
                     "description": test.description,
+                    "icon": test.icon,
+                    "color": test.color,
+                    "questions_count": test.questions_count or 0,
+                    "duration": test.duration,
                     "is_active": test.is_active,
-                    "created_at": test.created_at.isoformat() if test.created_at else None
+                    "created_at": test.created_at.isoformat() if test.created_at else None,
+                    "updated_at": test.updated_at.isoformat() if test.updated_at else None,
+                    "sections": [
+                        {
+                            "id": s.id,
+                            "section_id": s.section_id,
+                            "name": s.name,
+                            "gujarati_name": s.gujarati_name
+                        }
+                        for s in sections
+                    ],
+                    "dimensions": [
+                        {
+                            "id": d.id,
+                            "dimension_id": d.dimension_id,
+                            "name": d.name,
+                            "english_name": d.english_name,
+                            "gujarati_name": d.gujarati_name,
+                            "description": d.description,
+                            "careers": d.careers
+                        }
+                        for d in dimensions
+                    ]
                 }
                 tests_list.append(test_dict)
         
@@ -262,7 +300,7 @@ async def get_tests_fast(
 async def get_test_questions_fast(
     request: Request,
     test_id: str,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast test questions retrieval
@@ -349,7 +387,7 @@ async def get_test_questions_fast(
 async def get_test_structure_fast(
     request: Request,
     test_id: int,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Get complete test structure with sections, questions, and options
@@ -397,7 +435,7 @@ async def get_test_structure_fast(
 async def get_questions_batch_fast(
     request: Request,
     question_ids: List[int],
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Batch retrieval of questions with options for maximum efficiency
@@ -441,7 +479,7 @@ async def create_question_fast(
     request: Request,
     question_data: QuestionCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_optimized_db),
+    db: Session = Depends(get_db),
     current_user: Any = Depends(get_current_user)
 ):
     """
@@ -488,7 +526,7 @@ async def update_question_fast(
     question_id: int,
     question_data: QuestionUpdate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_optimized_db),
+    db: Session = Depends(get_db),
     current_user: Any = Depends(get_current_user)
 ):
     """
@@ -558,7 +596,7 @@ async def health_check_fast(db: Session = Depends(get_db)):
 async def performance_benchmark(
     test_id: int, 
     iterations: int = 5,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Performance benchmark endpoint to measure optimization improvements

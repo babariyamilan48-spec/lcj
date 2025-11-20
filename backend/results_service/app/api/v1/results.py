@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
+from sqlalchemy.orm import Session
+from core.database_dependencies_singleton import get_user_db, get_db
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import io
@@ -51,7 +52,7 @@ class ResultSubmissionResponse(BaseModel):
     is_duplicate: bool
 
 @router.post("/results", response_model=ResultSubmissionResponse)
-async def submit_result(result: TestResultCreate):
+async def submit_result(result: TestResultCreate, db: Session = Depends(get_db)):
     """Submit a test result with deduplication"""
     try:
         logger.info(f"Submitting result for user {result.user_id}, test {result.test_id}")
@@ -106,7 +107,7 @@ async def submit_result(result: TestResultCreate):
 
 @router.get("/results/{user_id}")
 @limiter.limit("100/minute")
-async def get_user_results(request: Request, user_id: str, page: int = 1, size: int = 10):
+async def get_user_results(request: Request, user_id: str, page: int = 1, size: int = 10, db: Session = Depends(get_db)):
     """Get paginated results for a user - OPTIMIZED"""
     try:
         logger.info(f"Getting results for user {user_id}, page {page}, size {size}")
@@ -384,42 +385,42 @@ async def get_user_ai_insights_for_history(user_id: str):
 @router.get("/all-results/{user_id}")
 @limiter.limit("50/minute")
 @cache_async_result(ttl=600, key_prefix="all_results")
-async def get_all_test_results(request: Request, user_id: str):
+async def get_all_test_results(request: Request, user_id: str, db: Session = Depends(get_db)):
     """
     Get all test results for a user organized by test type for comprehensive analysis
+    Uses pre-calculated results for instant performance, falls back to test_results table
     """
     try:
-        # Get all user results using the database-backed service
-        user_results = await ResultService.get_user_results(str(user_id))
+        from question_service.app.services.calculated_result_service import CalculatedResultService
         
-        if not user_results:
-            return {}
+        # Get pre-calculated results by test (latest for each test type)
+        calculated_results = CalculatedResultService.get_latest_results_by_test(db, user_id)
         
-        # Organize results by test type (get latest result for each test type)
+        # If no calculated results found, fallback to get_all_test_results for backward compatibility
+        if not calculated_results:
+            logger.warning(f"No pre-calculated results found for user {user_id}, falling back to test_results table")
+            return await ResultService.get_all_test_results(user_id)
+        
+        # Organize results by test type
         organized_results = {}
         
-        for result in user_results:
-            test_id = result.test_id
+        for test_id, result in calculated_results.items():
             if test_id:
-                # Keep only the latest result for each test type
-                if test_id not in organized_results or result.timestamp > organized_results[test_id]['timestamp']:
-                    organized_results[test_id] = {
-                        'test_id': result.test_id,
-                        'test_name': result.test_name,
-                        'analysis': result.analysis,
-                        'score': result.score,
-                        'percentage': result.percentage,
-                        'percentage_score': result.percentage_score,
-                        'total_score': result.total_score,
-                        'dimensions_scores': result.dimensions_scores,
-                        'recommendations': result.recommendations,
-                        'answers': result.answers,  # Include raw answers for AI analysis
-                        'duration_minutes': result.duration_minutes,
-                        'total_questions': result.total_questions,
-                        'timestamp': result.timestamp.isoformat() if result.timestamp else None,
-                        'completed_at': result.completed_at.isoformat() if result.completed_at else None,
-                        'user_id': str(result.user_id)  # Convert UUID to string for JSON serialization
-                    }
+                # Use pre-calculated data
+                organized_results[test_id] = {
+                    'test_id': test_id,
+                    'test_name': result.result_summary or f"Test: {test_id}",
+                    'analysis': result.calculated_result or {},
+                    'primary_result': result.primary_result,
+                    'traits': result.traits or [],
+                    'careers': result.careers or [],
+                    'strengths': result.strengths or [],
+                    'recommendations': result.recommendations or [],
+                    'dimensions_scores': result.dimensions_scores or {},
+                    'created_at': result.created_at.isoformat() if result.created_at else None,
+                    'updated_at': result.updated_at.isoformat() if result.updated_at else None,
+                    'user_id': str(result.user_id)  # Convert UUID to string for JSON serialization
+                }
         
         logger.info(f"Retrieved {len(organized_results)} unique test results for user {user_id}")
         logger.info(f"Test types found: {list(organized_results.keys())}")
@@ -533,10 +534,12 @@ async def download_user_report(
     user_id: str, 
     format: str = "pdf",
     include_ai_insights: bool = True,
-    test_id: Optional[str] = None
+    test_id: Optional[str] = None,
+    db: Session = Depends(get_db)
 ):
     """
     Download comprehensive user report including overview, results, and AI insights
+    Uses pre-calculated results for instant performance
     
     Args:
         user_id: User ID to generate report for
@@ -547,12 +550,48 @@ async def download_user_report(
     try:
         logger.info(f"Generating {format} report for user {user_id}, include_ai_insights={include_ai_insights}, test_id={test_id}")
         
-        # Generate the report
-        report_data = await ResultService.generate_comprehensive_report(
-            user_id=user_id,
-            include_ai_insights=include_ai_insights,
-            test_id=test_id
-        )
+        from question_service.app.services.calculated_result_service import CalculatedResultService
+        
+        # Get pre-calculated results instead of recalculating
+        calculated_results = None
+        if test_id:
+            # Get specific test result
+            calc_result = CalculatedResultService.get_latest_calculated_result(db, user_id, test_id)
+            if calc_result:
+                calculated_results = {test_id: calc_result}
+        else:
+            # Get all pre-calculated results by test
+            calculated_results = CalculatedResultService.get_latest_results_by_test(db, user_id)
+        
+        # If no calculated results found, fallback to generate_comprehensive_report
+        if not calculated_results:
+            logger.warning(f"No pre-calculated results found for user {user_id}, falling back to test_results table")
+            report_data = await ResultService.generate_comprehensive_report(
+                user_id=user_id,
+                include_ai_insights=include_ai_insights,
+                test_id=test_id
+            )
+        else:
+            # Build report data from pre-calculated results
+            report_data = {
+                "user_id": user_id,
+                "generated_at": datetime.now().isoformat(),
+                "test_results": [
+                    {
+                        "test_id": test_id,
+                        "test_name": result.result_summary or f"Test: {test_id}",
+                        "primary_result": result.primary_result,
+                        "analysis": result.calculated_result or {},
+                        "traits": result.traits or [],
+                        "careers": result.careers or [],
+                        "strengths": result.strengths or [],
+                        "recommendations": result.recommendations or [],
+                        "dimensions_scores": result.dimensions_scores or {},
+                        "created_at": result.created_at.isoformat() if result.created_at else None,
+                    }
+                    for test_id, result in calculated_results.items()
+                ]
+            }
         
         logger.info(f"Report data generated successfully, contains {len(report_data.get('test_results', []))} test results")
         

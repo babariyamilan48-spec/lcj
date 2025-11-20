@@ -10,7 +10,6 @@ import {
   Calendar,
   Clock,
   Eye,
-  Download,
   BookOpen,
   Trophy,
   TrendingUp,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react';
 import ModernNavbar from '@/components/layout/ModernNavbar';
 import ModernFooter from '@/components/layout/ModernFooter';
+import BackButton from '@/components/BackButton';
 
 interface TestResult {
   id: string;
@@ -181,6 +181,10 @@ export default function AllTestResultsPage() {
     <div className="min-h-screen bg-gray-50">
       <ModernNavbar />
       
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+        <BackButton />
+      </div>
+      
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -209,10 +213,6 @@ export default function AllTestResultsPage() {
                   <Clock className="w-4 h-4" />
                 )}
                 <span>Refresh Data</span>
-              </button>
-              <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors">
-                <Download className="w-5 h-5" />
-                <span>Download Report</span>
               </button>
             </div>
           </div>

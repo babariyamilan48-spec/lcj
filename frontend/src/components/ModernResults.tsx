@@ -344,19 +344,6 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
     return <div>Please log in to view results</div>;
   }
 
-  // Handle download report function
-  const handleDownloadReport = () => {
-    // Set unique filename based on test type
-    const originalTitle = document.title;
-    const testName = testResults?.testName || 'Test Result';
-    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    const filename = `${testName}_Report_${timestamp}`;
-
-    document.title = filename;
-    window.print();
-    document.title = originalTitle;
-  };
-
   if (!testResults) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center pt-4">
@@ -3972,24 +3959,11 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
           className="flex flex-col sm:flex-row gap-4 justify-center items-center no-print"
         >
           <button
-            onClick={onRetake}
-            className="bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2 border border-primary-500 hover:border-primary-600"
-          >
-            <span>Retake Assessment</span>
-          </button>
-          <button
             onClick={onBack}
             className="bg-white hover:bg-gray-50 text-slate-700 font-medium py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2 border border-gray-200 hover:border-gray-300"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Tests</span>
-          </button>
-          <button
-            onClick={handleDownloadReport}
-            className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2 border border-green-600 hover:border-green-700"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Report</span>
           </button>
         </motion.div>
       </div>

@@ -13,6 +13,7 @@ from question_service.app.api.v1.api import api_router as question_router  # noq
 from results_service.app.api.v1.api import api_router as results_router  # noqa: E402
 from contact_service.app.api.v1.api import api_router as contact_router  # noqa: E402
 from core.api.session_management import router as session_management_router  # noqa: E402
+from core.api.session_singleton_management import router as session_singleton_router  # noqa: E402
 
 # Create unified FastAPI application
 app = create_app({
@@ -27,8 +28,9 @@ app.include_router(question_router, prefix="/api/v1/question_service", tags=["Qu
 app.include_router(results_router, prefix="/api/v1/results_service", tags=["Results"])
 app.include_router(contact_router, prefix="/api/v1/contact_service", tags=["Contact"])
 
-# Include session management router
+# Include session management routers
 app.include_router(session_management_router, prefix="/api/v1/core", tags=["Session Management"])
+app.include_router(session_singleton_router, prefix="/api/v1/core", tags=["Session Management"])
 
 # Health check endpoints for individual services
 @app.get("/health")

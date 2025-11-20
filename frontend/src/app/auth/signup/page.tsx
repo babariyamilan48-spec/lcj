@@ -53,6 +53,9 @@ export default function SignupPage() {
             if (err.message && err.message.includes('already registered')) {
               setFieldError('email', 'This email is already registered');
             }
+            if (err.message && err.message.includes('already taken')) {
+              setFieldError('username', 'This username is already taken');
+            }
           } finally {
             setSubmitting(false);
           }
@@ -68,6 +71,7 @@ export default function SignupPage() {
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Username (optional)</label>
               <Field name="username" type="text" className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 outline-none transition focus:border-gray-600" placeholder="yourname" />
+              <ErrorMessage name="username" component="div" className="mt-1 text-sm text-rose-500" />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Password</label>

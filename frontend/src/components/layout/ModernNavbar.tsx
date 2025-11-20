@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { modernToast } from '@/utils/toast';
 import Logo from '@/components/ui/Logo';
+import MobileNavDrawer from '@/components/MobileNavDrawer';
 
 interface ModernNavbarProps {
   currentScreen?: 'home' | 'selection' | 'quiz' | 'results' | 'about' | 'contact';
@@ -165,7 +166,7 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
 
             {/* Profile Dropdown */}
             {isAuthenticated && user && (
-              <div className="relative" ref={profileRef}>
+              <div className="relative hidden md:block" ref={profileRef}>
                 <motion.button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors"
@@ -328,6 +329,9 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Mobile Navigation Drawer */}
+      <MobileNavDrawer currentPage={currentScreen} />
     </nav>
   );
 };

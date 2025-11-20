@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft,
-  Download,
   Printer
 } from 'lucide-react';
 import { calculateTestResult } from '@/utils/testResultCalculators';
@@ -361,6 +360,21 @@ export default function TestResultPage() {
       `}</style>
 
       <div className="min-h-screen bg-gray-50">
+        {/* Back Button - Top Navigation */}
+        <div className="no-print bg-white border-b border-gray-200 p-4">
+          <div className="max-w-7xl mx-auto">
+            <motion.button
+              onClick={handleBack}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center space-x-2 px-4 py-2.5 text-sm bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg transition-colors duration-200 font-medium"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>પાછળ</span>
+            </motion.button>
+          </div>
+        </div>
+
         {/* Header - Hidden in print */}
         <div className="no-print bg-gradient-to-r from-orange-500 to-red-500 text-white p-6">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -368,6 +382,7 @@ export default function TestResultPage() {
               <button
                 onClick={handleBack}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                title="Back to Profile"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -377,13 +392,7 @@ export default function TestResultPage() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <button
-                onClick={handlePrint}
-                className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download Report
-              </button>
+              {/* Download Report button removed */}
             </div>
           </div>
         </div>

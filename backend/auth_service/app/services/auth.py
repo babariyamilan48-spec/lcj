@@ -16,6 +16,11 @@ import uuid
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
 
+def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    if not username:
+        return None
+    return db.query(User).filter(User.username == username).first()
+
 def ensure_password_provider(user: User) -> None:
     if user.providers == ["google.com"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please sign in with Google")
@@ -27,32 +32,27 @@ def check_user_login_eligibility(user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
 def register_user(db: Session, payload: SignupInput) -> User:
-    print(f"[REGISTER] Starting registration for email: {payload.email}")
-
     # Test database connectivity
     try:
-        print(f"[REGISTER] Testing database connectivity...")
         from sqlalchemy import text
         db.execute(text("SELECT 1"))
-        print(f"[REGISTER] Database connection OK")
     except Exception as e:
-        print(f"[REGISTER] Database connection failed: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database connection failed")
 
-    print(f"[REGISTER] Checking for existing user...")
     existing = get_user_by_email(db, payload.email)
     if existing:
-        print(f"[REGISTER] Email already exists: {payload.email}")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
+    # Check if username is already taken
+    if payload.username:
+        existing_username = get_user_by_username(db, payload.username)
+        if existing_username:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+
     if len(payload.password) < settings.PASSWORD_MIN_LENGTH:
-        print(f"[REGISTER] Password too short: {len(payload.password)} < {settings.PASSWORD_MIN_LENGTH}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password too short")
 
-    print(f"[REGISTER] Creating user with email: {payload.email}, username: {payload.username}")
-
     try:
-        print(f"[REGISTER] Creating User object...")
         user = User(
             email=payload.email,
             username=payload.username,
@@ -60,21 +60,13 @@ def register_user(db: Session, payload: SignupInput) -> User:
             providers=["password"],
             role="user",
         )
-        print(f"[REGISTER] Adding user to database...")
         db.add(user)
-        print(f"[REGISTER] Committing user to database...")
         db.commit()
-        print(f"[REGISTER] Refreshing user object...")
         db.refresh(user)
-        print(f"[REGISTER] User created with ID: {user.id}")
     except Exception as e:
-        print(f"[REGISTER] Database error during user creation: {e}")
-        print(f"[REGISTER] Exception type: {type(e)}")
-        import traceback
-        print(f"[REGISTER] Full traceback: {traceback.format_exc()}")
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
-    print(f"[REGISTER] Creating OTP for user...")
+    
     try:
         otp = EmailOTP(
             user_id=user.id,
@@ -82,20 +74,12 @@ def register_user(db: Session, payload: SignupInput) -> User:
             purpose="verify_email",
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
         )
-        print(f"[REGISTER] Adding OTP to database...")
         db.add(otp)
-        print(f"[REGISTER] Committing OTP...")
         db.commit()
-        print(f"[REGISTER] OTP created: {otp.code}")
     except Exception as e:
-        print(f"[REGISTER] Error creating OTP: {e}")
-        import traceback
-        print(f"[REGISTER] OTP traceback: {traceback.format_exc()}")
         return user
 
     # Prepare and send verification email
-    print(f"[REGISTER] Preparing verification email...")
-    
     if is_email_configured():
         try:
             # Import here to avoid circular imports
@@ -109,23 +93,10 @@ def register_user(db: Session, payload: SignupInput) -> User:
             )
             
             # Send the email directly
-            print(f"[REGISTER] Sending verification email to {payload.email}...")
-            email_sent = send_email_sync("Verify your email", [payload.email], html)
-            
-            if email_sent:
-                print(f"[REGISTER] Verification email sent successfully to {payload.email}")
-            else:
-                print(f"[AUTH] ⚠️ Failed to send verification email to {payload.email}")
-                
+            send_email_sync("Verify your email", [payload.email], html)
         except Exception as e:
-            print(f"[AUTH] ⚠️ Error sending verification email to {payload.email}: {e}")
-            import traceback
-            print(f"[AUTH] Email error traceback: {traceback.format_exc()}")
-    else:
-        print(f"[AUTH] ⚠️ Email not configured. Skipping verification email for {payload.email}")
-        print(f"[AUTH] 💡 Please set SENDINBLUE_API_KEY and MAIL_FROM environment variables")
-
-    print(f"[REGISTER] Registration process completed for {payload.email}")
+            pass
+    
     return user
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:

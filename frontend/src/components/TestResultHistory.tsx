@@ -110,7 +110,23 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
         ? allResults.filter(r => r.testId === testId)
         : allResults;
       
-      // Sort to ensure AI insights are always at the top
+      // Filter to only include the 7 standard tests (plus AI insights)
+      const STANDARD_TESTS = [
+        'mbit',
+        'intelligence',
+        'riasec',
+        'bigfive',
+        'decision',
+        'vark',
+        'life-situation'
+      ];
+      
+      filteredResults = filteredResults.filter(r => 
+        r.testId === 'comprehensive-ai-insights' || 
+        STANDARD_TESTS.includes(r.testId)
+      );
+      
+      // Sort to ensure AI insights are always at the top, then by test order
       filteredResults = filteredResults.sort((a, b) => {
         const aIsAI = a.testId === 'comprehensive-ai-insights';
         const bIsAI = b.testId === 'comprehensive-ai-insights';
@@ -119,7 +135,12 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
         if (aIsAI && !bIsAI) return -1;
         if (!aIsAI && bIsAI) return 1;
         
-        // For non-AI tests, sort by creation date (newest first)
+        // For standard tests, sort by test order (as defined in STANDARD_TESTS)
+        const aOrder = STANDARD_TESTS.indexOf(a.testId);
+        const bOrder = STANDARD_TESTS.indexOf(b.testId);
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        
+        // If same test type, sort by creation date (newest first)
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
       
@@ -197,19 +218,35 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
     });
   };
 
+  // Define the 7 standard tests in order
+  const STANDARD_TESTS = [
+    'mbit',
+    'intelligence',
+    'riasec',
+    'bigfive',
+    'decision',
+    'vark',
+    'life-situation'
+  ];
+
   const getTestName = (testId: string): string => {
     const testNames: { [key: string]: string } = {
-      'mbti': 'MBTI વ્યક્તિત્વ પરીક્ષણ',
-      'bigfive': 'Big Five વ્યક્તિત્વ પરીક્ષણ',
-      'intelligence': 'બહુવિધ બુદ્ધિ પરીક્ષણ',
-      'riasec': 'RIASEC કારકિર્દી રુચિ',
-      'vark': 'VARK શીખવાની શૈલી',
-      'decision': 'નિર્ણય લેવાની શૈલી',
-      'life-situation': 'જીવન પરિસ્થિતિ મૂલ્યાંકન',
-      'svs': 'SVS મૂલ્યો સર્વે',
+      'mbit': 'MBIT Test',
+      'intelligence': 'Intelligence Test',
+      'riasec': 'RAISEC Test',
+      'bigfive': 'Big Five Test',
+      'decision': 'Decision Test',
+      'vark': 'VARK Test',
+      'life-situation': 'Life Situation Test',
       'comprehensive-ai-insights': 'સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ'
     };
     return testNames[testId] || testId;
+  };
+
+  // Get test order for sorting
+  const getTestOrder = (testId: string): number => {
+    const index = STANDARD_TESTS.indexOf(testId);
+    return index === -1 ? 999 : index;
   };
 
   const getTestIcon = (testId: string) => {

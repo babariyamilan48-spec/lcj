@@ -2,9 +2,13 @@ from sqlalchemy.orm import Session
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import json
+import logging
 
-from question_service.app.models import TestResult, TestResultDetail, TestResultConfiguration, Question
+from question_service.app.models import TestResult, TestResultDetail, TestResultConfiguration, Question, CalculatedTestResult
 from question_service.app.utils.simple_calculators import SimpleTestCalculators
+from question_service.app.services.calculated_result_service import CalculatedResultService
+
+logger = logging.getLogger(__name__)
 
 class TestResultService:
     """Service for managing test results and calculations"""
@@ -67,6 +71,32 @@ class TestResultService:
             self.db.commit()
             self.db.refresh(existing_result)
             
+            # CRITICAL: Update pre-calculated result as well
+            try:
+                traits = CalculatedResultService.extract_traits_from_result(test_id, calculated_result)
+                careers = CalculatedResultService.extract_careers_from_result(test_id, calculated_result)
+                strengths = CalculatedResultService.extract_strengths_from_result(test_id, calculated_result)
+                recommendations = CalculatedResultService.extract_recommendations_from_result(test_id, calculated_result)
+                dimensions_scores = CalculatedResultService.extract_dimensions_scores(test_id, calculated_result)
+                
+                CalculatedResultService.store_calculated_result(
+                    db=self.db,
+                    user_id=user_id,
+                    test_id=test_id,
+                    test_result_id=existing_result.id,
+                    calculated_result=calculated_result,
+                    primary_result=existing_result.primary_result,
+                    result_summary=existing_result.result_summary,
+                    traits=traits,
+                    careers=careers,
+                    strengths=strengths,
+                    recommendations=recommendations,
+                    dimensions_scores=dimensions_scores
+                )
+                logger.info(f"✅ Updated pre-calculated result for user {user_id}, test {test_id}")
+            except Exception as e:
+                logger.error(f"⚠️ Warning: Failed to update pre-calculated result: {e}")
+            
             # CRITICAL FIX: Invalidate cache when updating existing result
             try:
                 from core.cache import QueryCache
@@ -109,6 +139,33 @@ class TestResultService:
         
         # Save detailed results
         self._save_result_details(test_result.id, test_id, calculated_result)
+        
+        # CRITICAL: Store pre-calculated result immediately for quick retrieval
+        try:
+            traits = CalculatedResultService.extract_traits_from_result(test_id, calculated_result)
+            careers = CalculatedResultService.extract_careers_from_result(test_id, calculated_result)
+            strengths = CalculatedResultService.extract_strengths_from_result(test_id, calculated_result)
+            recommendations = CalculatedResultService.extract_recommendations_from_result(test_id, calculated_result)
+            dimensions_scores = CalculatedResultService.extract_dimensions_scores(test_id, calculated_result)
+            
+            CalculatedResultService.store_calculated_result(
+                db=self.db,
+                user_id=user_id,
+                test_id=test_id,
+                test_result_id=test_result.id,
+                calculated_result=calculated_result,
+                primary_result=primary_result,
+                result_summary=result_summary,
+                traits=traits,
+                careers=careers,
+                strengths=strengths,
+                recommendations=recommendations,
+                dimensions_scores=dimensions_scores
+            )
+            logger.info(f"✅ Stored pre-calculated result for user {user_id}, test {test_id}")
+        except Exception as e:
+            logger.error(f"⚠️ Warning: Failed to store pre-calculated result: {e}")
+            # Don't fail the request if caching fails
         
         # CRITICAL FIX: Invalidate cache when creating new result
         try:

@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 
 from core.cache import cache_async_result
-from core.database_pool import get_optimized_db
+from core.database_dependencies_singleton import get_user_db, get_db
 from core.middleware.compression import compress_json_response, optimize_large_response
 from core.rate_limit import limiter
 from core.app_factory import resp
@@ -39,7 +39,7 @@ class HealthCheckResponse(BaseModel):
 async def submit_result_fast(
     result: TestResultCreate, 
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast result submission with simple direct database operations
@@ -150,7 +150,7 @@ async def get_user_results_fast(
     page: int = 1, 
     size: int = 10,
     use_cache: bool = True,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast paginated results retrieval - SIMPLIFIED VERSION
@@ -458,7 +458,7 @@ async def get_user_results_fast(
     user_id: str,
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast user results retrieval
@@ -501,7 +501,7 @@ async def get_user_results_fast(
 async def get_batch_user_data_fast(
     request: Request,
     user_id: str,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Ultra-fast batch user data retrieval
@@ -544,7 +544,7 @@ async def get_user_results_compat(
     user_id: str,
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     User results endpoint for frontend compatibility
@@ -558,7 +558,7 @@ async def get_user_results_compat(
 async def update_batch_user_data(
     request: Request,
     user_id: str,
-    db: Session = Depends(get_optimized_db)
+    db: Session = Depends(get_db)
 ):
     """
     Update batch user data (placeholder for frontend compatibility)
