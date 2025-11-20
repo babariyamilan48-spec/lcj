@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { navigationHistory } from '@/utils/navigationHistory';
 import { useAppStore } from '@/store/app-store';
@@ -16,13 +16,32 @@ export function MobileBackHandler() {
   const router = useRouter();
   const pathname = usePathname();
   const { currentScreen, setCurrentScreen } = useAppStore();
+  const historyStackRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    // Initialize history stack with current screen
+    if (pathname === '/home') {
+      historyStackRef.current = [currentScreen];
+    }
+  }, [pathname, currentScreen]);
+
+  useEffect(() => {
+    // Update history stack when screen changes (on /home page)
+    if (pathname === '/home' && currentScreen) {
+      const stack = historyStackRef.current;
+      
+      // Only add if it's different from the last entry
+      if (stack[stack.length - 1] !== currentScreen) {
+        stack.push(currentScreen);
+        // Push state to browser history so popstate fires
+        window.history.pushState({ screen: currentScreen }, '', window.location.href);
+      }
+    }
+  }, [pathname, currentScreen]);
 
   useEffect(() => {
     // Handle browser back button / device back button
     const handlePopState = (event: PopStateEvent) => {
-      // Prevent default browser back behavior
-      event.preventDefault();
-
       // For /home page, handle internal state navigation
       if (pathname === '/home') {
         handleInternalBackNavigation();
@@ -41,7 +60,7 @@ export function MobileBackHandler() {
     // Add the popstate listener
     window.addEventListener('popstate', handlePopState);
 
-    // Push a dummy state to the history stack so popstate fires
+    // Push initial state to history stack
     window.history.pushState(null, '', window.location.href);
 
     return () => {
