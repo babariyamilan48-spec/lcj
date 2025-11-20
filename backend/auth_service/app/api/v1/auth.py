@@ -38,12 +38,14 @@ from auth_service.app.services.auth import (
 )
 from auth_service.app.utils.jwt import get_password_hash
 from core.rate_limit import limiter
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/signup")
 @limiter.limit("5/minute")
-def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)):
+async def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)):
     try:
         user = register_user(db, payload)
         out = UserOut(
@@ -62,7 +64,7 @@ def signup(request: Request, payload: SignupInput, db: Session = Depends(get_db)
 
 @router.post("/login")
 @limiter.limit("5/minute")
-def login(request: Request, payload: LoginInput, db: Session = Depends(get_db)):
+async def login(request: Request, payload: LoginInput, db: Session = Depends(get_db)):
     user, error_type = authenticate_user_with_details(db, payload.email, payload.password)
 
     if not user:
@@ -103,7 +105,7 @@ def login(request: Request, payload: LoginInput, db: Session = Depends(get_db)):
 
 @router.post("/token/refresh")
 @limiter.limit("10/minute")
-def refresh_token(request: Request, payload: TokenRefreshInput, db: Session = Depends(get_db)):
+async def refresh_token(request: Request, payload: TokenRefreshInput, db: Session = Depends(get_db)):
     try:
         claims = validate_refresh_token(payload.refresh_token)
         jti = claims.get("jti")
@@ -141,7 +143,7 @@ def refresh_token(request: Request, payload: TokenRefreshInput, db: Session = De
 
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
-def forgot_password(request: Request, payload: ForgotPasswordInput, db: Session = Depends(get_db)):
+async def forgot_password(request: Request, payload: ForgotPasswordInput, db: Session = Depends(get_db)):
     user = get_user_by_email(db, payload.email)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not exist")
@@ -150,7 +152,7 @@ def forgot_password(request: Request, payload: ForgotPasswordInput, db: Session 
 
 @router.post("/reset-password")
 @limiter.limit("5/minute")
-def reset_password(request: Request, payload: ResetPasswordInput, db: Session = Depends(get_db)):
+async def reset_password(request: Request, payload: ResetPasswordInput, db: Session = Depends(get_db)):
     user = verify_and_consume_otp(db, payload.email, "reset_password", payload.otp)
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP")
@@ -161,7 +163,7 @@ def reset_password(request: Request, payload: ResetPasswordInput, db: Session = 
 
 @router.post("/verify-email/request")
 @limiter.limit("5/minute")
-def verify_email_request(request: Request, payload: VerifyEmailRequestInput, db: Session = Depends(get_db)):
+async def verify_email_request(request: Request, payload: VerifyEmailRequestInput, db: Session = Depends(get_db)):
     user = get_user_by_email(db, payload.email)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not exist")
@@ -198,7 +200,7 @@ def verify_email_request(request: Request, payload: VerifyEmailRequestInput, db:
 
 @router.post("/verify-email/confirm")
 @limiter.limit("5/minute")
-def verify_email_confirm(request: Request, payload: VerifyEmailConfirmInput, db: Session = Depends(get_db)):
+async def verify_email_confirm(request: Request, payload: VerifyEmailConfirmInput, db: Session = Depends(get_db)):
     user = verify_and_consume_otp(db, payload.email, "verify_email", payload.otp)
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP")
@@ -208,7 +210,7 @@ def verify_email_confirm(request: Request, payload: VerifyEmailConfirmInput, db:
     return resp(message="Email verified.")
 
 @router.get("/me")
-def me(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+async def me(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     out = UserOut(
         id=str(current_user.id),
         email=current_user.email,
@@ -221,7 +223,7 @@ def me(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return resp(out.model_dump())
 
 @router.post("/change-password")
-def change_password(payload: ChangePasswordInput, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+async def change_password(payload: ChangePasswordInput, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     print(f"Password change endpoint reached for user: {current_user.email}")  # Debug log
     print(f"Payload: old_password='{payload.old_password}', new_password='{payload.new_password}'")  # Debug log
 
@@ -240,7 +242,7 @@ def change_password(payload: ChangePasswordInput, current_user=Depends(get_curre
         raise
 
 @router.post("/logout")
-def logout(payload: Optional[LogoutInput] = None, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+async def logout(payload: Optional[LogoutInput] = None, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     # Revoke provided refresh token; if none, revoke all tokens for this user
     from auth_service.app.models.user import RefreshToken
     if payload and payload.refresh_token:
@@ -295,7 +297,7 @@ async def google_login(
     return resp({**out.model_dump(), "token": Token(access_token=access_token, refresh_token=refresh_token).model_dump()}, message="Logged in with Google")
 
 @router.post("/profile")
-def profile_update(username: Optional[str] = None, avatar: Optional[str] = None, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+async def profile_update(username: Optional[str] = None, avatar: Optional[str] = None, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     from auth_service.app.services.auth import update_profile
     user = update_profile(db, current_user, username, avatar)
     out = UserOut(
@@ -310,7 +312,7 @@ def profile_update(username: Optional[str] = None, avatar: Optional[str] = None,
     return resp(out.model_dump(), message="Profile updated.")
 
 @router.delete("/delete-account")
-def delete_account(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+async def delete_account(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     from auth_service.app.services.auth import delete_account as svc_delete_account
     svc_delete_account(db, current_user)
     return resp(message="Account deleted.")

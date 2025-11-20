@@ -11,7 +11,7 @@ import requests
 router = APIRouter()
 
 @router.get("/analytics/tests")
-def get_test_analytics(db: Session = Depends(get_db)):
+async def get_test_analytics(db: Session = Depends(get_db)):
     """Get test analytics for admin dashboard"""
     
     # Get unique test types from test results
@@ -62,7 +62,7 @@ def get_test_analytics(db: Session = Depends(get_db)):
     }
 
 @router.get("/analytics/users")
-def get_user_analytics_from_results(db: Session = Depends(get_db)):
+async def get_user_analytics_from_results(db: Session = Depends(get_db)):
     """Get user analytics based on test results"""
     
     # Total users who have taken tests
@@ -111,7 +111,7 @@ def get_user_analytics_from_results(db: Session = Depends(get_db)):
     }
 
 @router.get("/analytics/overview")
-def get_overview_analytics(db: Session = Depends(get_db)):
+async def get_overview_analytics(db: Session = Depends(get_db)):
     """Get overview analytics for dashboard"""
     
     # Total test completions
@@ -155,7 +155,7 @@ def get_overview_analytics(db: Session = Depends(get_db)):
     })
 
 @router.get("/analytics/dashboard")
-def get_dashboard_analytics(db: Session = Depends(get_db)):
+async def get_dashboard_analytics(db: Session = Depends(get_db)):
     """Get comprehensive analytics for admin dashboard"""
     
     try:

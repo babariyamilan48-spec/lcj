@@ -11,7 +11,7 @@ from core.app_factory import resp
 router = APIRouter()
 
 @router.get("/users")
-def get_all_users(
+async def get_all_users(
     current_admin: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -70,7 +70,7 @@ def get_all_users(
     return users_data
 
 @router.post("/users")
-def create_user(
+async def create_user(
     user_data: dict,
     current_admin: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
@@ -128,7 +128,7 @@ def create_user(
     }
 
 @router.patch("/users/{user_id}")
-def update_user(
+async def update_user(
     user_id: str,
     user_data: dict,
     current_admin: User = Depends(get_current_admin_user),
@@ -177,7 +177,7 @@ def update_user(
     }, message="User updated successfully")
 
 @router.delete("/users/{user_id}")
-def delete_user(
+async def delete_user(
     user_id: str,
     current_admin: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
@@ -199,7 +199,7 @@ def delete_user(
     return resp(message="User deleted successfully")
 
 @router.get("/analytics/users")
-def get_user_analytics(
+async def get_user_analytics(
     current_admin: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
