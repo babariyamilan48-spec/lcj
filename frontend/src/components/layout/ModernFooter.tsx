@@ -50,7 +50,9 @@ const ModernFooter: React.FC = () => {
       links: [
         { name: 'અમારો સંપર્ક કરો', href: '/contact' },
         { name: 'ગોપનીયતા નીતિ', href: '/privacy' },
-        { name: 'સેવાની શરતો', href: '/terms' },
+        { name: 'શરતો અને શરતો', href: '/terms-conditions' },
+        { name: 'સેવા વિતરણ નીતિ', href: '/shipping-policy' },
+        { name: 'ખાતો અને ડેટા નીતિ', href: '/cancellation-refund' },
         { name: 'કૂકી નીતિ', href: '/cookies' },
         { name: 'વારંવાર પૂછાતા પ્રશ્નો', href: '/faq' },
       ]
