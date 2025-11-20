@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/app-store';
 import { mbtiTypes, mbtiDimensionDescriptions } from '../data/testConfig';
 import { calculateTestResult } from '../utils/testResultCalculators';
@@ -89,6 +90,7 @@ interface ModernResultsProps {
 
 const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
   // ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL LOGIC
+  const router = useRouter();
   const { testResults } = useAppStore();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
@@ -3956,11 +3958,11 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center items-center no-print"
+          className="flex flex-col sm:flex-row gap-4 justify-center items-center no-print mt-8"
         >
           <button
             onClick={onBack}
-            className="bg-white hover:bg-gray-50 text-slate-700 font-medium py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2 border border-gray-200 hover:border-gray-300"
+            className="bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Tests</span>

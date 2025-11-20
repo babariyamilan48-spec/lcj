@@ -1,27 +1,56 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
+import { navigationHistory } from '@/utils/navigationHistory';
 
 interface BackButtonProps {
   onClick?: () => void;
   className?: string;
   showLabel?: boolean;
+  fallbackPath?: string;
 }
 
 export default function BackButton({ 
   onClick, 
   className = '', 
-  showLabel = true 
+  showLabel = true,
+  fallbackPath = '/home'
 }: BackButtonProps) {
   const router = useRouter();
+  const [canGoBack, setCanGoBack] = useState(false);
+
+  useEffect(() => {
+    // Check if we can go back in navigation history
+    setCanGoBack(navigationHistory.canGoBack());
+
+    // Subscribe to history changes
+    const unsubscribe = navigationHistory.subscribe(() => {
+      setCanGoBack(navigationHistory.canGoBack());
+    });
+
+    return unsubscribe;
+  }, []);
 
   const handleClick = () => {
     if (onClick) {
       onClick();
+      return;
+    }
+
+    // Try to use navigation history first
+    if (navigationHistory.canGoBack()) {
+      const backPath = navigationHistory.getBackPath(fallbackPath);
+      navigationHistory.pop();
+      router.push(backPath);
     } else {
-      router.back();
+      // Fallback to browser history or default path
+      try {
+        router.back();
+      } catch {
+        router.push(fallbackPath);
+      }
     }
   };
 

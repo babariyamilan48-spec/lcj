@@ -4,6 +4,7 @@ import React, { ReactNode, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { navigationHistory } from '@/utils/navigationHistory';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -23,6 +24,9 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
       if (redirectTimer) {
         clearTimeout(redirectTimer);
       }
+      
+      // Clear navigation history on logout to prevent back navigation to protected pages
+      navigationHistory.clear();
       
       // Wait a bit longer before redirecting to allow auth state to restore
       const timer = setTimeout(() => {

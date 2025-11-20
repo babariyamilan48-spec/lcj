@@ -4,6 +4,8 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 import ApiInterceptorInit from '@/components/ApiInterceptorInit';
 import ScrollToTop from '@/components/ScrollToTop';
+import NavigationHistoryTracker from '@/components/NavigationHistoryTracker';
+import { MobileBackHandler } from '@/components/MobileBackHandler';
 
 
 const inter = Inter({ subsets: ['latin'] });
@@ -30,6 +32,8 @@ export default function RootLayout({
       <body className={`${poppins.variable} font-sans`}>
         <ApiInterceptorInit />
         <Providers>
+          <NavigationHistoryTracker />
+          <MobileBackHandler />
           {children}
           <ScrollToTop />
         </Providers>
