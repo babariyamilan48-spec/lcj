@@ -278,9 +278,15 @@ async def google_login(
             token = None
     if not token:
         raise HTTPException(status_code=400, detail="Missing Firebase ID token")
-    claims = verify_google_token(token)
-    if not claims:
-        raise HTTPException(status_code=401, detail="Invalid Firebase ID token")
+    
+    try:
+        claims = verify_google_token(token)
+        if not claims:
+            logger.error("Firebase verification returned None - credentials may not be loaded")
+            raise HTTPException(status_code=401, detail="Invalid Firebase ID token")
+    except Exception as e:
+        logger.error(f"Firebase verification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Firebase verification failed: {str(e)}")
     
     # Get user email from claims for session management
     user_email = claims.get("email", "google-user")

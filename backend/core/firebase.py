@@ -16,11 +16,28 @@ except Exception:
 _initialized = False
 
 def _resolve_credentials_path() -> Path | None:
+    import json
+    
     # Prefer standard env var if provided
-    env_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if env_path:
-        p = Path(env_path).resolve()
-        return p if p.exists() else None
+    env_value = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_value:
+        # Check if it's a file path
+        p = Path(env_value).resolve()
+        if p.exists():
+            return p
+        
+        # Check if it's JSON content directly
+        try:
+            json_data = json.loads(env_value)
+            if isinstance(json_data, dict) and json_data.get("type") == "service_account":
+                # It's valid JSON, write to temp file
+                backend_root = Path(__file__).resolve().parent.parent
+                temp_cred_path = backend_root / ".firebase_temp_creds.json"
+                temp_cred_path.write_text(env_value)
+                return temp_cred_path
+        except (json.JSONDecodeError, ValueError):
+            pass
+    
     # Fallback to backend/credential.json
     backend_root = Path(__file__).resolve().parent.parent
     default_path = backend_root / "credential.json"
@@ -32,10 +49,14 @@ def init_firebase_if_needed() -> None:
         return
 
     # Resolve credentials path from env or default location
+    env_value = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     path = _resolve_credentials_path()
     if not path:
+        error_msg = f"[FIREBASE] ❌ No credentials found. GOOGLE_APPLICATION_CREDENTIALS={env_value[:50] if env_value else 'NOT SET'}... or place backend/credential.json"
         try:
-            print("[FIREBASE] No credentials found. Set GOOGLE_APPLICATION_CREDENTIALS or place backend/credential.json")
+            print(error_msg)
+            logger = __import__('logging').getLogger(__name__)
+            logger.error(error_msg)
         except Exception:
             pass
         return  # no credentials present; stay uninitialized
@@ -44,15 +65,21 @@ def init_firebase_if_needed() -> None:
         cred = credentials.Certificate(str(path))
         firebase_admin.initialize_app(cred)
         _initialized = True
+        success_msg = f"[FIREBASE] ✅ Initialized with credentials at: {str(path)}"
         try:
-            print(f"[FIREBASE] Initialized with credentials at: {str(path)}")
+            print(success_msg)
+            logger = __import__('logging').getLogger(__name__)
+            logger.info(success_msg)
         except Exception:
             pass
-    except Exception:
-        # Fail silently; verification will fallback
+    except Exception as e:
+        # Log the actual error
+        error_msg = f"[FIREBASE] ❌ Initialization failed: {str(e)}"
         _initialized = False
         try:
-            print("[FIREBASE] Initialization failed. Check credentials file.")
+            print(error_msg)
+            logger = __import__('logging').getLogger(__name__)
+            logger.error(error_msg)
         except Exception:
             pass
 
