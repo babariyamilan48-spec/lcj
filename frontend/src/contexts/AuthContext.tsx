@@ -27,6 +27,7 @@ interface AuthContextType {
   forceLogout: () => void;
   refreshToken: () => Promise<boolean>;
   setAuthToken: (token: string | null) => void;
+  refreshAuthState: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -200,10 +201,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; user?: User }> => {
+    console.log('🔐 [AUTH] Login started for:', email);
     try {
-      setIsLoading(true);
+      // Don't set loading on login attempt to prevent page refresh
+      // setIsLoading(true);
 
       // CRITICAL FIX: Clear ALL previous user data before login
+      console.log('🔐 [AUTH] Clearing previous user data...');
       clearAllUserData();
       clearAllCookies();
       tokenStore.clear();
@@ -211,6 +215,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
 
       // Call your auth service login endpoint
+      console.log('🔐 [AUTH] Making login request to:', `${API_ENDPOINTS.AUTH.BASE}${API_ENDPOINTS.AUTH.LOGIN}`);
       const response = await fetch(`${API_ENDPOINTS.AUTH.BASE}${API_ENDPOINTS.AUTH.LOGIN}`, {
         method: 'POST',
         headers: {
@@ -219,9 +224,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         body: JSON.stringify({ email, password }),
       });
 
+      console.log('🔐 [AUTH] Response status:', response.status);
       const data = await response.json();
+      console.log('🔐 [AUTH] Response data:', data);
 
       if (response.ok && data.success && data.data) {
+        console.log('✅ [AUTH] Login successful!');
         const responseData = data.data;
 
         // Extract tokens from the token object
@@ -251,6 +259,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
 
         // Store tokens AFTER user data validation with user ID tracking
+        console.log('🔐 [AUTH] Storing tokens and user data...');
         tokenStore.setTokens(access_token, refresh_token, userData.id);
         
         // Set token in question service
@@ -261,23 +270,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.setItem('user_data', JSON.stringify(userData));
         localStorage.setItem('userId', userData.id);
         
+        // Only set loading to false on success
+        setIsLoading(false);
 
+        console.log('✅ [AUTH] Login completed successfully');
         return { success: true, user: userData };
       } else {
         // Handle error case - throw error with the message from backend
-        throw new Error(data.message || data.error || 'Login failed');
+        console.error('❌ [AUTH] Login failed - response not ok or no data');
+        throw new Error(data.detail || data.message || data.error || 'Login failed');
       }
     } catch (error) {
+      console.error('❌ [AUTH] Login error:', error);
       // Ensure clean state on login failure
       clearAllUserData();
       clearAllCookies();
       tokenStore.clear();
       questionService.setAuthToken(null);
       setUser(null);
+      // Don't set loading on error to prevent page refresh
+      // setIsLoading(false);
       // Re-throw the error so the login page can display the specific message
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -372,6 +386,74 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const refreshAuthState = async () => {
+    try {
+      console.log('🔐 [AUTH] refreshAuthState called');
+      const token = tokenStore.getAccessToken();
+      console.log('🔐 [AUTH] Token from store:', token ? 'exists' : 'missing');
+      
+      if (!token) {
+        console.log('🔐 [AUTH] No token found, setting user to null');
+        setUser(null);
+        return;
+      }
+
+      // Fetch user data from /me endpoint
+      console.log('🔐 [AUTH] Fetching user data from /me endpoint');
+      const response = await fetch(`${API_ENDPOINTS.AUTH.BASE}${API_ENDPOINTS.AUTH.ME}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('🔐 [AUTH] /me response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔐 [AUTH] /me response data:', data);
+        
+        // Handle both wrapped (data.success && data.data) and direct response formats
+        const userDataSource = (data.success && data.data) ? data.data : data;
+        
+        if (userDataSource && userDataSource.id) {
+          const userData: User = {
+            id: userDataSource.id || '',
+            email: userDataSource.email || '',
+            name: userDataSource.username || userDataSource.email?.split('@')[0] || 'User',
+            username: userDataSource.username || '',
+            firstName: userDataSource.firstName || '',
+            lastName: userDataSource.lastName || '',
+            isVerified: userDataSource.is_verified || false,
+            role: userDataSource.role || 'user',
+            avatar: userDataSource.avatar || ''
+          };
+
+          console.log('🔐 [AUTH] Setting user to:', userData);
+          setUser(userData);
+          localStorage.setItem('user_data', JSON.stringify(userData));
+          localStorage.setItem('userId', userData.id);
+          questionService.setAuthToken(token);
+          console.log('✅ [AUTH] Auth state refreshed successfully');
+        } else {
+          console.error('🔐 [AUTH] Invalid response data - no id found:', data);
+        }
+      } else if (response.status === 401) {
+        console.log('🔐 [AUTH] Token invalid (401), attempting refresh');
+        // Token invalid, try to refresh
+        const refreshed = await refreshToken();
+        if (!refreshed) {
+          forceLogout();
+        }
+      } else {
+        console.error('🔐 [AUTH] /me endpoint returned:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ [AUTH] Error refreshing auth state:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated,
@@ -381,6 +463,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     forceLogout,
     refreshToken,
     setAuthToken,
+    refreshAuthState,
   };
 
   return (

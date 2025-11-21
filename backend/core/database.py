@@ -15,13 +15,13 @@ engine_config = {
     "pool_size": settings.DATABASE_POOL_SIZE,  # Use settings value (5)
     "max_overflow": settings.DATABASE_MAX_OVERFLOW,  # Use settings value (10)
     "pool_pre_ping": True,
-    "pool_recycle": 900,  # Recycle connections every 15 minutes
-    "pool_timeout": 20,  # Timeout for getting connection from pool
+    "pool_recycle": 300,  # Recycle connections every 5 minutes (prevent stale connections)
+    "pool_timeout": 10,  # Timeout for getting connection from pool
     "echo": False,
     "connect_args": {
-        "connect_timeout": 15,
+        "connect_timeout": 10,
         "application_name": "lcj_backend",
-        "options": "-c default_transaction_isolation=read_committed -c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"
+        "options": "-c default_transaction_isolation=read_committed -c statement_timeout=15000 -c idle_in_transaction_session_timeout=30000 -c tcp_keepalives_idle=60 -c tcp_keepalives_interval=10 -c tcp_keepalives_count=5"
     }
 }
 
@@ -52,8 +52,10 @@ def receive_checkin(dbapi_connection, connection_record):
     if 'checkout_time' in connection_record.info:
         checkout_time = connection_record.info.pop('checkout_time')
         usage_time = time.time() - checkout_time
-        if usage_time > 5.0:  # Log connections held for more than 5 seconds
-            logger.warning(f"Long-running database connection: {usage_time:.2f}s")
+        if usage_time > 10.0:  # Log connections held for more than 10 seconds
+            logger.warning(f"⚠️ Long-running database connection: {usage_time:.2f}s")
+        elif usage_time > 5.0:
+            logger.info(f"ℹ️ Moderate connection time: {usage_time:.2f}s")
 
 # Optimized session configuration
 SessionLocal = sessionmaker(

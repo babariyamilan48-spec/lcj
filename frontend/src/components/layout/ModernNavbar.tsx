@@ -127,24 +127,6 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
             />
           </motion.div>
 
-          {/* Test Progress (shown during quiz) */}
-          {showProgress && testName && (
-            <div className="hidden lg:flex items-center space-x-4 flex-1 max-w-md mx-8">
-              <div className="flex-1">
-                <div className="text-sm text-gray-600 mb-1">
-                  <span className="font-medium">વર્તમાન પરીક્ષણ:</span> {testName}
-                </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
@@ -181,12 +163,8 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                    {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      user.firstName?.charAt(0) || user.name?.charAt(0) || user.username?.charAt(0) || user.email?.charAt(0) || 'U'
-                    )}
+                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+                    <span>{user.firstName?.charAt(0) || user.name?.charAt(0) || user.username?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
                   </div>
                   <div className="hidden sm:block text-left">
                     <p className="text-sm font-medium text-gray-900">
@@ -208,12 +186,8 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
                     >
                       <div className="px-4 py-3 border-b border-gray-100">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                            {user.avatar ? (
-                              <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
-                            ) : (
-                              user.firstName?.charAt(0) || user.name?.charAt(0) || user.username?.charAt(0) || user.email?.charAt(0) || 'U'
-                            )}
+                          <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden">
+                            <span>{user.firstName?.charAt(0) || user.name?.charAt(0) || user.username?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">
@@ -316,23 +290,6 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
                   </motion.button>
                 );
               })}
-              
-              {/* Test Progress for Mobile */}
-              {showProgress && testName && (
-                <div className="px-4 py-3 border-t border-gray-200">
-                  <div className="text-sm text-gray-600 mb-2">
-                    <span className="font-medium">વર્તમાન પરીક્ષણ:</span> {testName}
-                  </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <motion.div 
-                      className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progress}%` }}
-                      transition={{ duration: 0.5 }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           </motion.div>
         )}

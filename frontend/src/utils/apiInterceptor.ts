@@ -199,7 +199,10 @@ if (useOptimized && typeof window !== 'undefined') {
       let response = await originalFetch(newUrl, optimizedInit);
       
       // Handle 401 Unauthorized - only refresh if token is actually expired
-      if (response.status === 401 && isAccessTokenExpired()) {
+      // BUT: Don't refresh for login/signup endpoints - they should return 401 for wrong credentials
+      const isAuthEndpoint = newUrl.includes('/auth/login') || newUrl.includes('/auth/signup') || newUrl.includes('/optimized/auth/login');
+      
+      if (response.status === 401 && isAccessTokenExpired() && !isAuthEndpoint) {
         console.warn('⚠️ 401 Unauthorized - Access token expired, attempting to refresh');
         
         if (!isRefreshing) {

@@ -37,15 +37,15 @@ class OptimizedDatabasePool:
                 poolclass=QueuePool,
                 pool_size=3,  # Conservative for Supabase connection limits
                 max_overflow=5,  # Reduced overflow to prevent exhaustion
-                pool_timeout=10,  # Longer timeout for getting connection from pool
-                pool_recycle=900,  # Recycle connections every 15 minutes
+                pool_timeout=10,  # Timeout for getting connection from pool
+                pool_recycle=300,  # Recycle connections every 5 minutes (prevent stale connections)
                 pool_pre_ping=True,  # Validate connections before use
                 
                 # Connection settings - optimized for Supabase
                 connect_args={
-                    "connect_timeout": 15,  # Longer connection timeout for Supabase
+                    "connect_timeout": 10,  # Connection timeout
                     "application_name": "lcj_optimized_api",
-                    "options": "-c statement_timeout=15000 -c idle_in_transaction_session_timeout=60000"  # 15s query, 60s idle timeout
+                    "options": "-c statement_timeout=15000 -c idle_in_transaction_session_timeout=30000 -c tcp_keepalives_idle=60 -c tcp_keepalives_interval=10 -c tcp_keepalives_count=5"
                 },
                 
                 # Engine settings
@@ -71,6 +71,7 @@ class OptimizedDatabasePool:
     
     def _setup_connection_events(self):
         """Setup connection event listeners for monitoring and optimization"""
+        import time
         
         @event.listens_for(self.engine, "connect")
         def set_connection_settings(dbapi_connection, connection_record):
@@ -80,10 +81,10 @@ class OptimizedDatabasePool:
                     # Set reasonable timeouts for Supabase
                     cursor.execute("SET statement_timeout = '15s'")  # 15 second query timeout
                     cursor.execute("SET lock_timeout = '10s'")        # 10 second lock timeout
-                    cursor.execute("SET idle_in_transaction_session_timeout = '60s'")  # 60 second idle timeout
-                    cursor.execute("SET tcp_keepalives_idle = '600'")  # TCP keepalive
-                    cursor.execute("SET tcp_keepalives_interval = '30'")  # TCP keepalive interval
-                    cursor.execute("SET tcp_keepalives_count = '3'")   # TCP keepalive count
+                    cursor.execute("SET idle_in_transaction_session_timeout = '30s'")  # 30 second idle timeout
+                    cursor.execute("SET tcp_keepalives_idle = '60'")  # TCP keepalive every 60s
+                    cursor.execute("SET tcp_keepalives_interval = '10'")  # TCP keepalive interval
+                    cursor.execute("SET tcp_keepalives_count = '5'")   # TCP keepalive count
                     
                 logger.debug("Optimized connection settings applied")
             except Exception as e:
@@ -92,11 +93,19 @@ class OptimizedDatabasePool:
         @event.listens_for(self.engine, "checkout")
         def receive_checkout(dbapi_connection, connection_record, connection_proxy):
             """Monitor connection checkout"""
+            connection_record.info['checkout_time'] = time.time()
             logger.debug("Connection checked out from pool")
         
         @event.listens_for(self.engine, "checkin")
         def receive_checkin(dbapi_connection, connection_record):
-            """Monitor connection checkin"""
+            """Monitor connection checkin and log long-running connections"""
+            if 'checkout_time' in connection_record.info:
+                checkout_time = connection_record.info.pop('checkout_time')
+                usage_time = time.time() - checkout_time
+                if usage_time > 10.0:  # Log connections held for more than 10 seconds
+                    logger.warning(f"⚠️ Long-running database connection: {usage_time:.2f}s")
+                elif usage_time > 5.0:
+                    logger.info(f"ℹ️ Moderate connection time: {usage_time:.2f}s")
             logger.debug("Connection returned to pool")
     
     @contextmanager

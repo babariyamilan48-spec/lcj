@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
   Download,
-  Share2,
   Sparkles,
   Brain,
   Target,
@@ -245,23 +244,6 @@ const ComprehensiveReportPage = () => {
     }, 1000);
   };
 
-  const handleShareReport = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'મારી સંપૂર્ણ કારકિર્દી મૂલ્યાંકન રિપોર્ટ',
-          text: 'મારા વિગતવાર કારકિર્દી મૂલ્યાંકન પરિણામો જુઓ!',
-          url: window.location.href,
-        });
-      } catch (error) {
-        console.error('Error sharing:', error);
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('રિપોર્ટ લિંક કોપી થઈ ગઈ!');
-    }
-  };
-
   if (loading || generatingInsights) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 flex items-center justify-center">
@@ -396,16 +378,6 @@ const ComprehensiveReportPage = () => {
             </div>
 
             <div className="flex items-center space-x-3">
-              <motion.button
-                onClick={handleShareReport}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center px-4 py-2.5 text-orange-700 bg-orange-100 hover:bg-orange-200 rounded-xl transition-all duration-300 font-medium"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                શેર કરો
-              </motion.button>
-
               <motion.button
                 onClick={handleDownloadReport}
                 whileHover={{ scale: 1.02 }}

@@ -3,11 +3,11 @@
 import React, { Suspense } from 'react';
 import UnifiedAuthForm from '@/components/auth/UnifiedAuthForm';
 
-function SignupPageContent() {
+function AuthPageContent() {
   return <UnifiedAuthForm initialTab="signup" />;
 }
 
-export default function SignupPage() {
+export default function AuthPage() {
   return (
     <Suspense
       fallback={
@@ -16,7 +16,7 @@ export default function SignupPage() {
         </div>
       }
     >
-      <SignupPageContent />
+      <AuthPageContent />
     </Suspense>
   );
 }

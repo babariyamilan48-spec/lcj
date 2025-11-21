@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/app-store';
 import ModernHomePage from '@/components/ModernHomePage';
 import TestSelection from '@/components/TestSelectionAPI';
+import PaymentGate from '@/components/PaymentGate';
 import ModernAboutPage from '@/components/ModernAboutPage';
 import ModernContactPage from '@/components/ModernContactPage';
 import Quiz from '@/components/Quiz';
@@ -19,6 +20,9 @@ export default function HomeRoot() {
     setCurrentScreen, 
     setSelectedTest,
     setTestResults,
+    setUserAnswers,
+    setCurrentQuestionIndex,
+    setTestProgress,
     resetApp
   } = useAppStore();
   const router = useRouter();
@@ -35,6 +39,12 @@ export default function HomeRoot() {
   };
 
   const handleTestSelect = (test: any) => {
+    // Only reset if it's a different test
+    if (selectedTest?.id !== test.id) {
+      setUserAnswers({});
+      setCurrentQuestionIndex(0);
+      setTestProgress(0);
+    }
     setSelectedTest(test);
     setCurrentScreen('quiz');
   };
@@ -74,7 +84,11 @@ export default function HomeRoot() {
       case 'home':
         return <ModernHomePage onStart={handleStart} />;
       case 'selection':
-        return <TestSelection onTestSelect={handleTestSelect} onBack={handleBack} />;
+        return (
+          <PaymentGate onPaymentComplete={() => {}}>
+            <TestSelection onTestSelect={handleTestSelect} onBack={handleBack} />
+          </PaymentGate>
+        );
       case 'about':
         return <ModernAboutPage onBack={handleBack} />;
       case 'contact':

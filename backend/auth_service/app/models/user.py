@@ -29,6 +29,7 @@ class User(Base):
     firebase_id = Column(String(255), nullable=True)
     device = Column(String(255), nullable=True)
     flag = Column(String(255), nullable=True)
+    payment_completed = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -65,5 +66,29 @@ class RefreshToken(Base):
 
     __table_args__ = (
         Index("ix_refresh_user_active", user_id, postgresql_where=(~(is_revoked))),
+    )
+
+
+class Payment(Base):
+    """Payment transaction records for Razorpay integration"""
+    __tablename__ = "payments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_id = Column(String(255), nullable=False, index=True)
+    payment_id = Column(String(255), nullable=True, index=True)
+    amount = Column(Integer, nullable=False)  # Amount in paise (e.g., 50000 = ₹500)
+    currency = Column(String(3), nullable=False, default="INR")
+    status = Column(String(32), nullable=False, default="created")  # created, paid, failed
+    signature = Column(String(255), nullable=True)
+    error_message = Column(String(512), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_payments_user_id", user_id),
+        Index("ix_payments_order_id", order_id),
+        Index("ix_payments_payment_id", payment_id),
+        CheckConstraint("status IN ('created','paid','failed')", name="ck_payments_status"),
     )
 

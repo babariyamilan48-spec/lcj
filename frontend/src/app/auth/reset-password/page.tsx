@@ -71,13 +71,13 @@ function ResetPasswordPageContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="bg-blue-50 border border-blue-200 rounded-xl p-4"
+              className="bg-orange-50 border border-orange-200 rounded-xl p-4"
             >
               <div className="flex items-center space-x-3">
-                <Lock className="w-5 h-5 text-blue-600" />
+                <Lock className="w-5 h-5 text-orange-600" />
                 <div>
-                  <p className="text-sm font-medium text-blue-900">Reset code sent</p>
-                  <p className="text-xs text-blue-700">
+                  <p className="text-sm font-medium text-orange-900">Reset code sent</p>
+                  <p className="text-xs text-orange-800">
                     Check your email <strong>{values.email || 'address'}</strong> for the reset code
                   </p>
                 </div>
@@ -124,7 +124,7 @@ function ResetPasswordPageContent() {
             <motion.button 
               type="submit" 
               disabled={isSubmitting} 
-              className="relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:from-blue-700 hover:to-purple-700 disabled:opacity-60"
+              className="relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:from-orange-600 hover:to-orange-700 disabled:opacity-60"
               whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
               whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
             >
@@ -164,8 +164,8 @@ function ResetPasswordPageContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
       </div>
     }>
       <ResetPasswordPageContent />

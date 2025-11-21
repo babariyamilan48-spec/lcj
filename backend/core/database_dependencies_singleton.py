@@ -30,8 +30,10 @@ class DatabaseDependencies:
         FastAPI dependency for general database session
         Uses optimized pool with fallback to singleton
         Ensures proper cleanup to prevent connection leaks
+        CRITICAL: This dependency ALWAYS closes the session in finally block
         """
         session = None
+        session_closed = False
         try:
             # Try optimized pool first
             session = optimized_db_pool.get_session_sync()
@@ -41,29 +43,38 @@ class DatabaseDependencies:
             
             yield session
             
-            # Only commit if no exception occurred
-            if session.is_active:
+            # Only commit if no exception occurred and session is active
+            if session and session.is_active:
                 try:
                     session.commit()
+                    logger.debug("Session committed successfully")
                 except Exception as commit_error:
                     logger.error(f"Commit error: {commit_error}")
-                    session.rollback()
+                    try:
+                        session.rollback()
+                    except Exception as rollback_error:
+                        logger.error(f"Rollback error after commit failure: {rollback_error}")
                     raise
             
         except Exception as e:
             logger.error(f"Database session error: {e}")
-            if session and session.is_active:
-                try:
-                    session.rollback()
-                except Exception as rollback_error:
-                    logger.error(f"Rollback error: {rollback_error}")
-            # Don't raise HTTPException here - let FastAPI handle it
-            raise
-        finally:
-            # Always close the session to return connection to pool
+            # Attempt rollback if session exists and is active
             if session:
                 try:
+                    if session.is_active:
+                        session.rollback()
+                        logger.debug("Session rolled back due to exception")
+                except Exception as rollback_error:
+                    logger.error(f"Rollback error: {rollback_error}")
+            # Re-raise the exception for FastAPI to handle
+            raise
+        finally:
+            # CRITICAL: Always close the session to return connection to pool
+            if session and not session_closed:
+                try:
                     session.close()
+                    session_closed = True
+                    logger.debug("Session closed successfully")
                 except Exception as close_error:
                     logger.error(f"Error closing session: {close_error}")
     

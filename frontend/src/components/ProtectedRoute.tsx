@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -14,39 +14,37 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [redirectTimer, setRedirectTimer] = useState<NodeJS.Timeout | null>(null);
+  const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // CRITICAL FIX: Give more time for authentication state to restore on refresh
     if (!isLoading && !isAuthenticated) {
       
       // Clear any existing timer
-      if (redirectTimer) {
-        clearTimeout(redirectTimer);
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
       }
       
       // Clear navigation history on logout to prevent back navigation to protected pages
       navigationHistory.clear();
       
       // Wait a bit longer before redirecting to allow auth state to restore
-      const timer = setTimeout(() => {
+      redirectTimerRef.current = setTimeout(() => {
         router.replace('/auth/login');
       }, 1500); // Increased from immediate to 1.5 seconds
-      
-      setRedirectTimer(timer);
-    } else if (isAuthenticated && redirectTimer) {
+    } else if (isAuthenticated && redirectTimerRef.current) {
       // Cancel redirect if user becomes authenticated
-      clearTimeout(redirectTimer);
-      setRedirectTimer(null);
+      clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = null;
     }
     
     // Cleanup timer on unmount
     return () => {
-      if (redirectTimer) {
-        clearTimeout(redirectTimer);
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
       }
     };
-  }, [isAuthenticated, isLoading, router, redirectTimer]);
+  }, [isAuthenticated, isLoading, router]);
 
   // Show loading state while authentication is being determined
   if (isLoading) {

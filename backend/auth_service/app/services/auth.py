@@ -109,19 +109,24 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
         return None
     return user
 
-def authenticate_user_with_details(db: Session, email: str, password: str) -> dict:
+def authenticate_user_with_details(db: Session, email: str, password: str) -> tuple:
     """
     Authenticate user and return detailed error information
-    Returns: dict with 'status' and 'user' keys
+    Returns: tuple of (user, error_type)
     """
     user = get_user_by_email(db, email)
     if not user:
-        return {"status": "user_not_found", "user": None}
+        return None, 'user_not_found'
+    
+    # Check if user only has Google provider
+    if user.providers == ["google.com"]:
+        return None, 'google_only'
+    
     if not verify_password(password, user.password_hash or ""):
-        return {"status": "incorrect_password", "user": None}
+        return None, 'incorrect_password'
     if not user.is_active:
-        return {"status": "inactive_user", "user": None}
-    return {"status": "success", "user": user}
+        return None, 'inactive_user'
+    return user, 'success'
 
 def generate_tokens_for_user(user: User, db: Session, device: str | None = None):
     # Create DB refresh token record

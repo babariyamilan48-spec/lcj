@@ -13,146 +13,152 @@ router = APIRouter()
 @router.get("/analytics/tests")
 async def get_test_analytics(db: Session = Depends(get_db)):
     """Get test analytics for admin dashboard"""
-    
-    # Get unique test types from test results
-    test_types = db.query(TestResult.test_type).distinct().all()
-    test_types = [t[0] for t in test_types if t[0]]
-    
-    # Total tests available (unique test types)
-    total_tests = len(test_types)
-    
-    # Active tests (assuming all are active for now)
-    active_tests = total_tests
-    
-    # Total questions (estimate based on test types)
-    question_estimates = {
-        'mbti': 20,
-        'bigfive': 25,
-        'intelligence': 30,
-        'riasec': 18,
-        'vark': 16,
-        'svs': 21,
-        'decision': 15,
-        'life_situation': 12
-    }
-    
-    total_questions = sum(question_estimates.get(test_type, 20) for test_type in test_types)
-    avg_questions_per_test = total_questions / total_tests if total_tests > 0 else 0
-    
-    # Category distribution based on actual test results
-    category_stats = db.query(
-        TestResult.test_type,
-        func.count(TestResult.id).label('count')
-    ).group_by(TestResult.test_type).all()
-    
-    category_distribution = []
-    for test_type, count in category_stats:
-        if test_type:
-            category_distribution.append({
-                "category": test_type.replace('_', ' ').title(),
-                "count": count
-            })
-    
-    return {
-        "total_tests": total_tests,
-        "active_tests": active_tests,
-        "total_questions": total_questions,
-        "avg_questions_per_test": round(avg_questions_per_test, 1),
-        "category_distribution": category_distribution
-    }
+    try:
+        # Get unique test types from test results
+        test_types = db.query(TestResult.test_type).distinct().all()
+        test_types = [t[0] for t in test_types if t[0]]
+        
+        # Total tests available (unique test types)
+        total_tests = len(test_types)
+        
+        # Active tests (assuming all are active for now)
+        active_tests = total_tests
+        
+        # Total questions (estimate based on test types)
+        question_estimates = {
+            'mbti': 20,
+            'bigfive': 25,
+            'intelligence': 30,
+            'riasec': 18,
+            'vark': 16,
+            'svs': 21,
+            'decision': 15,
+            'life_situation': 12
+        }
+        
+        total_questions = sum(question_estimates.get(test_type, 20) for test_type in test_types)
+        avg_questions_per_test = total_questions / total_tests if total_tests > 0 else 0
+        
+        # Category distribution based on actual test results
+        category_stats = db.query(
+            TestResult.test_type,
+            func.count(TestResult.id).label('count')
+        ).group_by(TestResult.test_type).all()
+        
+        category_distribution = []
+        for test_type, count in category_stats:
+            if test_type:
+                category_distribution.append({
+                    "category": test_type.replace('_', ' ').title(),
+                    "count": count
+                })
+        
+        return {
+            "total_tests": total_tests,
+            "active_tests": active_tests,
+            "total_questions": total_questions,
+            "avg_questions_per_test": round(avg_questions_per_test, 1),
+            "category_distribution": category_distribution
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get test analytics: {str(e)}")
 
 @router.get("/analytics/users")
 async def get_user_analytics_from_results(db: Session = Depends(get_db)):
     """Get user analytics based on test results"""
-    
-    # Total users who have taken tests
-    total_users = db.query(TestResult.user_id).distinct().count()
-    
-    # Active users (users who took tests in last 30 days)
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    active_users = db.query(TestResult.user_id).filter(
-        TestResult.created_at >= thirty_days_ago
-    ).distinct().count()
-    
-    # Users who completed tests (have results)
-    verified_users = db.query(TestResult.user_id).filter(
-        TestResult.analysis.isnot(None)
-    ).distinct().count()
-    
-    # Admin users (assuming 1 for now, should be fetched from auth service)
-    admin_users = 1
-    
-    # Recent registrations (users who took their first test in last 30 days)
-    recent_registrations = db.query(TestResult.user_id).filter(
-        TestResult.created_at >= thirty_days_ago
-    ).distinct().count()
-    
-    # Test completion stats
-    completion_stats = db.query(
-        TestResult.test_type,
-        func.count(TestResult.id).label('completions')
-    ).group_by(TestResult.test_type).all()
-    
-    test_completion_distribution = []
-    for test_type, completions in completion_stats:
-        if test_type:
-            test_completion_distribution.append({
-                "test_type": test_type.replace('_', ' ').title(),
-                "completions": completions
-            })
-    
-    return {
-        "total_users": total_users,
-        "active_users": active_users,
-        "verified_users": verified_users,
-        "admin_users": admin_users,
-        "recent_registrations": recent_registrations,
-        "test_completion_distribution": test_completion_distribution
-    }
+    try:
+        # Total users who have taken tests
+        total_users = db.query(TestResult.user_id).distinct().count()
+        
+        # Active users (users who took tests in last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        active_users = db.query(TestResult.user_id).filter(
+            TestResult.created_at >= thirty_days_ago
+        ).distinct().count()
+        
+        # Users who completed tests (have results)
+        verified_users = db.query(TestResult.user_id).filter(
+            TestResult.analysis.isnot(None)
+        ).distinct().count()
+        
+        # Admin users (assuming 1 for now, should be fetched from auth service)
+        admin_users = 1
+        
+        # Recent registrations (users who took their first test in last 30 days)
+        recent_registrations = db.query(TestResult.user_id).filter(
+            TestResult.created_at >= thirty_days_ago
+        ).distinct().count()
+        
+        # Test completion stats
+        completion_stats = db.query(
+            TestResult.test_type,
+            func.count(TestResult.id).label('completions')
+        ).group_by(TestResult.test_type).all()
+        
+        test_completion_distribution = []
+        for test_type, completions in completion_stats:
+            if test_type:
+                test_completion_distribution.append({
+                    "test_type": test_type.replace('_', ' ').title(),
+                    "completions": completions
+                })
+        
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "verified_users": verified_users,
+            "admin_users": admin_users,
+            "recent_registrations": recent_registrations,
+            "test_completion_distribution": test_completion_distribution
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get user analytics: {str(e)}")
 
 @router.get("/analytics/overview")
 async def get_overview_analytics(db: Session = Depends(get_db)):
     """Get overview analytics for dashboard"""
-    
-    # Total test completions
-    total_completions = db.query(TestResult).count()
-    
-    # Completions in last 30 days
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    recent_completions = db.query(TestResult).filter(
-        TestResult.created_at >= thirty_days_ago
-    ).count()
-    
-    # Most popular test
-    popular_test = db.query(
-        TestResult.test_type,
-        func.count(TestResult.id).label('count')
-    ).group_by(TestResult.test_type).order_by(desc('count')).first()
-    
-    # Average score (if available)
-    avg_score = db.query(func.avg(TestResult.score)).scalar()
-    
-    # Daily completions for last 7 days
-    daily_stats = []
-    for i in range(7):
-        date = datetime.utcnow().date() - timedelta(days=i)
-        count = db.query(TestResult).filter(
-            func.date(TestResult.created_at) == date
+    try:
+        # Total test completions
+        total_completions = db.query(TestResult).count()
+        
+        # Completions in last 30 days
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        recent_completions = db.query(TestResult).filter(
+            TestResult.created_at >= thirty_days_ago
         ).count()
-        daily_stats.append({
-            "date": date.isoformat(),
-            "completions": count
+        
+        # Most popular test
+        popular_test = db.query(
+            TestResult.test_type,
+            func.count(TestResult.id).label('count')
+        ).group_by(TestResult.test_type).order_by(desc('count')).first()
+        
+        # Average score (if available)
+        avg_score = db.query(func.avg(TestResult.score)).scalar()
+        
+        # Daily completions for last 7 days
+        daily_stats = []
+        for i in range(7):
+            date = datetime.utcnow().date() - timedelta(days=i)
+            count = db.query(TestResult).filter(
+                func.date(TestResult.created_at) == date
+            ).count()
+            daily_stats.append({
+                "date": date.isoformat(),
+                "completions": count
+            })
+        
+        daily_stats.reverse()  # Show oldest to newest
+        
+        return resp({
+            "total_completions": total_completions,
+            "recent_completions": recent_completions,
+            "most_popular_test": popular_test[0] if popular_test else None,
+            "average_score": round(avg_score, 2) if avg_score else None,
+            "daily_completions": daily_stats
         })
-    
-    daily_stats.reverse()  # Show oldest to newest
-    
-    return resp({
-        "total_completions": total_completions,
-        "recent_completions": recent_completions,
-        "most_popular_test": popular_test[0] if popular_test else None,
-        "average_score": round(avg_score, 2) if avg_score else None,
-        "daily_completions": daily_stats
-    })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get overview analytics: {str(e)}")
 
 @router.get("/analytics/dashboard")
 async def get_dashboard_analytics(db: Session = Depends(get_db)):

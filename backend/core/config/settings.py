@@ -64,6 +64,16 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     SMTP_FROM: Optional[str] = None
 
+    # Razorpay Payment Gateway Configuration
+    RAZORPAY_ENV: str = "test"  # test or live
+    RAZORPAY_KEY_ID: Optional[str] = None
+    RAZORPAY_KEY_SECRET: Optional[str] = None
+    RAZORPAY_TEST_KEY_ID: Optional[str] = None
+    RAZORPAY_TEST_KEY_SECRET: Optional[str] = None
+    RAZORPAY_LIVE_KEY_ID: Optional[str] = None
+    RAZORPAY_LIVE_KEY_SECRET: Optional[str] = None
+    RAZORPAY_PAYMENT_AMOUNT: int = 44900  # Amount in paise (₹500 = 50000 paise)
+
     # Google / Firebase (uses backend/credential.json)
 
     # Pydantic v2 settings config

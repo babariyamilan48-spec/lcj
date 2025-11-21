@@ -35,37 +35,37 @@ const ComprehensiveAIInsightsComponent: React.FC<ComprehensiveAIInsightsProps> =
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-8">
       {/* Modern Header */}
-      <div className="text-center bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 rounded-3xl p-12 border border-orange-100 shadow-xl">
-        <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-          <Zap className="w-10 h-10 text-white" />
+      <div className="text-center bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 rounded-2xl sm:rounded-3xl p-4 sm:p-12 border border-orange-100 shadow-xl">
+        <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-6 shadow-lg">
+          <Zap className="w-7 h-7 sm:w-10 sm:h-10 text-white" />
         </div>
-        <h2 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
+        <h2 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-2 sm:mb-4">
           સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ
         </h2>
-        <p className="text-gray-600 text-lg">તમામ ટેસ્ટના પરિણામો આધારિત વ્યાપક કારકિર્દી માર્ગદર્શન</p>
+        <p className="text-gray-600 text-xs sm:text-lg">તમામ ટેસ્ટના પરિણામો આધારિત વ્યાપક કારકિર્દી માર્ગદર્શન</p>
       </div>
 
       {/* Top Career Fields */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white/80 backdrop-blur-lg rounded-3xl p-10 shadow-2xl border border-orange-100"
+        className="bg-white/80 backdrop-blur-lg rounded-2xl sm:rounded-3xl p-4 sm:p-10 shadow-2xl border border-orange-100"
       >
-        <div className="flex items-center mb-6">
-          <Target className="w-8 h-8 text-orange-500 mr-3" />
-          <h3 className="text-2xl font-bold text-gray-800">ટોપ 3 કારકિર્દી ક્ષેત્રો</h3>
+        <div className="flex items-center mb-3 sm:mb-6">
+          <Target className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 mr-2 sm:mr-3" />
+          <h3 className="text-lg sm:text-2xl font-bold text-gray-800">ટોપ 3 કારકિર્દી ક્ષેત્રો</h3>
         </div>
         
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-8">
           {insights.top_career_fields?.map((field, index) => (
             <motion.div 
               key={index} 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-orange-100 overflow-hidden"
+              className="group relative bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-orange-100 overflow-hidden"
             >
               {/* Background Gradient */}
               <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 opacity-50 group-hover:opacity-70 transition-opacity duration-300"></div>
@@ -73,17 +73,17 @@ const ComprehensiveAIInsightsComponent: React.FC<ComprehensiveAIInsightsProps> =
               {/* Content */}
               <div className="relative z-10">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center text-white font-bold text-sm">
+                <div className="flex items-center justify-between mb-3 sm:mb-6">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center text-white font-bold text-xs sm:text-sm">
                       {index + 1}
                     </div>
-                    <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full">
+                    <span className="text-xs sm:text-sm font-semibold text-orange-600 bg-orange-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
                       ભલામણ કરેલ
                     </span>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                    <div className="text-base sm:text-lg font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
                       #{index + 1}
                     </div>
                     <div className="text-xs text-gray-500">પ્રાથમિકતા</div>
@@ -91,17 +91,17 @@ const ComprehensiveAIInsightsComponent: React.FC<ComprehensiveAIInsightsProps> =
                 </div>
                 
                 {/* Career Field Name */}
-                <h4 className="text-xl font-bold text-gray-800 mb-4 leading-tight">
+                <h4 className="text-base sm:text-xl font-bold text-gray-800 mb-2 sm:mb-4 leading-tight">
                   {field.field}
                 </h4>
                 
                 {/* Reasoning with bullet points */}
-                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4">
-                  <div className="flex items-center mb-2">
-                    <div className="w-4 h-4 bg-orange-500 rounded-full mr-2"></div>
-                    <h5 className="text-sm font-semibold text-orange-700">શા માટે યોગ્ય છે</h5>
+                <div className="bg-orange-50 border border-orange-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 mb-2 sm:mb-4">
+                  <div className="flex items-center mb-1 sm:mb-2">
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-orange-500 rounded-full mr-2"></div>
+                    <h5 className="text-xs sm:text-sm font-semibold text-orange-700">શા માટે યોગ્ય છે</h5>
                   </div>
-                  <div className="text-sm text-orange-600 leading-relaxed whitespace-pre-line">
+                  <div className="text-xs sm:text-sm text-orange-600 leading-relaxed whitespace-pre-line line-clamp-3 sm:line-clamp-none">
                     {field.reasoning}
                   </div>
                 </div>

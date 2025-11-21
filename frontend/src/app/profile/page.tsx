@@ -415,11 +415,16 @@ export default function ProfilePage() {
       return analyticsData.stats;
     }
     
-    // Finally, calculate from effectiveResults
-    if (effectiveResults && effectiveResults.length > 0) {
-      const completedTests = effectiveResults.filter(r => {
-        const isCompleted = (r as any).completion_percentage >= 100 || r.percentage_score >= 80;
-        return isCompleted;
+    // Finally, calculate from results (ALL tests, not just filtered ones)
+    if (results && results.length > 0) {
+      const completedTests = results.filter(r => {
+        // Count as completed ONLY if:
+        // 1. is_completed flag is true (test was fully submitted)
+        // 2. AND completion_percentage is 100 (all questions answered)
+        const isCompleted = (r as any).is_completed === true;
+        const completion = (r as any).completion_percentage || 0;
+        
+        return isCompleted && completion >= 100;
       }).length;
       
       const calculatedStats = {
@@ -526,48 +531,40 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
             <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
               <div className="relative">
-                {profile?.avatar ? (
-                  <img
-                    src={profile.avatar}
-                    alt="Profile"
-                    className="w-24 h-24 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold mx-auto sm:mx-0">
-                    {(profile?.firstName?.[0] || profile?.name?.[0] || user?.name?.[0] || 'U').toUpperCase()}
-                  </div>
-                )}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white text-2xl sm:text-3xl font-bold mx-auto sm:mx-0 shadow-lg">
+                  {(profile?.firstName?.[0] || profile?.name?.[0] || user?.name?.[0] || 'U').toUpperCase()}
+                </div>
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-8 sm:h-8 bg-green-500 rounded-full border-2 sm:border-4 border-white flex items-center justify-center">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                 </div>
               </div>
 
               <div className="text-center sm:text-left">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                <h1 className="text-xl sm:text-3xl font-bold text-gray-900 truncate">
                   {profile?.firstName && profile?.lastName
                     ? `${profile.firstName} ${profile.lastName}`
                     : profile?.name || user?.name || 'User'}
                 </h1>
-                <p className="text-gray-600 mt-1 text-sm sm:text-base">
+                <p className="text-gray-600 mt-1 text-xs sm:text-base break-all">
                   {profile?.email || user?.email || 'user@example.com'}
                 </p>
                 {profile?.bio && (
-                  <p className="text-gray-500 mt-1 max-w-md text-sm sm:text-base">{profile.bio}</p>
+                  <p className="text-gray-500 mt-2 max-w-md text-xs sm:text-base line-clamp-2">{profile.bio}</p>
                 )}
-                <div className="flex flex-col sm:flex-row sm:items-center mt-2 space-y-2 sm:space-y-0 sm:space-x-4">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    <User className="w-3 h-3 mr-1" />
-                    Premium Member
+                <div className="flex flex-col sm:flex-row sm:items-center mt-3 gap-2 sm:gap-4">
+                  <span className="inline-flex items-center justify-center sm:justify-start px-3 py-1.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 w-full sm:w-auto">
+                    <User className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span className="truncate">Premium Member</span>
                   </span>
                   {profile?.location && (
-                    <span className="text-sm text-gray-500 flex items-center">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      {profile.location}
+                    <span className="text-xs sm:text-sm text-gray-600 flex items-center justify-center sm:justify-start w-full sm:w-auto">
+                      <MapPin className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                      <span className="truncate">{profile.location}</span>
                     </span>
                   )}
-                  <span className="text-sm text-gray-500 flex items-center">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    Joined {new Date(profile?.created_at || Date.now()).toLocaleDateString()}
+                  <span className="text-xs sm:text-sm text-gray-600 flex items-center justify-center sm:justify-start w-full sm:w-auto">
+                    <Calendar className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                    <span className="truncate">Joined {new Date(profile?.created_at || Date.now()).toLocaleDateString()}</span>
                   </span>
                 </div>
               </div>

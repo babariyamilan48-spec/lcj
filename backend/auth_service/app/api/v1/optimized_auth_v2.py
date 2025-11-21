@@ -3,7 +3,7 @@ Optimized Auth API with Centralized Session Management
 Ensures proper session lifecycle and prevents session leaks
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, status
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -11,9 +11,10 @@ import logging
 import time
 import uuid
 
-from ...schemas.user import SignupInput, UserOut, VerifyEmailRequestInput, VerifyEmailConfirmInput, TokenRefreshInput
+from ...schemas.user import SignupInput, UserOut, VerifyEmailRequestInput, VerifyEmailConfirmInput, TokenRefreshInput, ForgotPasswordInput, ResetPasswordInput, Token
 from ...schemas.auth import LoginRequest, LoginResponse, UserResponse
-from ...services.auth import authenticate_user_with_details, generate_tokens_for_user, register_user, verify_and_consume_otp, get_user_by_email
+from ...services.auth import authenticate_user_with_details, generate_tokens_for_user, register_user, verify_and_consume_otp, get_user_by_email, issue_reset_otp, verify_google_token, upsert_user_from_google, validate_refresh_token
+from ...utils.jwt import get_password_hash
 from core.database_dependencies_singleton import get_user_db, get_db
 from core.user_session_singleton import user_session_context
 from core.session_manager import get_session_health, force_close_user_sessions
@@ -140,34 +141,38 @@ async def login_optimized_v2(
         with optimized_db_pool.get_session() as session:
             try:
                 # Authenticate user with detailed error information
-                auth_result = authenticate_user_with_details(
+                user, error_type = authenticate_user_with_details(
                     session, 
                     login_data.email, 
                     login_data.password
                 )
                 
-                if auth_result["status"] == "user_not_found":
-                    raise HTTPException(
-                        status_code=404,
-                        detail="No account found with this email. Please sign up first."
-                    )
-                elif auth_result["status"] == "incorrect_password":
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Incorrect password. Please try again."
-                    )
-                elif auth_result["status"] == "inactive_user":
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Your account is inactive. Please contact support."
-                    )
-                elif auth_result["status"] != "success":
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Authentication failed"
-                    )
-                
-                user = auth_result["user"]
+                if not user:
+                    if error_type == "user_not_found":
+                        raise HTTPException(
+                            status_code=404,
+                            detail="No account found with this email. Please sign up first."
+                        )
+                    elif error_type == "google_only":
+                        raise HTTPException(
+                            status_code=400,
+                            detail="This account was created with Google. Please sign in with Google."
+                        )
+                    elif error_type == "incorrect_password":
+                        raise HTTPException(
+                            status_code=401,
+                            detail="Incorrect password. Please try again."
+                        )
+                    elif error_type == "inactive_user":
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Your account is inactive. Please contact support."
+                        )
+                    else:
+                        raise HTTPException(
+                            status_code=401,
+                            detail="Authentication failed"
+                        )
                 
                 # Generate real tokens
                 access_token, refresh_token = generate_tokens_for_user(user, session)
@@ -244,7 +249,6 @@ async def login_optimized_v2(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_optimized_v2(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ) -> UserResponse:
     """
@@ -631,12 +635,12 @@ async def login_fast_alias(
 @router.get("/me/fast", response_model=UserResponse)
 async def get_current_user_fast_alias(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    background_tasks: BackgroundTasks = None
+    db: Session = Depends(get_db)
 ) -> UserResponse:
     """
     Fast get current user endpoint - alias for the main optimized endpoint
     """
-    return await get_current_user_optimized_v2(credentials, background_tasks)
+    return await get_current_user_optimized_v2(credentials, db)
 
 @router.post("/logout/fast")
 async def logout_fast_alias(
@@ -741,4 +745,108 @@ async def refresh_token_optimized(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to refresh token"
+        )
+
+@router.post("/forgot-password")
+@limiter.limit("5/minute")
+async def forgot_password_optimized(request: Request, payload: ForgotPasswordInput, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    Request password reset - sends OTP to email
+    """
+    try:
+        user = get_user_by_email(db, payload.email)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not exist")
+        
+        # Run email sending in background to avoid blocking
+        background_tasks.add_task(issue_reset_otp, db, user)
+        return resp(message="Reset code sent to your email.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process forgot password request"
+        )
+
+@router.post("/reset-password")
+@limiter.limit("5/minute")
+async def reset_password_optimized(request: Request, payload: ResetPasswordInput, db: Session = Depends(get_db)):
+    """
+    Reset password using OTP
+    """
+    try:
+        user = verify_and_consume_otp(db, payload.email, "reset_password", payload.otp)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP")
+        
+        user.password_hash = get_password_hash(payload.new_password)
+        db.add(user)
+        db.commit()
+        
+        return resp(message="Password has been reset.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Reset password error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset password"
+        )
+
+@router.post("/google")
+@limiter.limit("5/minute")
+async def google_login_optimized(
+    request: Request,
+    id_token_query: str | None = Query(default=None, alias="id_token"),
+):
+    """
+    Google Firebase login endpoint
+    Accepts ID token from Firebase and returns JWT tokens
+    """
+    try:
+        token = id_token_query
+        if not token:
+            # Try to parse JSON body: { "id_token": "..." }
+            try:
+                body = await request.json()
+                if isinstance(body, dict):
+                    token = body.get("id_token")
+            except Exception:
+                token = None
+        
+        if not token:
+            raise HTTPException(status_code=400, detail="Missing Firebase ID token")
+        
+        # Verify Firebase ID token
+        claims = verify_google_token(token)
+        if not claims:
+            raise HTTPException(status_code=401, detail="Invalid Firebase ID token")
+        
+        # Get user email from claims for session management
+        user_email = claims.get("email", "google-user")
+        
+        # Use session context for proper session management
+        with user_session_context(user_email) as db:
+            user = upsert_user_from_google(db, claims)
+            access_token, refresh_token = generate_tokens_for_user(user, db)
+        
+        out = UserOut(
+            id=str(user.id),
+            email=user.email,
+            username=user.username,
+            avatar=user.avatar,
+            is_verified=user.is_verified,
+            providers=user.providers,
+            role=user.role,
+        )
+        return resp({**out.model_dump(), "token": Token(access_token=access_token, refresh_token=refresh_token).model_dump()}, message="Logged in with Google")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Google login error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process Google login"
         )

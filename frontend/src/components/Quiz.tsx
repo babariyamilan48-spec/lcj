@@ -102,13 +102,34 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
       setQuestions(convertedQuestions);
 
       if (convertedQuestions.length > 0) {
-        setCurrentQuestion(convertedQuestions[0]);
-        // Reset progress when starting new test
-        setTestProgress(0);
-        setCurrentQuestionIndex(0);
-        setUserAnswers({});
-        setSelectedAnswers({});
-        console.log('✅ Quiz setup complete with first question:', convertedQuestions[0].question);
+        // Only reset if no answers exist (fresh test), otherwise restore progress
+        if (Object.keys(userAnswers).length === 0) {
+          console.log('✅ Fresh test - initializing from question 0');
+          setCurrentQuestion(convertedQuestions[0]);
+          setTestProgress(0);
+          setCurrentQuestionIndex(0);
+          setSelectedAnswers({});
+        } else {
+          // Validate that currentQuestionIndex is within bounds
+          const validIndex = currentQuestionIndex < convertedQuestions.length ? currentQuestionIndex : 0;
+          console.log('✅ Resuming test - restoring progress to question', validIndex);
+          // Restore to the last answered question
+          setCurrentQuestion(convertedQuestions[validIndex]);
+          setCurrentQuestionIndex(validIndex);
+          // Restore selected answers from userAnswers
+          const restoredAnswers: { [key: number]: QuestionOption } = {};
+          Object.entries(userAnswers).forEach(([index, answerData]) => {
+            const idx = parseInt(index);
+            const answer = answerData as any;
+            const questionOptions = convertedQuestions[idx]?.options || [];
+            const matchedOption = questionOptions.find(opt => opt.text === answer.answer);
+            if (matchedOption) {
+              restoredAnswers[idx] = matchedOption;
+            }
+          });
+          setSelectedAnswers(restoredAnswers);
+        }
+        console.log('✅ Quiz setup complete');
       }
     } else {
       console.log('❌ No API questions available:', {
@@ -118,7 +139,7 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
         error
       });
     }
-  }, [apiQuestions, setTestProgress, setCurrentQuestionIndex, setUserAnswers, loading, error]);
+  }, [apiQuestions, setTestProgress, setCurrentQuestionIndex, loading, error]);
 
   const getSampleQuestions = (): Question[] => {
     return [

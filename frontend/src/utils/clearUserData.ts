@@ -16,7 +16,8 @@ export function clearAllUserData() {
     'user_profile',
     'user_settings',
     'test_results',
-    'completion_status'
+    'completion_status',
+    'lcj-app-storage' // Clear app store state (currentScreen, userAnswers, etc.)
   ];
 
   // Clear from localStorage
@@ -33,14 +34,14 @@ export function clearAllUserData() {
   if (typeof window !== 'undefined') {
     // Clear localStorage
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('user_') || key.startsWith('auth_') || key.startsWith('token_')) {
+      if (key.startsWith('user_') || key.startsWith('auth_') || key.startsWith('token_') || key.startsWith('lcj-')) {
         localStorage.removeItem(key);
       }
     });
     
     // Clear sessionStorage
     Object.keys(sessionStorage).forEach(key => {
-      if (key.startsWith('user_') || key.startsWith('auth_') || key.startsWith('token_')) {
+      if (key.startsWith('user_') || key.startsWith('auth_') || key.startsWith('token_') || key.startsWith('lcj-')) {
         sessionStorage.removeItem(key);
       }
     });

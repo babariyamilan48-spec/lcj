@@ -68,6 +68,11 @@ const setupInterceptors = () => {
           'GET:/api/v1/results_service/completion-status/': '/api/v1/results_service/completion-status/',
         };
         
+        // Fix for duplicate /fast/fast in URL - replace the pattern correctly
+        const fixDuplicateFast = (url: string): string => {
+          return url.replace(/\/fast\/fast/g, '/fast');
+        };
+        
         const methodUrl = `${method}:${url}`;
         
         // Check for exact matches
@@ -75,7 +80,9 @@ const setupInterceptors = () => {
           const [patternMethod, patternUrl] = pattern.split(':');
           
           if (method === patternMethod && url.includes(patternUrl)) {
-            const newUrl = url.replace(patternUrl, replacement);
+            let newUrl = url.replace(patternUrl, replacement);
+            // Fix duplicate /fast/fast in URL
+            newUrl = fixDuplicateFast(newUrl);
             console.log(`🚀 API OPTIMIZATION: ${method} ${patternUrl} → ${replacement}`);
             console.log(`   Original: ${url}`);
             console.log(`   Optimized: ${newUrl}`);

@@ -73,6 +73,11 @@ async def login(request: Request, payload: LoginInput, db: Session = Depends(get
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No account found with this email. Please sign up first."
             )
+        elif error_type == 'google_only':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This account was created with Google. Please sign in with Google."
+            )
         elif error_type == 'incorrect_password':
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

@@ -63,7 +63,9 @@ def verify_firebase_id_token(id_token: str) -> Optional[Dict[str, Any]]:
     if not _initialized:
         return None
     try:
-        claims = fb_auth.verify_id_token(id_token)
+        # Allow 60 seconds clock skew for system clock differences
+        # This is a common practice for distributed systems
+        claims = fb_auth.verify_id_token(id_token, clock_skew_seconds=60)
         return claims
     except Exception as e:
         try:
