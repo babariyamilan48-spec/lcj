@@ -388,7 +388,7 @@ async def logout_optimized_v2(
     background_tasks: BackgroundTasks = None
 ) -> Dict[str, str]:
     """
-    Logout with session cleanup
+    Logout with session cleanup and cache invalidation
     """
     try:
         # Extract token
@@ -400,13 +400,21 @@ async def logout_optimized_v2(
             try:
                 uuid.UUID(user_id_str)
                 
-                # Clear user session cache
-                cache_key = f"user_session:{user_id_str}"
-                try:
-                    cache.delete(cache_key)
-                    logger.info(f"Cleared session cache for user {user_id_str}")
-                except Exception as cache_error:
-                    logger.warning(f"Failed to clear session cache: {cache_error}")
+                # CRITICAL FIX: Clear ALL user-related caches on logout
+                cache_keys_to_clear = [
+                    f"user_session:{user_id_str}",
+                    f"user_profile:get_user_profile:{user_id_str}",  # Profile cache
+                    f"fast_user_me:get_current_user_fast:{user_id_str}",  # Fast user cache
+                    f"user_results:{user_id_str}",  # Results cache
+                    f"user_analytics:{user_id_str}",  # Analytics cache
+                ]
+                
+                for cache_key in cache_keys_to_clear:
+                    try:
+                        cache.delete(cache_key)
+                        logger.info(f"Cleared cache: {cache_key}")
+                    except Exception as cache_error:
+                        logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
                 
                 # Force close any remaining database sessions for this user
                 if background_tasks:

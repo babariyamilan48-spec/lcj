@@ -250,6 +250,10 @@ async def change_password(payload: ChangePasswordInput, current_user=Depends(get
 async def logout(payload: Optional[LogoutInput] = None, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     # Revoke provided refresh token; if none, revoke all tokens for this user
     from auth_service.app.models.user import RefreshToken
+    from core.cache import cache
+    
+    user_id = str(current_user.id)
+    
     if payload and payload.refresh_token:
         claims = validate_refresh_token(payload.refresh_token)
         jti = claims.get("jti")
@@ -259,6 +263,23 @@ async def logout(payload: Optional[LogoutInput] = None, current_user=Depends(get
     else:
         db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id, RefreshToken.is_revoked.is_(False)).update({RefreshToken.is_revoked: True})
         db.commit()
+    
+    # CRITICAL FIX: Clear ALL user-related caches on logout
+    cache_keys_to_clear = [
+        f"user_session:{user_id}",
+        f"user_profile:get_user_profile:{user_id}",  # Profile cache
+        f"fast_user_me:get_current_user_fast:{user_id}",  # Fast user cache
+        f"user_results:{user_id}",  # Results cache
+        f"user_analytics:{user_id}",  # Analytics cache
+    ]
+    
+    for cache_key in cache_keys_to_clear:
+        try:
+            cache.delete(cache_key)
+            logger.info(f"Cleared cache: {cache_key}")
+        except Exception as cache_error:
+            logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
+    
     return resp(message="Logged out successfully")
 
 @router.post("/google")

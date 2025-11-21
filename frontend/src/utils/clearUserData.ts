@@ -30,23 +30,54 @@ export function clearAllUserData() {
     sessionStorage.removeItem(key);
   });
 
-  // Clear any keys that start with 'user_' or 'auth_'
+  // Clear any keys that start with 'user_' or 'auth_' or 'test_' or 'result_' or 'profile_'
   if (typeof window !== 'undefined') {
-    // Clear localStorage
+    // Clear localStorage - be aggressive with cleanup
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('user_') || key.startsWith('auth_') || key.startsWith('token_') || key.startsWith('lcj-')) {
+      if (key.startsWith('user_') || 
+          key.startsWith('auth_') || 
+          key.startsWith('token_') || 
+          key.startsWith('lcj-') ||
+          key.startsWith('test_') ||
+          key.startsWith('result_') ||
+          key.startsWith('profile_') ||
+          key.startsWith('cache_') ||
+          key.includes('user') ||
+          key.includes('auth') ||
+          key.includes('profile') ||
+          key.includes('test')) {
         localStorage.removeItem(key);
       }
     });
     
-    // Clear sessionStorage
+    // Clear sessionStorage - be aggressive with cleanup
     Object.keys(sessionStorage).forEach(key => {
-      if (key.startsWith('user_') || key.startsWith('auth_') || key.startsWith('token_') || key.startsWith('lcj-')) {
+      if (key.startsWith('user_') || 
+          key.startsWith('auth_') || 
+          key.startsWith('token_') || 
+          key.startsWith('lcj-') ||
+          key.startsWith('test_') ||
+          key.startsWith('result_') ||
+          key.startsWith('profile_') ||
+          key.startsWith('cache_') ||
+          key.includes('user') ||
+          key.includes('auth') ||
+          key.includes('profile') ||
+          key.includes('test')) {
         sessionStorage.removeItem(key);
       }
     });
   }
 
+  // CRITICAL FIX: Reset Zustand app store to initial state
+  try {
+    const { useAppStore } = require('@/store/app-store');
+    useAppStore.getState().resetApp();
+    console.log('✅ App store reset successfully');
+  } catch (error) {
+    // Store might not be loaded yet, that's okay
+    console.warn('⚠️ Could not reset app store:', error);
+  }
 }
 
 export function preventAutoLogin() {
@@ -107,6 +138,28 @@ export function forceSessionClear() {
         sessionStorage.removeItem(key);
       }
     });
+    
+    // Clear IndexedDB if it exists
+    try {
+      if (window.indexedDB) {
+        const dbs = ['lcj-db', 'app-db', 'cache-db'];
+        dbs.forEach(dbName => {
+          try {
+            const request = window.indexedDB.deleteDatabase(dbName);
+            request.onsuccess = () => {
+              console.log(`✅ IndexedDB '${dbName}' cleared`);
+            };
+            request.onerror = () => {
+              console.warn(`⚠️ Failed to clear IndexedDB '${dbName}'`);
+            };
+          } catch (error) {
+            console.warn(`⚠️ Error clearing IndexedDB '${dbName}':`, error);
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('⚠️ IndexedDB not available:', error);
+    }
   }
 }
 
