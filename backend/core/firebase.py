@@ -17,26 +17,38 @@ _initialized = False
 
 def _resolve_credentials_path() -> Path | None:
     import json
+    import tempfile
     
     # Prefer standard env var if provided
     env_value = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if env_value:
-        # Check if it's a file path
-        p = Path(env_value).resolve()
-        if p.exists():
-            return p
+        # Check if it's a file path (short string, no JSON markers)
+        if not env_value.startswith("{") and len(env_value) < 255:
+            p = Path(env_value).resolve()
+            if p.exists():
+                return p
         
         # Check if it's JSON content directly
-        try:
-            json_data = json.loads(env_value)
-            if isinstance(json_data, dict) and json_data.get("type") == "service_account":
-                # It's valid JSON, write to temp file
-                backend_root = Path(__file__).resolve().parent.parent
-                temp_cred_path = backend_root / ".firebase_temp_creds.json"
-                temp_cred_path.write_text(env_value)
-                return temp_cred_path
-        except (json.JSONDecodeError, ValueError):
-            pass
+        if env_value.startswith("{"):
+            try:
+                json_data = json.loads(env_value)
+                if isinstance(json_data, dict) and json_data.get("type") == "service_account":
+                    # It's valid JSON, write to temp file in /tmp (works on Render)
+                    try:
+                        # Try /tmp first (Linux/Render)
+                        temp_dir = Path("/tmp")
+                        if temp_dir.exists():
+                            temp_cred_path = temp_dir / "firebase_creds.json"
+                        else:
+                            # Fallback to system temp
+                            temp_cred_path = Path(tempfile.gettempdir()) / "firebase_creds.json"
+                    except Exception:
+                        temp_cred_path = Path(tempfile.gettempdir()) / "firebase_creds.json"
+                    
+                    temp_cred_path.write_text(env_value)
+                    return temp_cred_path
+            except (json.JSONDecodeError, ValueError):
+                pass
     
     # Fallback to backend/credential.json
     backend_root = Path(__file__).resolve().parent.parent
