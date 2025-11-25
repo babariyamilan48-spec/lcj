@@ -213,11 +213,21 @@ class OptimizedAuthService {
     } catch (error) {
       console.warn('Logout request failed, clearing tokens anyway:', error);
     } finally {
-      // Always clear local data
-      tokenStore.clear();
-      localStorage.removeItem('user_data');
-      localStorage.removeItem('last_login');
-      localStorage.removeItem('last_user_fetch');
+      // CRITICAL FIX: Use comprehensive clearAllUserData instead of partial cleanup
+      try {
+        const { clearAllUserData } = require('@/utils/clearUserData');
+        clearAllUserData();
+      } catch (error) {
+        // Fallback if import fails
+        console.warn('⚠️ Could not import clearAllUserData, using fallback cleanup:', error);
+        tokenStore.clear();
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('last_login');
+        localStorage.removeItem('last_user_fetch');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('at');
+        localStorage.removeItem('rt');
+      }
     }
   }
 
@@ -361,9 +371,20 @@ class OptimizedAuthService {
 
   // Clear cached data (useful for debugging)
   clearCache(): void {
-    localStorage.removeItem('user_data');
-    localStorage.removeItem('last_login');
-    localStorage.removeItem('last_user_fetch');
+    // CRITICAL FIX: Use comprehensive clearAllUserData instead of partial cleanup
+    try {
+      const { clearAllUserData } = require('@/utils/clearUserData');
+      clearAllUserData();
+    } catch (error) {
+      // Fallback if import fails
+      console.warn('⚠️ Could not import clearAllUserData, using fallback cleanup:', error);
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('last_login');
+      localStorage.removeItem('last_user_fetch');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('at');
+      localStorage.removeItem('rt');
+    }
     console.log('🧹 Auth cache cleared');
   }
 

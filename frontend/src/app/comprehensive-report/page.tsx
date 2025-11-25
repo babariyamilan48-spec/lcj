@@ -17,9 +17,11 @@ import {
   Eye
 } from 'lucide-react';
 import { aiInsightsService } from '@/services/aiInsightsService';
+import { aiInsightsHistoryService } from '@/services/aiInsightsHistoryService';
 import { completionStatusService } from '@/services/completionStatusService';
 import { aiInsightsAsyncService, TaskStatusResponse } from '@/services/aiInsightsAsyncService';
 import { getCurrentUserId } from '@/utils/userUtils';
+import { clearUserDataCache } from '@/hooks/useTestResults';
 import ComprehensiveAIInsightsComponent from '@/components/ComprehensiveAIInsights';
 
 interface TestResult {
@@ -178,6 +180,14 @@ const ComprehensiveReportPage = () => {
           setComprehensiveInsights(insightsResponse.insights);
           setProgressMessage('રિપોર્ટ તૈયાર થઈ ગઈ!');
           setProgressPercentage(100);
+
+          // ✅ Invalidate cache after successful comprehensive insights generation
+          const userId = getCurrentUserId();
+          if (userId) {
+            console.log(`✅ ComprehensiveReportPage: Comprehensive insights generated, invalidating cache for user ${userId}`);
+            aiInsightsHistoryService.invalidateCache(userId);
+            clearUserDataCache(userId);
+          }
         } else if (insightsResponse && insightsResponse.error) {
           // Show the error message from the backend
           setError(insightsResponse.error);

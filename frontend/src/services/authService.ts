@@ -122,7 +122,15 @@ class AuthService {
         body: JSON.stringify(refreshToken ? { refresh_token: refreshToken } : {}),
       });
     } finally {
-      tokenStore.clear();
+      // CRITICAL FIX: Use comprehensive clearAllUserData instead of just tokenStore.clear()
+      try {
+        const { clearAllUserData } = require('@/utils/clearUserData');
+        clearAllUserData();
+      } catch (error) {
+        // Fallback if import fails
+        console.warn('⚠️ Could not import clearAllUserData, using fallback cleanup:', error);
+        tokenStore.clear();
+      }
     }
   }
 

@@ -14,6 +14,9 @@ const dataCache = new Map<string, {
 // Function to clear cache for a specific user (call after saving new results)
 export const clearUserDataCache = (userId: string) => {
   dataCache.delete(userId);
+  // Also invalidate AI insights cache
+  aiInsightsHistoryService.invalidateCache(userId);
+  console.log(`✅ useTestResults: Cache cleared for user ${userId}`);
 };
 
 // Function to force refresh data for a user
@@ -30,8 +33,10 @@ export const forceRefreshUserData = async (userId: string): Promise<UserOverview
       error: null
     });
     
+    console.log(`✅ useTestResults: Data refreshed for user ${userId}`);
     return latestSummary;
   } catch (error) {
+    console.error(`❌ useTestResults: Error refreshing data for user ${userId}:`, error);
     return null;
   }
 };

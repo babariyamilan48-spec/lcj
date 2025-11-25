@@ -25,7 +25,6 @@ async def get_questions(
     test_id: Optional[int] = None,
     section_id: Optional[int] = None,
     is_active: Optional[bool] = None,
-    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all questions with pagination and filtering - OPTIMIZED"""

@@ -35,6 +35,62 @@ class HealthCheckResponse(BaseModel):
     response_time_ms: float
     optimizations: Dict[str, bool]
 
+@router.get("/questions")
+@limiter.limit("300/minute")
+async def get_questions(
+    request: Request,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    test_id: Optional[int] = None,
+    section_id: Optional[int] = None,
+    is_active: Optional[bool] = None,
+    db: Session = Depends(get_db)
+):
+    """Get all questions with pagination and filtering (public endpoint)"""
+    start_time = time.time()
+    
+    try:
+        logger.debug(f"Questions retrieval: test_id={test_id}, limit={limit}")
+        
+        with OptimizedQuestionService(db) as service:
+            questions, total = await service.get_questions_fast(
+                skip=skip,
+                limit=limit,
+                test_id=test_id,
+                section_id=section_id,
+                is_active=is_active
+            )
+        
+        processing_time = (time.time() - start_time) * 1000
+        
+        result = {
+            "questions": questions,
+            "total": total,
+            "page": skip // limit + 1,
+            "size": limit,
+            "performance": {
+                "processing_time_ms": round(processing_time, 2),
+                "optimized": True,
+                "results_count": len(questions)
+            }
+        }
+        
+        # Optimize response for large datasets
+        if len(questions) > 50:
+            optimized_result = optimize_large_response(result, max_items=limit)
+            return compress_json_response(
+                {"success": True, "data": optimized_result, "error": None},
+                request
+            )
+        
+        logger.debug(f"Questions completed in {processing_time:.2f}ms")
+        return resp(result, True, None, "Questions retrieved successfully")
+        
+    except Exception as e:
+        processing_time = (time.time() - start_time) * 1000
+        logger.error(f"Questions failed in {processing_time:.2f}ms: {str(e)}")
+        return resp(None, False, str(e), "Failed to retrieve questions", 500)
+
 @router.get("/questions/fast")
 @limiter.limit("300/minute")  # Higher rate limit for optimized endpoint
 async def get_questions_fast(

@@ -218,58 +218,110 @@ export const questionApi = {
 
 // Admin Panel API - Full Implementation
 export const adminApi = {
-  // User Management
+  // User Management - Optimized Endpoints
   users: {
+    // Get all users with pagination and filtering
     getAll: async (params: {
-      skip?: number;
-      limit?: number;
+      page?: number;
+      per_page?: number;
       search?: string;
       role?: string;
       is_active?: boolean;
+      is_verified?: boolean;
     } = {}) => {
-      const response = await api.get('/api/v1/admin_service/users/', { params });
-      return response.data;
+      try {
+        // Convert pagination params for optimized endpoint
+        const queryParams = {
+          page: params.page || 1,
+          per_page: params.per_page || 50,
+          ...(params.search && { search: params.search }),
+          ...(params.role && { role: params.role }),
+          ...(params.is_active !== undefined && { is_active: params.is_active }),
+          ...(params.is_verified !== undefined && { is_verified: params.is_verified }),
+        };
+        const response = await api.get('/api/v1/auth_service/users', { params: queryParams });
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
     },
 
+    // Get single user by ID
     getById: async (userId: string) => {
-      const response = await api.get(`/api/v1/admin_service/users/${userId}`);
-      return response.data;
+      try {
+        const response = await api.get(`/api/v1/auth_service/users/${userId}`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching user ${userId}:`, error);
+        throw error;
+      }
     },
 
+    // Create new user
     create: async (userData: {
       email: string;
-      username: string;
       password: string;
-      role?: string;
-    }) => {
-      const response = await api.post('/api/v1/admin_service/users/', userData);
-      return response.data;
-    },
-
-    update: async (userId: string, userData: {
       username?: string;
-      email?: string;
       role?: string;
-      is_verified?: boolean;
       is_active?: boolean;
+      is_verified?: boolean;
     }) => {
-      const response = await api.put(`/api/v1/admin_service/users/${userId}`, userData);
-      return response.data;
+      try {
+        const response = await api.post('/api/v1/auth_service/users', userData);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating user:', error);
+        throw error;
+      }
     },
 
+    // Update user (role, status, password)
+    update: async (userId: string, userData: {
+      role?: string;
+      is_active?: boolean;
+      password?: string;
+    }) => {
+      try {
+        const response = await api.patch(`/api/v1/auth_service/users/${userId}`, userData);
+        return response.data;
+      } catch (error) {
+        console.error(`Error updating user ${userId}:`, error);
+        throw error;
+      }
+    },
+
+    // Delete user
     delete: async (userId: string) => {
-      const response = await api.delete(`/api/v1/admin_service/users/${userId}`);
-      return response.data;
+      try {
+        const response = await api.delete(`/api/v1/auth_service/users/${userId}`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error deleting user ${userId}:`, error);
+        throw error;
+      }
     },
 
-    activate: async (userId: string) => {
-      const response = await api.post(`/api/v1/admin_service/users/${userId}/activate`);
-      return response.data;
+    // Get user analytics
+    getAnalytics: async () => {
+      try {
+        const response = await api.get('/api/v1/auth_service/analytics/users');
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching user analytics:', error);
+        throw error;
+      }
     },
 
-    deactivate: async (userId: string) => {
-      const response = await api.post(`/api/v1/admin_service/users/${userId}/deactivate`);
-      return response.data;
+    // Health check
+    healthCheck: async () => {
+      try {
+        const response = await api.get('/api/v1/auth_service/health');
+        return response.data;
+      } catch (error) {
+        console.error('Error checking admin health:', error);
+        throw error;
+      }
     },
   },
 

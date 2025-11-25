@@ -11,6 +11,7 @@ import { testResultService, UserOverview } from '@/services/testResultService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserOverview, clearUserDataCache, forceRefreshUserData } from '@/hooks/useTestResults';
 import { aiInsightsService, AIInsights } from '@/services/aiInsightsService';
+import { aiInsightsHistoryService } from '@/services/aiInsightsHistoryService';
 import { completionStatusService } from '@/services/completionStatusService';
 // Removed useReportDownload - using simple window.print() instead
 import {
@@ -200,6 +201,13 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
       );
 
       setAiInsights(insights);
+
+      // ✅ Invalidate cache after successful AI insights generation
+      if (insights && insights.success) {
+        console.log(`✅ ModernResults: AI insights generated successfully, invalidating cache for user ${userId}`);
+        aiInsightsHistoryService.invalidateCache(userId);
+        clearUserDataCache(userId);
+      }
     } catch (error) {
       console.error('Error generating AI insights:', error);
       setInsightsError(error instanceof Error ? error.message : 'Failed to generate insights');

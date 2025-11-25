@@ -4,30 +4,27 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
-  LayoutDashboard, 
-  FileText, 
-  HelpCircle, 
   Users, 
-  Settings, 
-  BarChart3,
+  CreditCard, 
+  HelpCircle, 
+  Mail,
   Menu,
   X,
   LogOut
 } from 'lucide-react';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
 import { authService } from '@/services/authService';
+import { clearAllUserData, forceSessionClear } from '@/utils/clearUserData';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Tests', href: '/admin/tests', icon: FileText },
-  { name: 'Questions', href: '/admin/questions', icon: HelpCircle },
   { name: 'Users', href: '/admin/users', icon: Users },
-  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Payments', href: '/admin/payments', icon: CreditCard },
+  { name: 'Questions', href: '/admin/questions', icon: HelpCircle },
+  { name: 'Contacts', href: '/admin/contacts', icon: Mail },
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
@@ -41,13 +38,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     
     setIsSigningOut(true);
     try {
+      // Call logout endpoint
       await authService.logout();
-      router.push('/auth/login');
     } catch (error) {
       console.error('Sign out error:', error);
-      // Even if logout fails, clear tokens and redirect
-      router.push('/auth/login');
     } finally {
+      // CRITICAL FIX: Always clear all user data and redirect
+      try {
+        clearAllUserData();
+        forceSessionClear();
+      } catch (error) {
+        console.warn('Error clearing user data:', error);
+      }
+      
+      // Add a small delay to ensure cleanup completes
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Redirect to login
+      router.push('/auth/login');
       setIsSigningOut(false);
     }
   };

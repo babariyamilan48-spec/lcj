@@ -51,6 +51,17 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
     }
   }, [latestSummary, testId, hookError]);
 
+  const handleRefresh = async () => {
+    console.log('🔄 Refreshing test history...');
+    // Invalidate both caches
+    aiInsightsHistoryService.invalidateCache(userId.toString());
+    
+    // Re-fetch data
+    if (latestSummary) {
+      await fetchAIInsightsAndProcessData(latestSummary);
+    }
+  };
+
   const fetchAIInsightsAndProcessData = async (latestSummary: any) => {
     try {
       // Fetch AI insights first

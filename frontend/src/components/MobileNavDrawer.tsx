@@ -12,7 +12,9 @@ import {
   X,
   Menu,
   LogIn,
-  CheckCircle
+  CheckCircle,
+  Info,
+  Phone
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -38,6 +40,8 @@ export default function MobileNavDrawer({
   const mainNavItems = [
     { id: 'home', label: 'ઘર', icon: Home, screen: 'home' as const },
     { id: 'profile', label: 'પ્રોફાઇલ', icon: User, screen: 'profile' as const },
+    { id: 'about', label: 'વિશે', icon: Info, screen: 'about' as const },
+    { id: 'contact', label: 'સંપર્ક', icon: Phone, screen: 'contact' as const },
   ];
 
   const profileTabs = [
@@ -110,12 +114,12 @@ export default function MobileNavDrawer({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -400, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed left-0 top-0 h-screen w-80 bg-white shadow-2xl z-40 md:hidden overflow-y-auto"
+            className="fixed left-0 top-0 h-screen w-64 bg-white shadow-2xl z-40 md:hidden overflow-y-auto flex flex-col"
           >
             {/* Header */}
-            <div className="bg-white p-6 border-b border-gray-200">
+            <div className="bg-white p-4 border-b border-gray-200 flex-shrink-0">
               {/* User Profile Card */}
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 mb-6">
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 mb-4">
                 <div className="flex items-start space-x-4 mb-4">
                   {user?.avatar ? (
                     <img
@@ -124,12 +128,12 @@ export default function MobileNavDrawer({
                       className="w-14 h-14 rounded-full object-cover border-2 border-orange-500 shadow-md"
                     />
                   ) : (
-                    <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white text-lg font-bold border-2 border-orange-600 shadow-md">
+                    <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white text-base font-bold border-2 border-orange-600 shadow-md">
                       {(user?.firstName?.[0] || user?.name?.[0] || 'U').toUpperCase()}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-gray-900">
+                    <h3 className="text-base font-bold text-gray-900">
                       {user?.firstName || user?.name || 'User'}
                     </h3>
                     <p className="text-xs text-gray-600 truncate">
@@ -155,7 +159,7 @@ export default function MobileNavDrawer({
             </div>
 
             {/* Main Navigation Items */}
-            <nav className="p-4 space-y-2">
+            <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
               {mainNavItems.map((item, index) => (
                 <motion.button
                   key={item.id}
@@ -163,13 +167,13 @@ export default function MobileNavDrawer({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                   onClick={() => handleNavClick(item.screen)}
-                  className={`w-full flex items-center space-x-4 px-4 py-3 rounded-lg transition-all ${
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all text-sm ${
                     currentPage === item.id
                       ? 'bg-orange-100 text-orange-600 font-semibold shadow-sm'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <item.icon size={20} />
+                  <item.icon size={18} />
                   <span>{item.label}</span>
                 </motion.button>
               ))}
@@ -178,8 +182,8 @@ export default function MobileNavDrawer({
             {/* Profile Tabs - Only show on profile page */}
             {showProfileTabs && (
               <>
-                <div className="mx-4 my-3 border-t border-gray-200" />
-                <div className="px-4 py-2">
+                <div className="mx-3 my-2 border-t border-gray-200" />
+                <div className="px-3 py-2 flex-shrink-0">
                   <p className="text-xs font-semibold text-orange-600 uppercase tracking-wide mb-3">
                     Profile Sections
                   </p>
@@ -191,13 +195,13 @@ export default function MobileNavDrawer({
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: (mainNavItems.length + index) * 0.05 }}
                         onClick={() => handleTabClick(tab.id)}
-                        className={`w-full flex items-center space-x-4 px-4 py-3 rounded-lg transition-all ${
+                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all text-sm ${
                           currentPage === tab.id
                             ? 'bg-orange-100 text-orange-600 font-semibold shadow-sm border-l-4 border-orange-600'
                             : 'text-gray-700 hover:bg-gray-100'
                         }`}
                       >
-                        <tab.icon size={20} />
+                        <tab.icon size={18} />
                         <span>{tab.label}</span>
                       </motion.button>
                     ))}
@@ -207,18 +211,18 @@ export default function MobileNavDrawer({
             )}
 
             {/* Divider */}
-            <div className="mx-4 my-4 border-t border-gray-200" />
+            <div className="mx-3 my-3 border-t border-gray-200 flex-shrink-0" />
 
             {/* Logout Button */}
-            <div className="p-4">
+            <div className="p-3 flex-shrink-0">
               <motion.button
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
                 onClick={handleLogout}
-                className="w-full flex items-center space-x-4 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all font-medium"
+                className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-all font-medium text-sm"
               >
-                <LogOut size={20} />
+                <LogOut size={18} />
                 <span>Logout</span>
               </motion.button>
             </div>

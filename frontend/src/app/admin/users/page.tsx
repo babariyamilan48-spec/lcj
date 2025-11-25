@@ -1,34 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Plus, Search, Edit, Trash2, Loader2, Filter, Mail, Shield, UserCheck, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { getApiBaseUrl } from '@/config/api';
-import {
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
-  Loader2,
-  Users,
-  Filter,
-  UserCheck,
-  UserX,
-  Shield,
-  Mail,
-  UserPlus,
-  CheckCircle,
-  XCircle,
-  Eye,
-  EyeOff,
-  FileText,
-  Calendar,
-  Award
-} from 'lucide-react';
+import { tokenStore } from '@/services/token';
 
-// User Interface
 interface User {
   id: string;
   email: string;
@@ -44,13 +24,20 @@ interface User {
   providers: string[];
 }
 
-const UsersManagementPage: React.FC = () => {
+export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const getAuthHeaders = () => {
+    const token = tokenStore.getAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+  };
   
-  // User CRUD state
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userForm, setUserForm] = useState({
@@ -62,13 +49,6 @@ const UsersManagementPage: React.FC = () => {
     is_verified: false
   });
 
-  // Test results state
-  const [showTestResultsModal, setShowTestResultsModal] = useState(false);
-  const [selectedUserForResults, setSelectedUserForResults] = useState<User | null>(null);
-  const [userTestResults, setUserTestResults] = useState<any[]>([]);
-  const [loadingTestResults, setLoadingTestResults] = useState(false);
-
-  // Filtering state
   const [filters, setFilters] = useState({
     search: '',
     role: '',
@@ -80,7 +60,13 @@ const UsersManagementPage: React.FC = () => {
     fetchUsers();
   }, []);
 
-  // Clear messages after 5 seconds
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      fetchUsers();
+    }, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [filters]);
+
   useEffect(() => {
     if (error || success) {
       const timer = setTimeout(() => {
@@ -94,10 +80,21 @@ const UsersManagementPage: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users`);
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/v1/auth_service/users?page=1&per_page=100${
+          filters.search ? `&search=${encodeURIComponent(filters.search)}` : ''
+        }${filters.role ? `&role=${filters.role}` : ''}${
+          filters.is_active ? `&is_active=${filters.is_active === 'true'}` : ''
+        }${filters.is_verified ? `&is_verified=${filters.is_verified === 'true'}` : ''}`,
+        {
+          headers: getAuthHeaders()
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         setUsers(Array.isArray(data) ? data : []);
+      } else if (response.status === 401) {
+        setError('Unauthorized - Please login as admin');
       } else {
         setError('Failed to load users');
       }
@@ -111,20 +108,34 @@ const UsersManagementPage: React.FC = () => {
 
   const createUser = async () => {
     try {
+      if (!userForm.email || !userForm.password) {
+        setError('Email and password are required');
+        return;
+      }
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userForm),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          email: userForm.email,
+          password: userForm.password,
+          username: userForm.username || undefined,
+          role: userForm.role,
+          is_active: userForm.is_active,
+          is_verified: userForm.is_verified
+        }),
       });
       
       if (response.ok) {
-        const result = await response.json();
-        setSuccess('User created successfully with the provided password!');
+        setSuccess('User created successfully!');
         setShowUserModal(false);
         resetUserForm();
         fetchUsers();
+      } else if (response.status === 401) {
+        setError('Unauthorized - Please login as admin');
+      } else if (response.status === 400) {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Invalid input');
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Failed to create user');
@@ -139,27 +150,31 @@ const UsersManagementPage: React.FC = () => {
     if (!editingUser) return;
     
     try {
+      const updateData: any = {
+        role: userForm.role,
+        is_active: userForm.is_active
+      };
+
+      if (userForm.password && userForm.password.trim()) {
+        updateData.password = userForm.password;
+      }
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users/${editingUser.id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          role: userForm.role,
-          is_active: userForm.is_active,
-          password: userForm.password // Include password (will be ignored if empty)
-        }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updateData),
       });
       
       if (response.ok) {
-        const message = userForm.password.trim() 
-          ? 'User updated successfully (including password)' 
-          : 'User updated successfully';
-        setSuccess(message);
+        setSuccess('User updated successfully!');
         setShowUserModal(false);
         setEditingUser(null);
         resetUserForm();
         fetchUsers();
+      } else if (response.status === 401) {
+        setError('Unauthorized - Please login as admin');
+      } else if (response.status === 404) {
+        setError('User not found');
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Failed to update user');
@@ -171,16 +186,21 @@ const UsersManagementPage: React.FC = () => {
   };
 
   const deleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this user?')) return;
     
     try {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users/${userId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders()
       });
       
       if (response.ok) {
         setSuccess('User deleted successfully');
         fetchUsers();
+      } else if (response.status === 401) {
+        setError('Unauthorized - Please login as admin');
+      } else if (response.status === 404) {
+        setError('User not found');
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Failed to delete user');
@@ -207,7 +227,7 @@ const UsersManagementPage: React.FC = () => {
     setUserForm({
       email: user.email,
       username: user.username || '',
-      password: '', // Don't pre-fill password for editing
+      password: '',
       role: user.role,
       is_active: user.is_active,
       is_verified: user.is_verified
@@ -221,66 +241,6 @@ const UsersManagementPage: React.FC = () => {
     setShowUserModal(true);
   };
 
-  const fetchUserTestResults = async (userId: string) => {
-    try {
-      setLoadingTestResults(true);
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/results_service/all-results/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Raw API response:', data);
-        
-        // Transform the nested object structure to array format
-        const resultsArray: any[] = [];
-        if (data && typeof data === 'object') {
-          for (const [testType, testData] of Object.entries(data)) {
-            if (testData && typeof testData === 'object') {
-              const testResult = testData as any; // Type assertion to access properties
-              resultsArray.push({
-                test_id: testResult.test_id || testType,
-                test_name: testResult.test_name || testType,
-                primary_result: testResult.analysis?.code || testResult.analysis?.type,
-                completion_percentage: testResult.percentage || testResult.percentage_score || 100,
-                time_taken_seconds: testResult.duration_minutes ? testResult.duration_minutes * 60 : null,
-                result_summary: testResult.analysis?.description || testResult.analysis?.gujarati_description,
-                created_at: testResult.timestamp || testResult.completed_at,
-                analysis: {
-                  traits: testResult.analysis?.traits || [],
-                  strengths: testResult.recommendations || [],
-                  code: testResult.analysis?.code,
-                  type: testResult.analysis?.type,
-                  description: testResult.analysis?.description
-                }
-              });
-            }
-          }
-        }
-        
-        console.log('Transformed results:', resultsArray);
-        setUserTestResults(resultsArray);
-      } else {
-        console.error('Failed to fetch user test results');
-        setUserTestResults([]);
-      }
-    } catch (error) {
-      console.error('Error fetching user test results:', error);
-      setUserTestResults([]);
-    } finally {
-      setLoadingTestResults(false);
-    }
-  };
-
-  const openTestResultsModal = (user: User) => {
-    setSelectedUserForResults(user);
-    setShowTestResultsModal(true);
-    fetchUserTestResults(user.id);
-  };
-
   const clearFilters = () => {
     setFilters({
       search: '',
@@ -290,7 +250,6 @@ const UsersManagementPage: React.FC = () => {
     });
   };
 
-  // Filter users based on current filters
   const filteredUsers = users.filter(user => {
     const matchesSearch = !filters.search || 
       user.email.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -313,7 +272,6 @@ const UsersManagementPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Users Management</h1>
@@ -325,7 +283,6 @@ const UsersManagementPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Success/Error Messages */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
           {error}
@@ -337,7 +294,6 @@ const UsersManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6">
@@ -388,7 +344,6 @@ const UsersManagementPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -445,7 +400,6 @@ const UsersManagementPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Users List */}
       <Card>
         <CardHeader>
           <CardTitle>Users ({filteredUsers.length})</CardTitle>
@@ -492,17 +446,8 @@ const UsersManagementPage: React.FC = () => {
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        onClick={() => openTestResultsModal(user)}
-                        className="hover:bg-green-50 text-green-600 border-green-200"
-                        title="View Test Results"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
                         onClick={() => openEditUserModal(user)}
-                        className="hover:bg-blue-50"
+                        className="hover:bg-blue-50 text-blue-600 border-blue-200"
                         title="Edit User"
                       >
                         <Edit className="h-4 w-4" />
@@ -525,243 +470,105 @@ const UsersManagementPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* User Modal */}
       {showUserModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h2 className="text-xl font-bold mb-4">
-              {editingUser ? 'Edit User' : 'Add New User'}
-            </h2>
-            
-            <div className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>{editingUser ? 'Edit User' : 'Create New User'}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <Input
+                  type="email"
                   value={userForm.email}
                   onChange={(e) => setUserForm({...userForm, email: e.target.value})}
                   placeholder="user@example.com"
                   disabled={!!editingUser}
-                  type="email"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium mb-1">Username</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                 <Input
                   value={userForm.username}
                   onChange={(e) => setUserForm({...userForm, username: e.target.value})}
-                  placeholder="Username (optional)"
-                  disabled={!!editingUser}
+                  placeholder="username"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Password {!editingUser && '*'}
-                  {editingUser && <span className="text-xs text-gray-500">(leave empty to keep current)</span>}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password {editingUser && '(leave blank to keep current)'}
                 </label>
                 <Input
                   type="password"
                   value={userForm.password}
                   onChange={(e) => setUserForm({...userForm, password: e.target.value})}
-                  placeholder={editingUser ? "Enter new password (optional)" : "Enter password"}
+                  placeholder="••••••••"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium mb-1">Role *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                 <select
                   value={userForm.role}
-                  onChange={(e) => setUserForm({...userForm, role: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  onChange={(e) => setUserForm({...userForm, role: e.target.value as 'admin' | 'user'})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="user">User</option>
-                  <option value="admin">Administrator</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
-              
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={userForm.is_active}
-                    onChange={(e) => setUserForm({...userForm, is_active: e.target.checked})}
-                    className="mr-2"
-                  />
-                  Active Account
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={userForm.is_active}
+                  onChange={(e) => setUserForm({...userForm, is_active: e.target.checked})}
+                  className="rounded"
+                />
+                <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
+                  Active
                 </label>
-                
-                {!editingUser && (
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={userForm.is_verified}
-                      onChange={(e) => setUserForm({...userForm, is_verified: e.target.checked})}
-                      className="mr-2"
-                    />
-                    Email Verified
-                  </label>
-                )}
               </div>
-            </div>
-            
-            <div className="flex gap-2 mt-6">
-              <Button
-                onClick={() => {
-                  setShowUserModal(false);
-                  setEditingUser(null);
-                  resetUserForm();
-                }}
-                variant="outline"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={editingUser ? updateUser : createUser}
-                className="flex-1 bg-orange-500 hover:bg-orange-600"
-                disabled={!userForm.email.trim() || (!editingUser && !userForm.password.trim())}
-              >
-                {editingUser ? 'Update User' : 'Create User'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Test Results Modal */}
-      {showTestResultsModal && selectedUserForResults && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Test Results</h2>
-                <p className="text-sm text-gray-600">
-                  {selectedUserForResults.full_name || selectedUserForResults.email}
-                </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_verified"
+                  checked={userForm.is_verified}
+                  onChange={(e) => setUserForm({...userForm, is_verified: e.target.checked})}
+                  className="rounded"
+                />
+                <label htmlFor="is_verified" className="text-sm font-medium text-gray-700">
+                  Verified
+                </label>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowTestResultsModal(false);
-                  setSelectedUserForResults(null);
-                  setUserTestResults([]);
-                }}
-              >
-                Close
-              </Button>
-            </div>
 
-            {loadingTestResults ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                <span className="ml-2 text-gray-600">Loading test results...</span>
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={() => {
+                    setShowUserModal(false);
+                    resetUserForm();
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={editingUser ? updateUser : createUser}
+                  className="flex-1 bg-orange-500 hover:bg-orange-600"
+                >
+                  {editingUser ? 'Update' : 'Create'}
+                </Button>
               </div>
-            ) : userTestResults.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No test results</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  This user hasn&apos;t completed any tests yet.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {userTestResults.map((result, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <Award className="h-5 w-5 text-orange-500 mr-2" />
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {result.test_name || 'Unknown Test'}
-                        </h3>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {new Date(result.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {/* Primary Result */}
-                      {result.primary_result && (
-                        <div className="bg-orange-50 p-3 rounded-lg">
-                          <h4 className="font-medium text-orange-900 mb-1">Primary Result</h4>
-                          <p className="text-orange-800">{result.primary_result}</p>
-                        </div>
-                      )}
-                      
-                      {/* Completion Percentage */}
-                      {result.completion_percentage && (
-                        <div className="bg-green-50 p-3 rounded-lg">
-                          <h4 className="font-medium text-green-900 mb-1">Completion</h4>
-                          <p className="text-green-800">{Math.round(result.completion_percentage)}%</p>
-                        </div>
-                      )}
-                      
-                      {/* Time Taken */}
-                      {result.time_taken_seconds && (
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <h4 className="font-medium text-blue-900 mb-1">Time Taken</h4>
-                          <p className="text-blue-800">
-                            {Math.round(result.time_taken_seconds / 60)} minutes
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Result Summary */}
-                    {result.result_summary && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                        <h4 className="font-medium text-gray-900 mb-1">Summary</h4>
-                        <p className="text-gray-700 text-sm">{result.result_summary}</p>
-                      </div>
-                    )}
-                    
-                    {/* Analysis Data */}
-                    {result.analysis && (
-                      <div className="mt-3">
-                        <h4 className="font-medium text-gray-900 mb-2">Analysis Details</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {/* Traits */}
-                          {result.analysis.traits && result.analysis.traits.length > 0 && (
-                            <div className="bg-purple-50 p-3 rounded-lg">
-                              <h5 className="font-medium text-purple-900 mb-1">Traits</h5>
-                              <div className="flex flex-wrap gap-1">
-                                {result.analysis.traits.slice(0, 3).map((trait: string, idx: number) => (
-                                  <span key={idx} className="inline-block bg-purple-200 text-purple-800 text-xs px-2 py-1 rounded">
-                                    {trait}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Strengths */}
-                          {result.analysis.strengths && result.analysis.strengths.length > 0 && (
-                            <div className="bg-emerald-50 p-3 rounded-lg">
-                              <h5 className="font-medium text-emerald-900 mb-1">Strengths</h5>
-                              <div className="flex flex-wrap gap-1">
-                                {result.analysis.strengths.slice(0, 3).map((strength: string, idx: number) => (
-                                  <span key={idx} className="inline-block bg-emerald-200 text-emerald-800 text-xs px-2 py-1 rounded">
-                                    {strength}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
   );
-};
-
-export default UsersManagementPage;
+}

@@ -5,13 +5,14 @@ Handles order creation, payment verification, and status checks
 
 import logging
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from core.database_dependencies_singleton import get_db
 from core.services.razorpay_service import get_razorpay_service
 from auth_service.app.models.user import User, Payment
+from auth_service.app.deps.auth import get_current_user
 from auth_service.app.schemas.payment import (
     CreateOrderRequest,
     CreateOrderResponse,
@@ -260,23 +261,27 @@ async def check_payment_status(
 
 @router.get("/history")
 async def get_payment_history(
-    user_id: UUID,
-    limit: int = 10,
-    db: Session = Depends(get_db)
+    user_id: UUID = Query(None, description="User ID (optional, uses current user if not provided)"),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of records"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get payment history for a user
     
-    - **user_id**: UUID of the user (query parameter)
+    - **user_id**: UUID of the user (optional, defaults to current user)
     - **limit**: Maximum number of records to return (default: 10)
     
     Returns list of payment transactions
     """
     try:
+        # Use provided user_id or default to current user
+        target_user_id = user_id or current_user.id
+        
         # Verify user exists
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.id == target_user_id).first()
         if not user:
-            logger.warning(f"⚠️ User not found: {user_id}")
+            logger.warning(f"⚠️ User not found: {target_user_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
@@ -284,11 +289,11 @@ async def get_payment_history(
         
         # Get payment history
         payments = db.query(Payment).filter(
-            Payment.user_id == user_id
+            Payment.user_id == target_user_id
         ).order_by(desc(Payment.created_at)).limit(limit).all()
         
         return {
-            "user_id": str(user_id),
+            "user_id": str(target_user_id),
             "total_payments": len(payments),
             "payments": [
                 {

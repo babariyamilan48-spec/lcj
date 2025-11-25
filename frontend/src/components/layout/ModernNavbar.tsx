@@ -116,7 +116,7 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
           <motion.div 
-            className="flex items-center"
+            className="flex items-center gap-3"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -125,6 +125,11 @@ const ModernNavbar: React.FC<ModernNavbarProps> = ({
               variant="full"
               onClick={() => handleNavigation('home')}
             />
+            {/* Mobile Branding Text */}
+            <div className="md:hidden flex flex-col">
+              <p className="text-sm font-bold text-orange-600">જીવન પરિવર્તન સફર</p>
+              <p className="text-xs text-gray-600">કારકિર્દી મૂલ્યાંકન પ્લેટફોર્મ</p>
+            </div>
           </motion.div>
 
 

@@ -1746,58 +1746,70 @@ class ResultService:
         Get existing comprehensive AI insights for a user (for one-time restriction check)
         """
         import uuid
+        import json
         
-        # Convert user_id to UUID if it's a string - FIX FOR UUID HANDLING
-        try:
-            if isinstance(user_id, str):
-                user_uuid = uuid.UUID(user_id)
-            else:
-                user_uuid = user_id
-        except (ValueError, TypeError):
-            logger.error(f"Invalid user_id format in get_user_ai_insights: {user_id}")
-            return None
-            
+        print(f"🔍 get_user_ai_insights: Searching for AI insights for user {user_id}")
+        
+        # First check in-memory storage for any insights type
+        for key in results_db:
+            if f"ai_insights_{user_id}" in key:
+                print(f"✅ Found AI insights in memory: {key}")
+                insights = results_db[key]
+                # Parse insights_data if it's a JSON string
+                if isinstance(insights.get("insights_data"), str):
+                    try:
+                        insights["insights_data"] = json.loads(insights["insights_data"])
+                    except:
+                        pass
+                return insights
+        
+        # Then try database
         try:
             db = ResultService.get_db_session()
             if not db or not AIInsights:
-                # Check in-memory storage
-                ai_insights_key = f"ai_insights_{user_id}"
-                if ai_insights_key in results_db:
-                    print(f"Found existing AI insights in memory for user {user_id}")
-                    return results_db[ai_insights_key]
-                print(f"No existing AI insights found in memory for user {user_id}")
+                print(f"❌ Database session not available for user {user_id}")
                 return None
             
-            # Query AI insights table
+            # Convert user_id to UUID if it's a string
+            try:
+                if isinstance(user_id, str):
+                    user_uuid = uuid.UUID(user_id)
+                else:
+                    user_uuid = user_id
+            except (ValueError, TypeError):
+                logger.error(f"Invalid user_id format in get_user_ai_insights: {user_id}")
+                return None
+            
+            # Query AI insights table - look for comprehensive insights first
             ai_insights = db.query(AIInsights).filter(
                 AIInsights.user_id == user_uuid,
                 AIInsights.insights_type == "comprehensive",
                 AIInsights.status == "completed"
             ).order_by(desc(AIInsights.generated_at)).first()
             
+            # If no comprehensive insights, look for any completed insights
+            if not ai_insights:
+                print(f"⚠️ No comprehensive insights found, checking for any completed insights")
+                ai_insights = db.query(AIInsights).filter(
+                    AIInsights.user_id == user_uuid,
+                    AIInsights.status == "completed"
+                ).order_by(desc(AIInsights.generated_at)).first()
+            
             if ai_insights:
-                print(f"Found existing AI insights for user {user_id}")
+                print(f"✅ Found AI insights in database for user {user_id}")
                 
                 # Parse insights_data if it's a JSON string
                 insights_data = ai_insights.insights_data
-                print(f"DEBUG: insights_data type: {type(insights_data)}")
-                print(f"DEBUG: insights_data is string: {isinstance(insights_data, str)}")
-                
                 if isinstance(insights_data, str):
                     try:
-                        import json
-                        print(f"DEBUG: Attempting to parse JSON string of length {len(insights_data)}")
                         insights_data = json.loads(insights_data)
-                        print(f"DEBUG: Successfully parsed JSON, new type: {type(insights_data)}")
+                        print(f"✅ Successfully parsed JSON insights data")
                     except json.JSONDecodeError as e:
-                        print(f"DEBUG: Failed to parse JSON: {e}")
                         logger.error(f"Failed to parse insights_data JSON for user {user_id}: {e}")
                         insights_data = ai_insights.insights_data  # Keep as string if parsing fails
-                else:
-                    print(f"DEBUG: insights_data is already parsed, type: {type(insights_data)}")
                 
                 return {
-                    "id": ai_insights.id,
+                    "id": str(ai_insights.id),
                     "user_id": str(ai_insights.user_id),  # Convert UUID to string
                     "insights_type": ai_insights.insights_type,
                     "insights_data": insights_data,  # Now parsed JSON object
@@ -1807,7 +1819,7 @@ class ResultService:
                     "timestamp": ai_insights.generated_at.isoformat()  # For compatibility, also as string
                 }
             
-            print(f"No existing AI insights found for user {user_id}")
+            print(f"❌ No AI insights found for user {user_id} in database")
             return None
             
         except Exception as e:

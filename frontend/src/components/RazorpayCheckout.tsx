@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, CheckCircle, Loader, Lock } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader, Lock, CreditCard } from 'lucide-react';
 import { getCurrentUserId } from '@/utils/userUtils';
 import { paymentService } from '@/services/paymentService';
 
@@ -243,37 +243,34 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="space-y-4"
+            className="space-y-0"
           >
             <motion.button
               onClick={handlePayment}
               disabled={loading || verifying}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full bg-gradient-to-r from-orange-500 via-orange-550 to-red-500 hover:from-orange-600 hover:via-orange-650 hover:to-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-2xl transition-all duration-200 flex items-center justify-center gap-3 shadow-2xl hover:shadow-3xl border-2 border-orange-300 text-lg"
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full bg-gradient-to-r from-green-500 via-green-550 to-green-600 hover:from-green-600 hover:via-green-650 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-5 px-6 rounded-2xl transition-all duration-200 flex items-center justify-center gap-3 shadow-2xl hover:shadow-3xl border-2 border-green-400 text-lg md:text-xl relative overflow-hidden group"
             >
-              <Lock className="w-6 h-6" />
-              <span>₹449 માટે પેમેન્ટ કરો</span>
+              {/* Animated background shine effect */}
+              <motion.div
+                animate={{ x: ['0%', '100%'] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 group-hover:opacity-30"
+              />
+              <div className="relative z-10 flex items-center justify-center gap-3 w-full">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <CreditCard className="w-6 md:w-7 h-6 md:h-7" />
+                </motion.div>
+                <span className="font-extrabold">₹449 પેમેન્ટ કરો</span>
+              </div>
             </motion.button>
 
-            {/* Payment Info */}
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-600">
-                🔒 Razorpay દ્વારા સુરક્ષિત • તમારી માહિતી સુરક્ષિત છે
-              </p>
-            </div>
-
-            {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-gray-700">
-                <span className="font-semibold text-blue-900">🔒 સુરક્ષિત પેમેન્ટ</span>
-                <br />
-                તમારી પેમેન્ટ Razorpay દ્વારા સુરક્ષિત પ્રમાણિત છે
-              </p>
-            </div>
-
             {/* Environment Badge */}
-            <div className="flex justify-center">
+            <div className="flex justify-center mt-3">
               <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
                 environment === 'live'
                   ? 'bg-red-100 text-red-700'

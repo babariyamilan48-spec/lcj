@@ -132,6 +132,24 @@ class AIInsightsHistoryService {
       return false;
     }
   }
+
+  /**
+   * Invalidate cache for a specific user
+   * Call this after completing an AI assessment to refresh the data
+   */
+  invalidateCache(userId: string): void {
+    const cacheKey = this.getCacheKey(userId);
+    this.cache.delete(cacheKey);
+    console.log(`✅ AIInsightsHistoryService: Cache invalidated for user ${userId}`);
+  }
+
+  /**
+   * Invalidate all cached data
+   */
+  invalidateAllCache(): void {
+    this.cache.clear();
+    console.log(`✅ AIInsightsHistoryService: All cache cleared`);
+  }
 }
 
 export const aiInsightsHistoryService = new AIInsightsHistoryService();
