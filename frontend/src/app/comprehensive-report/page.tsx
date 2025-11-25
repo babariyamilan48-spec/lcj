@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
-  Download,
   Sparkles,
   Brain,
   Target,
@@ -237,22 +236,6 @@ const ComprehensiveReportPage = () => {
     fetchData();
   };
 
-  const handleDownloadReport = () => {
-    // Set unique filename for comprehensive report
-    const originalTitle = document.title;
-    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    
-    // Set document title for PDF filename
-    document.title = `Comprehensive_Personality_Report_${timestamp}.pdf`;
-    
-    // Print the document
-    window.print();
-    
-    // Restore original title after a short delay
-    setTimeout(() => {
-      document.title = originalTitle;
-    }, 1000);
-  };
 
   if (loading || generatingInsights) {
     return (
@@ -369,35 +352,34 @@ const ComprehensiveReportPage = () => {
       {/* Modern Header */}
       <div className="bg-white/90 backdrop-blur-xl border-b border-orange-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center space-x-4">
-              <motion.button
-                onClick={() => window.history.back()}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="p-3 hover:bg-orange-100 rounded-xl transition-all duration-300 group"
-              >
-                <ArrowLeft className="w-5 h-5 text-orange-600 group-hover:text-orange-700" />
-              </motion.button>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                  સંપૂર્ણ કારકિર્દી રિપોર્ટ
-                </h1>
-                <p className="text-sm text-gray-600">AI-આધારિત વ્યક્તિગત કારકિર્દી માર્ગદર્શન</p>
-              </div>
+          {/* Header Top - Back button and Title */}
+          <div className="flex items-center space-x-4 py-4">
+            <motion.button
+              onClick={() => window.history.back()}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-3 hover:bg-orange-100 rounded-xl transition-all duration-300 group flex-shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5 text-orange-600 group-hover:text-orange-700" />
+            </motion.button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent truncate">
+                સંપૂર્ણ કારકિર્દી રિપોર્ટ
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-600 truncate">AI-આધારિત વ્યક્તિગત કારકિર્દી માર્ગદર્શન</p>
             </div>
+          </div>
 
-            <div className="flex items-center space-x-3">
-              <motion.button
-                onClick={handleDownloadReport}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center px-6 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 rounded-xl transition-all duration-300 font-medium shadow-lg hover:shadow-xl"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                PDF ડાઉનલોડ
-              </motion.button>
-            </div>
+          {/* Header Bottom - Download Button (Full width on mobile) */}
+          <div className="pb-4 sm:pb-0">
+            <motion.button
+              onClick={() => window.location.href = '/profile?tab=history'}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 rounded-xl transition-all duration-300 font-medium shadow-lg hover:shadow-xl text-center sm:text-left"
+            >
+              બધા રિપોર્ટ ડાઉનલોડ કરવા અહીં ક્લિક કરો
+            </motion.button>
           </div>
         </div>
       </div>

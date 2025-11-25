@@ -159,7 +159,7 @@ export default function MobileNavDrawer({
             </div>
 
             {/* Main Navigation Items */}
-            <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
+            <nav className="p-3 space-y-1 flex-shrink-0">
               {mainNavItems.map((item, index) => (
                 <motion.button
                   key={item.id}
@@ -179,53 +179,50 @@ export default function MobileNavDrawer({
               ))}
             </nav>
 
-            {/* Profile Tabs - Only show on profile page */}
-            {showProfileTabs && (
-              <>
-                <div className="mx-3 my-2 border-t border-gray-200" />
-                <div className="px-3 py-2 flex-shrink-0">
-                  <p className="text-xs font-semibold text-orange-600 uppercase tracking-wide mb-3">
-                    Profile Sections
-                  </p>
-                  <div className="space-y-2">
-                    {profileTabs.map((tab, index) => (
-                      <motion.button
-                        key={tab.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: (mainNavItems.length + index) * 0.05 }}
-                        onClick={() => handleTabClick(tab.id)}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all text-sm ${
-                          currentPage === tab.id
-                            ? 'bg-orange-100 text-orange-600 font-semibold shadow-sm border-l-4 border-orange-600'
-                            : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      >
-                        <tab.icon size={18} />
-                        <span>{tab.label}</span>
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Divider */}
-            <div className="mx-3 my-3 border-t border-gray-200 flex-shrink-0" />
-
-            {/* Logout Button */}
-            <div className="p-3 flex-shrink-0">
+            {/* Logout Button - After all contact tab */}
+            <div className="px-3 py-2 flex-shrink-0">
               <motion.button
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
+                transition={{ delay: 0.2 }}
                 onClick={handleLogout}
-                className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-all font-medium text-sm"
+                className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-all font-medium text-sm border-2 border-red-600"
               >
                 <LogOut size={18} />
                 <span>Logout</span>
               </motion.button>
             </div>
+
+            {/* Divider */}
+            <div className="mx-3 my-2 border-t border-gray-200 flex-shrink-0" />
+
+            {/* Profile Tabs - Only show on profile page */}
+            {showProfileTabs && (
+              <div className="px-3 py-2 flex-1 overflow-y-auto">
+                <p className="text-xs font-semibold text-orange-600 uppercase tracking-wide mb-3">
+                  Profile Sections
+                </p>
+                <div className="space-y-2">
+                  {profileTabs.map((tab, index) => (
+                    <motion.button
+                      key={tab.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: (mainNavItems.length + index) * 0.05 }}
+                      onClick={() => handleTabClick(tab.id)}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all text-sm ${
+                        currentPage === tab.id
+                          ? 'bg-orange-100 text-orange-600 font-semibold shadow-sm border-l-4 border-orange-600'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <tab.icon size={18} />
+                      <span>{tab.label}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

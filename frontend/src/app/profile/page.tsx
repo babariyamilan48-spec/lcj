@@ -61,30 +61,6 @@ export default function ProfilePage() {
     ? results 
     : analyticsData?.testHistory || [];
   const { downloading, downloadReport } = useReportDownload();
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Manual refresh function
-  const handleManualRefresh = async () => {
-    console.log('🔄 Manual refresh triggered');
-    setRefreshing(true);
-    
-    try {
-      // Force refresh all data
-      if (fetchResults) {
-        await fetchResults();
-      }
-      
-      // Add a small delay to show the refresh state
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      modernToast.success('Data refreshed successfully!');
-    } catch (error) {
-      console.error('❌ Manual refresh failed:', error);
-      modernToast.error('Failed to refresh data');
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   // Define the 7 standard tests in order
   const STANDARD_TESTS = [
@@ -618,22 +594,8 @@ export default function ProfilePage() {
                     <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Performance Overview</h3>
                     <p className="text-gray-600">Your learning journey at a glance</p>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={handleManualRefresh}
-                      disabled={refreshing}
-                      className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {refreshing ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      ) : (
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                      )}
-                      {refreshing ? 'Refreshing...' : 'Refresh'}
-                    </button>
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                      <BarChart3 className="w-6 h-6 text-white" />
-                    </div>
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <BarChart3 className="w-6 h-6 text-white" />
                   </div>
                 </div>
 
@@ -1005,28 +967,21 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Test History</h3>
               <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                <button
-                  onClick={() => {
-                    
-                    fetchResults();
-                  }}
-                  className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 w-full sm:w-auto text-center"
-                >
-                  Refresh Results
-                </button>
                 {pagination.total > 0 && (
-                  <button
+                  <motion.button
                     onClick={() => {
                       // Show preview modal first, then open report
                       setShowDownloadModal(true);
                     }}
-                    className="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center justify-center space-x-1 w-full sm:w-auto"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-emerald-700 flex items-center justify-center space-x-2 w-full sm:w-auto shadow-lg hover:shadow-xl transition-all duration-300"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <span>Download All</span>
-                  </button>
+                    <span>Download All Reports</span>
+                  </motion.button>
                 )}
                 {pagination.total > 0 && (
                   <div className="text-sm text-gray-500">

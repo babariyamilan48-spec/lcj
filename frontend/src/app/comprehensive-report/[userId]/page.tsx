@@ -444,10 +444,10 @@ const ComprehensiveReportPage = () => {
             </div>
             
             {/* Course Maker Info - Right Side */}
-            <div className="print:absolute print:right-8 print:bottom-16 print:text-right">
+            {/* <div className="print:absolute print:right-8 print:bottom-16 print:text-right">
               <p className="print:text-2xl print:font-bold print:text-gray-900 print:mb-2">Milan Babariya</p>
               <p className="print:text-lg print:text-gray-600">+91 6354571342</p>
-            </div>
+            </div> */}
           </div>
 
           {/* Show only AI Insights if view mode is set */}
