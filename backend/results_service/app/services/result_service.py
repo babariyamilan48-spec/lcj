@@ -14,7 +14,7 @@ from sqlalchemy import desc, func
 import logging
 
 from ..schemas.result import TestResult, TestResultCreate, UserProfile, UserProfileUpdate, AnalyticsData, UserStats
-from core.database_singleton import get_db
+from core.database_fixed import get_db_session
 from core.cache import cache_async_result, QueryCache
 
 logger = logging.getLogger(__name__)
@@ -43,10 +43,10 @@ class ResultService:
     def get_db_session() -> Optional[Session]:
         """Get database session, return None if not available"""
         try:
-            db_gen = get_db()
-            return next(db_gen)
+            from core.database_fixed import db_manager
+            return db_manager.SessionLocal()
         except Exception as e:
-            print(f"Database connection failed: {e}")
+            logger.error(f"Database connection failed: {e}")
             return None
     
     @staticmethod
@@ -82,140 +82,130 @@ class ResultService:
             QueryCache.invalidate_all_user_cache(str(result_data.user_id))
             return TestResult(**result_dict)
         
-        # Use the same database connection method as debug endpoints
-        try:
-            from core.database_singleton import get_db
-            db = next(get_db())
-        except Exception as e:
-            logger.error(f"Database connection failed in create_result: {e}")
-            db = None
-        
-        if db and DBTestResult:
+        # ✅ FIXED: Use context manager for proper session cleanup
+        if DBTestResult:
             try:
-                # Check for existing recent results to prevent duplicates
-                from datetime import datetime, timedelta
-                five_minutes_ago = datetime.now() - timedelta(minutes=5)
-                
-                existing_result = db.query(DBTestResult).filter(
-                    DBTestResult.user_id == user_uuid,
-                    DBTestResult.test_id == result_data.test_id,
-                    DBTestResult.created_at > five_minutes_ago,
-                    DBTestResult.is_completed == True
-                ).first()
-                
-                if existing_result:
-                    print(f"Duplicate result found for user {result_data.user_id}, test {result_data.test_id}")
-                    # Return existing result instead of creating duplicate
+                with get_db_session() as db:
+                    # Check for existing recent results to prevent duplicates
+                    from datetime import datetime, timedelta
+                    five_minutes_ago = datetime.now() - timedelta(minutes=5)
+                    
+                    existing_result = db.query(DBTestResult).filter(
+                        DBTestResult.user_id == user_uuid,
+                        DBTestResult.test_id == result_data.test_id,
+                        DBTestResult.created_at > five_minutes_ago,
+                        DBTestResult.is_completed == True
+                    ).first()
+                    
+                    if existing_result:
+                        logger.info(f"Duplicate result found for user {result_data.user_id}, test {result_data.test_id}")
+                        # Return existing result instead of creating duplicate
+                        result_dict = {
+                            "id": str(existing_result.id),
+                            "user_id": str(existing_result.user_id),
+                            "test_id": existing_result.test_id,
+                            "test_name": result_data.test_name,
+                            "score": result_data.total_score or result_data.score or 0,
+                            "percentage": existing_result.completion_percentage,
+                            "percentage_score": existing_result.completion_percentage,
+                            "total_score": result_data.total_score or result_data.score or 0,
+                            "answers": existing_result.answers,
+                            "analysis": result_data.analysis,
+                            "recommendations": result_data.recommendations or [],
+                            "duration_seconds": existing_result.time_taken_seconds,
+                            "duration_minutes": result_data.duration_minutes,
+                            "total_questions": result_data.total_questions,
+                            "dimensions_scores": result_data.dimensions_scores,
+                            "timestamp": existing_result.created_at,
+                            "completed_at": existing_result.completed_at
+                        }
+                        return TestResult(**result_dict)
+                    
+                    # Ensure answers is properly formatted for database storage
+                    answers_data = result_data.answers or {}
+                    if isinstance(answers_data, list):
+                        # Convert list back to dict with numeric keys for storage
+                        answers_data = {str(i): answer for i, answer in enumerate(answers_data)}
+                    
+                    # Create database record
+                    db_result = DBTestResult(
+                        user_id=user_uuid,  # Use converted UUID instead of raw user_id
+                        test_id=result_data.test_id,
+                        answers=answers_data,
+                        completion_percentage=result_data.percentage_score or result_data.percentage or result_data.score or 0,
+                        time_taken_seconds=result_data.duration_seconds,
+                        calculated_result={
+                            "analysis": result_data.analysis,
+                            "score": result_data.total_score or result_data.score or 0,
+                            "percentage": result_data.percentage_score or result_data.percentage or result_data.score or 0,
+                            "dimensions_scores": result_data.dimensions_scores,
+                            "recommendations": result_data.recommendations
+                        },
+                        primary_result=str(result_data.analysis.get('code', '')) if result_data.analysis else '',
+                        result_summary=result_data.test_name,
+                        is_completed=True,
+                        completed_at=datetime.now()
+                    )
+                    
+                    db.add(db_result)
+                    db.commit()
+                    db.refresh(db_result)
+                    
+                    # Convert to response format
                     result_dict = {
-                        "id": str(existing_result.id),
-                        "user_id": str(existing_result.user_id),
-                        "test_id": existing_result.test_id,
+                        "id": str(db_result.id),
+                        "user_id": str(db_result.user_id),
+                        "test_id": db_result.test_id,
                         "test_name": result_data.test_name,
                         "score": result_data.total_score or result_data.score or 0,
-                        "percentage": existing_result.completion_percentage,
-                        "percentage_score": existing_result.completion_percentage,
+                        "percentage": db_result.completion_percentage,
+                        "percentage_score": db_result.completion_percentage,
                         "total_score": result_data.total_score or result_data.score or 0,
-                        "answers": existing_result.answers,
+                        "answers": db_result.answers,
                         "analysis": result_data.analysis,
                         "recommendations": result_data.recommendations or [],
-                        "duration_seconds": existing_result.time_taken_seconds,
+                        "duration_seconds": db_result.time_taken_seconds,
                         "duration_minutes": result_data.duration_minutes,
                         "total_questions": result_data.total_questions,
                         "dimensions_scores": result_data.dimensions_scores,
-                        "timestamp": existing_result.created_at,
-                        "completed_at": existing_result.completed_at
+                        "timestamp": db_result.created_at,
+                        "completed_at": db_result.completed_at
                     }
-                    db.close()
+                    
+                    # Invalidate ALL user cache to prevent cross-user contamination
+                    QueryCache.invalidate_all_user_cache(str(result_data.user_id))
+                    
+                    # Also invalidate completion status cache using direct cache operations
+                    try:
+                        # Clear completion status cache keys directly
+                        user_id_str = str(result_data.user_id)
+                        cache_keys = [
+                            f"completion_status:{user_id_str}",
+                            f"completed_tests:{user_id_str}",
+                            f"progress_summary:{user_id_str}",
+                            f"completion_status_v2:{user_id_str}",
+                        ]
+                        
+                        # Use QueryCache methods for proper cache invalidation
+                        QueryCache.invalidate_completion_status(user_id_str)
+                        QueryCache.invalidate_user_results(user_id_str)
+                        
+                        # Also clear specific keys using cache instance
+                        from core.cache import cache
+                        for cache_key in cache_keys:
+                            try:
+                                cache.delete(cache_key)
+                            except Exception as cache_error:
+                                logger.debug(f"Cache key {cache_key} not found or already cleared: {cache_error}")
+                        
+                        logger.info(f"Invalidated completion status cache for user {result_data.user_id}")
+                    except Exception as cache_error:
+                        logger.warning(f"Failed to clear completion status cache: {cache_error}")
+                    
                     return TestResult(**result_dict)
-                # Ensure answers is properly formatted for database storage
-                answers_data = result_data.answers or {}
-                if isinstance(answers_data, list):
-                    # Convert list back to dict with numeric keys for storage
-                    answers_data = {str(i): answer for i, answer in enumerate(answers_data)}
-                
-                # Create database record
-                db_result = DBTestResult(
-                    user_id=user_uuid,  # Use converted UUID instead of raw user_id
-                    test_id=result_data.test_id,
-                    answers=answers_data,
-                    completion_percentage=result_data.percentage_score or result_data.percentage or result_data.score or 0,
-                    time_taken_seconds=result_data.duration_seconds,
-                    calculated_result={
-                        "analysis": result_data.analysis,
-                        "score": result_data.total_score or result_data.score or 0,
-                        "percentage": result_data.percentage_score or result_data.percentage or result_data.score or 0,
-                        "dimensions_scores": result_data.dimensions_scores,
-                        "recommendations": result_data.recommendations
-                    },
-                    primary_result=str(result_data.analysis.get('code', '')) if result_data.analysis else '',
-                    result_summary=result_data.test_name,
-                    is_completed=True,
-                    completed_at=datetime.now()
-                )
-                
-                db.add(db_result)
-                db.commit()
-                db.refresh(db_result)
-                
-                # Convert to response format
-                result_dict = {
-                    "id": str(db_result.id),
-                    "user_id": str(db_result.user_id),
-                    "test_id": db_result.test_id,
-                    "test_name": result_data.test_name,
-                    "score": result_data.total_score or result_data.score or 0,
-                    "percentage": db_result.completion_percentage,
-                    "percentage_score": db_result.completion_percentage,
-                    "total_score": result_data.total_score or result_data.score or 0,
-                    "answers": db_result.answers,
-                    "analysis": result_data.analysis,
-                    "recommendations": result_data.recommendations or [],
-                    "duration_seconds": db_result.time_taken_seconds,
-                    "duration_minutes": result_data.duration_minutes,
-                    "total_questions": result_data.total_questions,
-                    "dimensions_scores": result_data.dimensions_scores,
-                    "timestamp": db_result.created_at,
-                    "completed_at": db_result.completed_at
-                }
-                
-                # Invalidate ALL user cache to prevent cross-user contamination
-                QueryCache.invalidate_all_user_cache(str(result_data.user_id))
-                
-                # Also invalidate completion status cache using direct cache operations
-                try:
-                    # Clear completion status cache keys directly
-                    user_id_str = str(result_data.user_id)
-                    cache_keys = [
-                        f"completion_status:{user_id_str}",
-                        f"completed_tests:{user_id_str}",
-                        f"progress_summary:{user_id_str}",
-                        f"completion_status_v2:{user_id_str}",
-                    ]
                     
-                    # Use QueryCache methods for proper cache invalidation
-                    QueryCache.invalidate_completion_status(user_id_str)
-                    QueryCache.invalidate_user_results(user_id_str)
-                    
-                    # Also clear specific keys using cache instance
-                    from core.cache import cache
-                    for cache_key in cache_keys:
-                        try:
-                            cache.delete(cache_key)
-                        except Exception as cache_error:
-                            logger.debug(f"Cache key {cache_key} not found or already cleared: {cache_error}")
-                    
-                    logger.info(f"Invalidated completion status cache for user {result_data.user_id}")
-                except Exception as e:
-                    logger.warning(f"Failed to clear completion status cache: {e}")
-                
-                db.close()
-                return TestResult(**result_dict)
-                
             except Exception as e:
-                print(f"Database save failed, using fallback: {e}")
-                if db:
-                    db.rollback()
-                    db.close()
+                logger.error(f"Database save failed, using fallback: {e}")
         
         # Fallback to in-memory storage
         result_id = str(uuid.uuid4())
@@ -286,74 +276,65 @@ class ResultService:
         if cached_results:
             return cached_results
         
-        # Use the same database connection method as debug endpoints
-        try:
-            from core.database_singleton import get_db
-            db = next(get_db())
-        except Exception as e:
-            logger.error(f"Database connection failed in get_user_results: {e}")
-            db = None
-        
-        if db and DBTestResult:
+        # ✅ FIXED: Use context manager for proper session cleanup
+        if DBTestResult:
             try:
-                logger.info(f"Querying database for user_uuid: {user_uuid}")
-                # Optimized query with eager loading - use UUID for database query
-                db_results = db.query(DBTestResult).filter(
-                    DBTestResult.user_id == user_uuid,
-                    DBTestResult.is_completed == True
-                ).order_by(desc(DBTestResult.created_at)).all()
-                
-                logger.info(f"Database query returned {len(db_results)} results for user {user_id}")
-                
-                user_results = []
-                for db_result in db_results:
-                    calculated_result = db_result.calculated_result or {}
+                with get_db_session() as db:
+                    logger.info(f"Querying database for user_uuid: {user_uuid}")
+                    # Optimized query with eager loading - use UUID for database query
+                    db_results = db.query(DBTestResult).filter(
+                        DBTestResult.user_id == user_uuid,
+                        DBTestResult.is_completed == True
+                    ).order_by(desc(DBTestResult.created_at)).all()
                     
-                    # Enrich empty analysis data from configurations
-                    analysis = calculated_result.get('analysis', {})
-                    if not analysis or not analysis.get('code'):
-                        analysis = ResultService._get_fallback_analysis(db_result.test_id, db_result.primary_result)
+                    logger.info(f"Database query returned {len(db_results)} results for user {user_id}")
                     
-                    # Enrich empty recommendations
-                    recommendations = calculated_result.get('recommendations', [])
-                    if not recommendations:
-                        recommendations = ResultService._get_fallback_recommendations(db_result.test_id, analysis.get('code'))
+                    user_results = []
+                    for db_result in db_results:
+                        calculated_result = db_result.calculated_result or {}
+                        
+                        # Enrich empty analysis data from configurations
+                        analysis = calculated_result.get('analysis', {})
+                        if not analysis or not analysis.get('code'):
+                            analysis = ResultService._get_fallback_analysis(db_result.test_id, db_result.primary_result)
+                        
+                        # Enrich empty recommendations
+                        recommendations = calculated_result.get('recommendations', [])
+                        if not recommendations:
+                            recommendations = ResultService._get_fallback_recommendations(db_result.test_id, analysis.get('code'))
+                        
+                        # Enrich empty dimensions_scores
+                        dimensions_scores = calculated_result.get('dimensions_scores', {})
+                        if not dimensions_scores:
+                            dimensions_scores = ResultService._get_fallback_dimensions(db_result.test_id, analysis.get('code'))
+                        
+                        result_dict = {
+                            "id": str(db_result.id),
+                            "user_id": str(db_result.user_id),
+                            "test_id": db_result.test_id,
+                            "test_name": db_result.result_summary or db_result.test_id,
+                            "score": calculated_result.get('score', 0),
+                            "percentage": db_result.completion_percentage,
+                            "percentage_score": db_result.completion_percentage,
+                            "total_score": calculated_result.get('score', 0),
+                            "answers": db_result.answers,
+                            "analysis": analysis,
+                            "recommendations": recommendations,
+                            "duration_seconds": db_result.time_taken_seconds,
+                            "duration_minutes": db_result.time_taken_seconds // 60 if db_result.time_taken_seconds else 0,
+                            "total_questions": len(db_result.answers) if db_result.answers else 0,
+                            "dimensions_scores": dimensions_scores,
+                            "timestamp": db_result.created_at,
+                            "completed_at": db_result.completed_at
+                        }
+                        user_results.append(TestResult(**result_dict))
                     
-                    # Enrich empty dimensions_scores
-                    dimensions_scores = calculated_result.get('dimensions_scores', {})
-                    if not dimensions_scores:
-                        dimensions_scores = ResultService._get_fallback_dimensions(db_result.test_id, analysis.get('code'))
+                    # Cache the results
+                    QueryCache.set_user_results(user_id, user_results, ttl=600)
+                    return user_results
                     
-                    result_dict = {
-                        "id": str(db_result.id),
-                        "user_id": str(db_result.user_id),
-                        "test_id": db_result.test_id,
-                        "test_name": db_result.result_summary or db_result.test_id,
-                        "score": calculated_result.get('score', 0),
-                        "percentage": db_result.completion_percentage,
-                        "percentage_score": db_result.completion_percentage,
-                        "total_score": calculated_result.get('score', 0),
-                        "answers": db_result.answers,
-                        "analysis": analysis,
-                        "recommendations": recommendations,
-                        "duration_seconds": db_result.time_taken_seconds,
-                        "duration_minutes": db_result.time_taken_seconds // 60 if db_result.time_taken_seconds else 0,
-                        "total_questions": len(db_result.answers) if db_result.answers else 0,
-                        "dimensions_scores": dimensions_scores,
-                        "timestamp": db_result.created_at,
-                        "completed_at": db_result.completed_at
-                    }
-                    user_results.append(TestResult(**result_dict))
-                
-                # Cache the results
-                QueryCache.set_user_results(user_id, user_results, ttl=600)
-                
-                db.close()
-                return user_results
-                
             except Exception as e:
-                if db:
-                    db.close()
+                logger.error(f"Database error in get_user_results: {e}")
         
         # Fallback to in-memory storage
         user_results = [
@@ -1565,54 +1546,49 @@ class ResultService:
             logger.error(f"Invalid user_id format in cleanup_duplicate_results: {user_id}")
             return {"error": "Invalid user ID format", "cleaned_count": 0}
         
-        db = ResultService.get_db_session()
-        
-        if db and DBTestResult:
+        # ✅ FIXED: Use context manager for proper session cleanup
+        if DBTestResult:
             try:
-                # Get all results for the user
-                all_results = db.query(DBTestResult).filter(
-                    DBTestResult.user_id == user_uuid,
-                    DBTestResult.is_completed == True
-                ).order_by(DBTestResult.test_id, desc(DBTestResult.created_at)).all()
-                
-                if not all_results:
-                    db.close()
-                    return {"message": "No results found", "cleaned_count": 0}
-                
-                # Group by test_id and keep only the latest
-                test_groups = {}
-                for result in all_results:
-                    test_id = result.test_id
-                    if test_id not in test_groups:
-                        test_groups[test_id] = []
-                    test_groups[test_id].append(result)
-                
-                duplicates_removed = 0
-                
-                # For each test type, delete all but the latest
-                for test_id, results in test_groups.items():
-                    if len(results) > 1:
-                        # Keep the first (latest) result, delete the rest
-                        for duplicate in results[1:]:
-                            db.delete(duplicate)
-                            duplicates_removed += 1
-                
-                db.commit()
-                db.close()
-                
-                return {
-                    "message": f"Cleaned up {duplicates_removed} duplicate results",
-                    "cleaned_count": duplicates_removed,
-                    "unique_tests": len(test_groups),
-                    "total_results_before": len(all_results),
-                    "total_results_after": len(all_results) - duplicates_removed
-                }
-                
+                with get_db_session() as db:
+                    # Get all results for the user
+                    all_results = db.query(DBTestResult).filter(
+                        DBTestResult.user_id == user_uuid,
+                        DBTestResult.is_completed == True
+                    ).order_by(DBTestResult.test_id, desc(DBTestResult.created_at)).all()
+                    
+                    if not all_results:
+                        return {"message": "No results found", "cleaned_count": 0}
+                    
+                    # Group by test_id and keep only the latest
+                    test_groups = {}
+                    for result in all_results:
+                        test_id = result.test_id
+                        if test_id not in test_groups:
+                            test_groups[test_id] = []
+                        test_groups[test_id].append(result)
+                    
+                    duplicates_removed = 0
+                    
+                    # For each test type, delete all but the latest
+                    for test_id, results in test_groups.items():
+                        if len(results) > 1:
+                            # Keep the first (latest) result, delete the rest
+                            for duplicate in results[1:]:
+                                db.delete(duplicate)
+                                duplicates_removed += 1
+                    
+                    db.commit()
+                    
+                    return {
+                        "message": f"Cleaned up {duplicates_removed} duplicate results",
+                        "cleaned_count": duplicates_removed,
+                        "unique_tests": len(test_groups),
+                        "total_results_before": len(all_results),
+                        "total_results_after": len(all_results) - duplicates_removed
+                    }
+                    
             except Exception as e:
-                print(f"Error cleaning up duplicates: {e}")
-                if db:
-                    db.rollback()
-                    db.close()
+                logger.error(f"Error cleaning up duplicates: {e}")
                 raise e
         
         return {"message": "Database not available", "cleaned_count": 0}

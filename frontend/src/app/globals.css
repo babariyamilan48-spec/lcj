@@ -53,11 +53,14 @@
 }
 
 @layer base {
+  html {
+    @apply overflow-x-hidden;
+  }
   * {
     @apply border-gray-200;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-hidden;
     font-family: var(--font-poppins), 'Noto Sans Gujarati', system-ui, sans-serif;
   }
   

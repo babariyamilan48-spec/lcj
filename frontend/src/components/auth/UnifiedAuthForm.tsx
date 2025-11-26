@@ -183,14 +183,14 @@ export default function UnifiedAuthForm({ initialTab = 'signup' }: UnifiedAuthFo
   // Don't render until tab is initialized
   if (activeTab === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center p-4 overflow-x-hidden w-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center p-4 overflow-x-hidden w-screen">
       {/* Loading Overlay */}
       <AnimatePresence>
         {(isGoogleLoading || isFormLoading) && (
@@ -223,7 +223,7 @@ export default function UnifiedAuthForm({ initialTab = 'signup' }: UnifiedAuthFo
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl backdrop-blur overflow-hidden"
+        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl backdrop-blur overflow-hidden box-border"
       >
         {/* Header with Logo */}
         <div className="px-6 pt-6 pb-4 text-center">

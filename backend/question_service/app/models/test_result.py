@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, JSON, F
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.database import Base
+from core.database_fixed import Base
 
 class TestResult(Base):
     __tablename__ = "test_results"

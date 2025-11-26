@@ -204,6 +204,20 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
         throw new Error('No user ID available for AI insights');
       }
 
+      // 🚀 Start Celery worker
+      console.log('🚀 Starting Celery worker...');
+      try {
+        const workerResponse = await fetch('https://lcj-celery-worker.onrender.com', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        console.log('✅ Celery worker started:', workerResponse.status);
+      } catch (workerError) {
+        console.warn('⚠️ Could not reach Celery worker, but continuing with AI insights generation:', workerError);
+      }
+
       const insights = await aiInsightsService.generateInsights(
         userId,
         testResults.testId,

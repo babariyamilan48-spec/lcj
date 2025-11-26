@@ -13,7 +13,8 @@ sys.path.insert(0, str(backend_root))
 
 from sqlalchemy import text
 from contact_service.app.models.contact import Base
-from core.database import engine
+from core.database_fixed import db_manager
+# engine = db_manager.engine
 
 def create_contact_table():
     """Create the contact table"""

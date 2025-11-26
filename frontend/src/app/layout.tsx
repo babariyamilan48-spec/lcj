@@ -28,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="gu" dir="ltr">
-      <body className={`${poppins.variable} font-sans`}>
+    <html lang="gu" dir="ltr" className="overflow-x-hidden">
+      <body className={`${poppins.variable} font-sans overflow-x-hidden`}>
         <ApiInterceptorInit />
         <Providers>
           <NavigationHistoryTracker />

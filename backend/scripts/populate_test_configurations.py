@@ -7,7 +7,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import sessionmaker
-from core.database import engine
+from core.database_fixed import db_manager
+# engine = db_manager.engine
 from question_service.app.services.result_service import TestResultService
 
 def main():

@@ -1,4 +1,4 @@
-from core.database import Base
+from core.database_fixed import Base
 from .test import Test
 from .test_section import TestSection
 from .test_dimension import TestDimension

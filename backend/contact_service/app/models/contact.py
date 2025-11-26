@@ -5,7 +5,7 @@ Contact model for storing contact form submissions
 from sqlalchemy import Column, Integer, String, Text, DateTime, Enum
 from datetime import datetime
 import enum
-from core.database import Base
+from core.database_fixed import Base
 
 class InquiryType(enum.Enum):
     GENERAL = "GENERAL"

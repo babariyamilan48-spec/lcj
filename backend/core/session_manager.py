@@ -1,5 +1,6 @@
 """
 Centralized Session Manager for Database Operations
+✅ FIXED: Now uses ONLY core/database_fixed.py
 Ensures proper session lifecycle management and prevents session leaks
 """
 
@@ -11,8 +12,7 @@ from typing import Generator, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError, TimeoutError, DisconnectionError
 from sqlalchemy import text
-from core.database_singleton import db_singleton
-from core.database_pool import optimized_db_pool
+from core.database_fixed import db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +63,9 @@ class SessionManager:
             # Check for existing user sessions and clean up old ones
             self._cleanup_user_sessions(user_id)
             
-            # Get session from optimized pool with fallback
-            try:
-                session = optimized_db_pool.get_session_sync()
-                logger.debug(f"Using optimized pool session for user {user_id}")
-            except Exception as pool_error:
-                logger.warning(f"Optimized pool failed for user {user_id}: {pool_error}")
-                session = db_singleton.SessionLocal()
-                logger.debug(f"Using singleton session for user {user_id}")
+            # ✅ FIXED: Get session from fixed database manager only
+            session = db_manager.SessionLocal()
+            logger.debug(f"Session created for user {user_id}")
             
             # Test connection
             session.execute(text("SELECT 1"))

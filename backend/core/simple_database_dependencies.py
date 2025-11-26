@@ -6,7 +6,8 @@ import logging
 from typing import Generator
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from core.database import SessionLocal
+from core.database_fixed import db_manager
+# SessionLocal = db_manager.SessionLocal
 
 logger = logging.getLogger(__name__)
 

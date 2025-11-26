@@ -96,28 +96,21 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
         # Store individual AI insights in database if generation was successful
         if result.get("success") and test_data.get('user_id'):
             try:
-                # Import here to avoid circular imports
-                import asyncio
-                import sys
-                import os
-                
-                # Add the backend directory to the Python path if not already there
-                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                if backend_dir not in sys.path:
-                    sys.path.append(backend_dir)
-                
+                from core.database_fixed import get_db_session
                 from results_service.app.services.result_service import ResultService
                 
-                # Store the individual AI insights
-                stored_result = asyncio.run(ResultService.store_ai_insights(
-                    user_id=test_data.get('user_id'),
-                    insights_data=result["insights"],
-                    generated_at=result.get("generated_at"),
-                    model=result.get("model"),
-                    test_results_used=[test_data.get('test_id')],
-                    generation_duration=None,
-                    insights_type="individual"
-                ))
+                # Store the individual AI insights with proper session management
+                with get_db_session() as session:
+                    stored_result = ResultService.store_ai_insights_sync(
+                        session=session,
+                        user_id=test_data.get('user_id'),
+                        insights_data=result["insights"],
+                        generated_at=result.get("generated_at"),
+                        model=result.get("model"),
+                        test_results_used=[test_data.get('test_id')],
+                        generation_duration=None,
+                        insights_type="individual"
+                    )
                 
                 if stored_result:
                     logger.info(f"Individual AI insights stored successfully in database for user {test_data.get('user_id')}")
@@ -249,28 +242,21 @@ def generate_comprehensive_ai_insights_task(self, request_data: Dict[str, Any]) 
         # Store AI insights in database if generation was successful
         if result.get("success"):
             try:
-                # Import here to avoid circular imports
-                import asyncio
-                import sys
-                import os
-                
-                # Add the backend directory to the Python path if not already there
-                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                if backend_dir not in sys.path:
-                    sys.path.append(backend_dir)
-                
+                from core.database_fixed import get_db_session
                 from results_service.app.services.result_service import ResultService
                 
-                # Store the AI insights
-                stored_result = asyncio.run(ResultService.store_ai_insights(
-                    user_id=user_id,
-                    insights_data=result["insights"],
-                    generated_at=result.get("generated_at"),
-                    model=result.get("model"),
-                    test_results_used=list(request_data.get('all_test_results', {}).keys()),
-                    generation_duration=None,  # Could calculate from task start time
-                    insights_type="comprehensive"
-                ))
+                # Store the AI insights with proper session management
+                with get_db_session() as session:
+                    stored_result = ResultService.store_ai_insights_sync(
+                        session=session,
+                        user_id=user_id,
+                        insights_data=result["insights"],
+                        generated_at=result.get("generated_at"),
+                        model=result.get("model"),
+                        test_results_used=list(request_data.get('all_test_results', {}).keys()),
+                        generation_duration=None,  # Could calculate from task start time
+                        insights_type="comprehensive"
+                    )
                 
                 if stored_result:
                     logger.info(f"AI insights stored successfully in database for user {user_id}")

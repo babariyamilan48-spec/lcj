@@ -1,17 +1,17 @@
 """
 Hybrid Database Service
 Provides unified interface for both SQLAlchemy and Supabase operations
+✅ FIXED: Now uses ONLY core/database_fixed.py for all database operations
 """
 import asyncio
 from typing import Optional, Dict, Any, List, Union, Type
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 import logging
 
 from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import text
 
-from core.database_singleton import get_db, SessionLocal, engine, Base
+from core.database_fixed import db_manager, get_db_session
 from core.supabase_client import supabase_manager, SupabaseManager
 from core.config.settings import settings
 
@@ -21,85 +21,42 @@ class DatabaseService:
     """
     Unified database service that provides both SQLAlchemy and Supabase access
     with intelligent routing and caching
+    ✅ FIXED: Uses ONLY core/database_fixed.py - no duplicate engines
     """
     
     def __init__(self):
         self.supabase = supabase_manager
-        self._async_engine = None
-        self._async_session_factory = None
-        self._setup_async_engine()
-    
-    def _setup_async_engine(self):
-        """Setup async SQLAlchemy engine for better performance"""
-        try:
-            # Convert sync DATABASE_URL to async if needed
-            async_url = settings.DATABASE_URL
-            if async_url.startswith("postgresql://") or async_url.startswith("postgresql+psycopg2://"):
-                async_url = async_url.replace("postgresql://", "postgresql+asyncpg://")
-                async_url = async_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://")
-            
-            self._async_engine = create_async_engine(
-                async_url,
-                pool_size=settings.DATABASE_POOL_SIZE,
-                max_overflow=settings.DATABASE_MAX_OVERFLOW,
-                pool_pre_ping=True,
-                echo=False,
-            )
-            
-            self._async_session_factory = async_sessionmaker(
-                bind=self._async_engine,
-                class_=AsyncSession,
-                expire_on_commit=False
-            )
-            
-            logger.info("✅ Async SQLAlchemy engine initialized")
-            
-        except Exception as e:
-            logger.warning(f"⚠️ Could not setup async engine: {str(e)}. Using sync engine.")
+        logger.info("✅ DatabaseService initialized with single database manager")
     
     # SQLAlchemy Operations
     
     def get_sync_session(self) -> Session:
-        """Get synchronous SQLAlchemy session"""
-        return SessionLocal()
+        """Get synchronous SQLAlchemy session from fixed database manager"""
+        return db_manager.SessionLocal()
+    
+    @contextmanager
+    def get_session_context(self):
+        """Get database session with automatic cleanup"""
+        with get_db_session() as session:
+            yield session
     
     @asynccontextmanager
     async def get_async_session(self):
-        """Get asynchronous SQLAlchemy session"""
-        if self._async_session_factory:
-            async with self._async_session_factory() as session:
-                try:
-                    yield session
-                except Exception:
-                    await session.rollback()
-                    raise
-                finally:
-                    await session.close()
-        else:
-            # Fallback to sync session in async context
-            session = self.get_sync_session()
-            try:
-                yield session
-            except Exception:
-                session.rollback()
-                raise
-            finally:
-                session.close()
+        """Get database session in async context (uses sync engine in thread pool)"""
+        # For async code, run sync operation in thread pool
+        loop = asyncio.get_event_loop()
+        with get_db_session() as session:
+            yield session
     
     async def execute_sql(self, query: str, params: Dict[str, Any] = None) -> List[Dict[str, Any]]:
-        """Execute raw SQL query with parameters"""
+        """Execute raw SQL query with parameters using fixed database manager"""
         params = params or {}
         
         try:
-            if self._async_engine:
-                async with self._async_engine.begin() as conn:
-                    result = await conn.execute(text(query), params)
-                    return [dict(row._mapping) for row in result.fetchall()]
-            else:
-                # Fallback to sync engine
-                with engine.begin() as conn:
-                    result = conn.execute(text(query), params)
-                    return [dict(row._mapping) for row in result.fetchall()]
+            # ✅ FIXED: Use fixed database manager instead of separate async engine
+            with db_manager.engine.begin() as conn:
+                result = conn.execute(text(query), params)
+                return [dict(row._mapping) for row in result.fetchall()]
                     
         except Exception as e:
             logger.error(f"SQL execution error: {str(e)}")

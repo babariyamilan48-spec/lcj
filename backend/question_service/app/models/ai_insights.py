@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Bool
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
-from core.database import Base
+from core.database_fixed import Base
 
 class AIInsights(Base):
     __tablename__ = "ai_insights"

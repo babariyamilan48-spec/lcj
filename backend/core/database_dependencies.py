@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError, TimeoutError, DisconnectionError
 from sqlalchemy import text
 from core.database_pool import optimized_db_pool
-from core.database import SessionLocal
+from core.database_fixed import db_manager
+# SessionLocal = db_manager.SessionLocal
 
 logger = logging.getLogger(__name__)
 

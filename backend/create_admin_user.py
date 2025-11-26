@@ -12,7 +12,7 @@ backend_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(backend_root))
 
 from sqlalchemy.orm import Session
-from core.database_singleton import get_db_session
+from core.database_fixed import get_db_session as get_db_session
 from auth_service.app.models.user import User
 from auth_service.app.utils.jwt import get_password_hash
 import uuid

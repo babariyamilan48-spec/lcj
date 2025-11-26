@@ -1,4 +1,4 @@
-from core.database import Base, engine
+from core.database_fixed import Base, engine
 
 # ✅ Import all models so Base.metadata knows them
 # from models import user, question, option  # import every model file you have

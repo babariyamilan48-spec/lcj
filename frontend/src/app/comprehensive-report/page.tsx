@@ -148,6 +148,20 @@ const ComprehensiveReportPage = () => {
       setProgressMessage('રિપોર્ટ તૈયાર કરી રહ્યું છે...');
       setProgressPercentage(0);
 
+      // 🚀 Start Celery worker
+      console.log('🚀 Starting Celery worker for comprehensive report...');
+      try {
+        const workerResponse = await fetch('https://lcj-celery-worker.onrender.com', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        console.log('✅ Celery worker started:', workerResponse.status);
+      } catch (workerError) {
+        console.warn('⚠️ Could not reach Celery worker, but continuing with comprehensive insights generation:', workerError);
+      }
+
       try {
         const insightsResponse = await aiInsightsAsyncService.generateComprehensiveInsightsAsync(
           results,

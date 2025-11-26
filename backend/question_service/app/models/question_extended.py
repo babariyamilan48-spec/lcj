@@ -6,7 +6,7 @@ This extends the base Question model with fields needed for test calculations
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.database import Base
+from core.database_fixed import Base
 
 class QuestionExtended(Base):
     """Extended Question model with calculation metadata"""

@@ -21,7 +21,7 @@ from core.optimized_supabase_client import (
     QueryOptimization
 )
 from core.cache import cache_async_result, QueryCache
-from core.database_singleton import get_db
+from core.database_fixed import get_db_session as get_db
 
 logger = logging.getLogger(__name__)
 

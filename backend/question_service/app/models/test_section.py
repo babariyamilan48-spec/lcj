@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.database import Base
+from core.database_fixed import Base
 
 class TestSection(Base):
     __tablename__ = "test_sections"

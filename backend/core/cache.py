@@ -341,7 +341,7 @@ class CacheWarmer:
         """Pre-load popular questions into cache"""
         try:
             from question_service.app.services.question_service import QuestionService
-            from core.database_singleton import get_db
+            from core.database_fixed import get_db_session as get_db
             
             db = next(get_db())
             service = QuestionService(db)

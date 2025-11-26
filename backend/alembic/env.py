@@ -30,7 +30,7 @@ if SERVICE_ROOT not in sys.path:
     sys.path.insert(0, SERVICE_ROOT)
 
 from core.config.settings import settings
-from core.database import Base
+from core.database_fixed import Base
 from auth_service.app.models import  user
 from question_service.app.models.test import Test
 from question_service.app.models.test_section import TestSection

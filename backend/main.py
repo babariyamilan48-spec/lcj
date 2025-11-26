@@ -1,11 +1,14 @@
 import os
 import sys
 from datetime import datetime
+import logging
 
 # Add backend root to Python path
 BACKEND_ROOT = os.path.dirname(os.path.abspath(__file__))
 if BACKEND_ROOT not in sys.path:
     sys.path.append(BACKEND_ROOT)
+
+# Logging setup removed - using default configuration
 
 from core.app_factory import create_app  # noqa: E402
 from auth_service.app.api.v1.api import api_router as auth_router  # noqa: E402
@@ -15,6 +18,9 @@ from contact_service.app.api.v1.api import api_router as contact_router  # noqa:
 from core.api.session_management import router as session_management_router  # noqa: E402
 from core.api.session_singleton_management import router as session_singleton_router  # noqa: E402
 from core.api.pool_monitor import router as pool_monitor_router  # noqa: E402
+from core.database_fixed import close_db_connection  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 # Create unified FastAPI application
 app = create_app({
@@ -40,7 +46,7 @@ async def health_check():
     """Fast health check with session management monitoring"""
     try:
         # Quick database check
-        from core.database import check_db_health
+        from core.database_fixed import check_db_health
         db_status = check_db_health()
         
         # Session management health check
@@ -84,7 +90,7 @@ async def health_check():
 async def database_health():
     """Detailed database health check"""
     try:
-        from core.database import check_db_health, DatabaseMonitor
+        from core.database_fixed import check_db_health, DatabaseMonitor
         return {
             "status": check_db_health(),
             "pool_status": DatabaseMonitor.get_pool_status(),
@@ -201,6 +207,18 @@ async def cache_status():
     """Get cache status and statistics"""
     from core.cache import cache_health_check
     return cache_health_check()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup all database connections on shutdown"""
+    print("🛑 LCJ Unified API Server shutting down...")
+    try:
+        close_db_connection()
+        print("✅ Database connections closed successfully")
+        logger.info("Database connections closed on shutdown")
+    except Exception as e:
+        print(f"⚠️ Error closing database connections: {e}")
+        logger.error(f"Error closing database on shutdown: {e}")
 
 if __name__ == "__main__":
     import uvicorn

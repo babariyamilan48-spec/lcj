@@ -12,7 +12,7 @@ import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from core.database_singleton import get_db
+from core.database_fixed import get_db_session as get_db
 from core.cache import QueryCache
 
 logger = logging.getLogger(__name__)
@@ -68,9 +68,9 @@ class CompletionStatusService:
     def _get_db_session() -> Optional[Session]:
         """Get database session safely"""
         try:
-            db_gen = get_db()
-            db = next(db_gen)
-            return db
+            from core.database_fixed import get_db_session
+            with get_db_session() as db:
+                return db
         except Exception as e:
             logger.error(f"Failed to get database session: {e}")
             import traceback

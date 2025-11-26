@@ -114,7 +114,7 @@ celery_app.conf.update(
     # Worker settings
     worker_prefetch_multiplier=1,
     task_acks_late=True,
-    worker_max_tasks_per_child=1000,
+    worker_max_tasks_per_child=100,  # ✅ FIXED: Restart worker every 100 tasks to prevent connection leaks
 
     # Retry settings
     task_default_retry_delay=60,  # 1 minute

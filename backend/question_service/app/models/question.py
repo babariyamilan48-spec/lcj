@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.database import Base
+from core.database_fixed import Base
 
 class Question(Base):
     __tablename__ = "questions"

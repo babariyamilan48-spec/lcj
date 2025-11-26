@@ -1,6 +1,7 @@
 """
 User Session Singleton Manager
-Ensures only one active Supabase session per user at a time
+Ensures only one active session per user at a time
+✅ FIXED: Now uses ONLY core/database_fixed.py
 Guarantees proper session cleanup and prevents connection pool exhaustion
 """
 import logging
@@ -11,8 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
-from core.database_pool import optimized_db_pool
-from core.database_singleton import db_singleton
+from core.database_fixed import db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +104,7 @@ class UserSessionSingleton:
     def get_user_session(self, user_id: str) -> Session:
         """
         Get or create a session for a user (singleton per user)
+        ✅ FIXED: Uses ONLY core/database_fixed.py
         Ensures only one session exists per user
         """
         with self._session_lock:
@@ -115,28 +116,16 @@ class UserSessionSingleton:
                 logger.debug(f"Reusing existing session for user {user_id}")
                 return session
             
-            # Create new session
+            # Create new session from fixed database manager
             try:
-                session = optimized_db_pool.get_session_sync()
-                if session is None:
-                    logger.warning(f"Optimized pool returned None for user {user_id}, using fallback")
-                    session = db_singleton.SessionLocal()
-                
+                session = db_manager.SessionLocal()
                 self._user_sessions[user_id] = (session, time.time())
                 logger.info(f"Created new session for user {user_id}")
                 return session
                 
             except Exception as e:
-                logger.error(f"Error creating session for user {user_id}: {e}")
-                # Fallback to singleton
-                try:
-                    session = db_singleton.SessionLocal()
-                    self._user_sessions[user_id] = (session, time.time())
-                    logger.info(f"Created fallback session for user {user_id}")
-                    return session
-                except Exception as fallback_error:
-                    logger.error(f"Failed to create fallback session for {user_id}: {fallback_error}")
-                    raise
+                logger.error(f"Failed to create session for {user_id}: {e}")
+                raise
     
     def release_user_session(self, user_id: str) -> None:
         """

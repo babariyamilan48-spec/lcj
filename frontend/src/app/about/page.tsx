@@ -66,23 +66,23 @@ export default function AboutPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-x-hidden">
       <ModernNavbar currentScreen="about" />
       
       {/* Hero Section */}
-      <section className="pt-20 pb-16 bg-gradient-to-br from-orange-50 via-white to-orange-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="pt-20 pb-16 bg-gradient-to-br from-orange-50 via-white to-orange-50 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="text-center"
           >
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6 font-gujarati text-center">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-6 font-gujarati text-center break-words">
               <span className="bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent font-extrabold">જીવન</span>
               <span className="text-gray-700"> પરિવર્તન સફર વિશે</span>
             </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed px-2">
               અમે વૈજ્ઞાનિક રીતે સાબિત મનોવૈજ્ઞાનિક મૂલ્યાંકનો અને વ્યક્તિગત કારકિર્દી માર્ગદર્શન 
               દ્વારા વ્યક્તિઓને તેમની સાચી ક્ષમતા શોધવામાં મદદ કરવા માટે સમર્પિત છીએ.
             </p>
@@ -91,9 +91,9 @@ export default function AboutPage() {
       </section>
 
       {/* Mission Section */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <section className="py-20 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full">
+          <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -141,8 +141,8 @@ export default function AboutPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-20 bg-gray-50 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -156,7 +156,7 @@ export default function AboutPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
@@ -180,8 +180,8 @@ export default function AboutPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-20 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -194,7 +194,7 @@ export default function AboutPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             {stats.map((stat, index) => (
               <motion.div
                 key={index}
@@ -212,8 +212,8 @@ export default function AboutPage() {
       </section>
 
       {/* Team Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-20 bg-gray-50 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -226,7 +226,7 @@ export default function AboutPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
             {team.map((member, index) => (
               <motion.div
                 key={index}
@@ -248,17 +248,17 @@ export default function AboutPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-orange-500 to-orange-600">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="py-20 bg-gradient-to-r from-orange-500 to-orange-600 overflow-hidden">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 text-center w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-6 break-words">
               તમારી ક્ષમતા શોધવા માટે તૈયાર છો?
             </h2>
-            <p className="text-xl text-orange-100 mb-8 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg md:text-xl text-orange-100 mb-8 max-w-2xl mx-auto px-2">
               અમારા મૂલ્યાંકનો સાથે તેમની કારકિર્દીને પરિવર્તિત કરનારા હજારો વ્યાવસાયિકો સાથે જોડાઓ.
             </p>
             <motion.button

@@ -239,7 +239,7 @@ async def debug_user_database(request: Request, user_id: str, db: Session = Depe
     """
     try:
         import uuid
-        from core.database_singleton import get_db
+        from core.database_fixed import get_db_session as get_db
         from question_service.app.models.test_result import TestResult as DBTestResult
         from sqlalchemy import and_
         
@@ -252,9 +252,7 @@ async def debug_user_database(request: Request, user_id: str, db: Session = Depe
             raise HTTPException(status_code=400, detail=f"Invalid user_id format: {user_id}")
         
         # Get database session
-        db = next(get_db())
-        
-        try:
+        with get_db_session() as db:
             # Get ALL results for this user
             all_results = db.query(DBTestResult).filter(
                 DBTestResult.user_id == user_uuid
@@ -293,9 +291,6 @@ async def debug_user_database(request: Request, user_id: str, db: Session = Depe
                 "data": debug_info,
                 "message": "Database debug info retrieved"
             }
-            
-        finally:
-            db.close()
             
     except HTTPException:
         raise

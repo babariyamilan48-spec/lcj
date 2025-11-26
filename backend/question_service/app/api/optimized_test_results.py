@@ -82,9 +82,6 @@ async def calculate_and_save_test_result_fast(
     start_time = time.time()
     
     try:
-        print(f"🚀 Fast endpoint called with data: {test_result_data}")
-        print(f"🚀 User ID: {current_user.id}")
-        
         result = OptimizedTestResultService.calculate_and_save_fast(
             user_id=str(current_user.id),
             test_id=test_result_data['test_id'],
@@ -100,10 +97,6 @@ async def calculate_and_save_test_result_fast(
         
     except Exception as e:
         processing_time = (time.time() - start_time) * 1000
-        print(f"❌ Error in fast endpoint: {str(e)}")
-        print(f"❌ Error type: {type(e)}")
-        import traceback
-        print(f"❌ Traceback: {traceback.format_exc()}")
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 

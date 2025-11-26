@@ -13,7 +13,8 @@ backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from sqlalchemy.orm import sessionmaker
-from core.database import engine
+from core.database_fixed import db_manager
+# engine = db_manager.engine
 from question_service.app.models.test_result import TestResultConfiguration
 
 # Create database session

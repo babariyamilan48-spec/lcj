@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from core.database_singleton import get_db, engine
+from core.database_fixed import get_db_session as get_db, engine
 from question_service.app.models.test_result import TestResultConfiguration
 from question_service.app.data.test_result_configurations import ALL_CONFIGURATIONS
 
@@ -27,7 +27,7 @@ def populate_configurations():
     
     try:
         # Create database tables
-        from core.database import Base
+        from core.database_fixed import Base
         Base.metadata.create_all(bind=engine)
         
         # Get database session

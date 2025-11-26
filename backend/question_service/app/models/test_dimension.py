@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, JSON, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.database import Base
+from core.database_fixed import Base
 
 class TestDimension(Base):
     __tablename__ = "test_dimensions"
