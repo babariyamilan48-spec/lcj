@@ -166,6 +166,16 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
       localStorage.setItem('lastSavedSession', sessionKey);
       localStorage.setItem(lastSubmissionKey, now.toString());
 
+      // CRITICAL FIX: Clear completion status cache after test is saved
+      // This ensures the next fetch gets fresh data with the newly completed test
+      console.log(`✅ ModernResults: Test saved, clearing completion cache for user ${userId}`);
+      try {
+        await completionStatusService.clearCompletionCache(userId);
+      } catch (error) {
+        console.warn('Warning: Failed to clear completion cache:', error);
+        // Don't fail the save operation if cache clearing fails
+      }
+
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 3000); // Reset after 3 seconds
     } catch (error) {

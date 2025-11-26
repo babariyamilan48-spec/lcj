@@ -418,8 +418,8 @@ const ComprehensiveReportPage = () => {
                 className="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
               >
                 <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                <span className="hidden sm:inline">Download</span>
-                <span className="sm:hidden">DL</span>
+                <span className="hidden sm:inline">Download Full Report</span>
+                <span className="sm:hidden">Download Full Report</span>
               </button>
             </div>
           </div>

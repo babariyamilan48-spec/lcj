@@ -3,7 +3,7 @@ Optimized Auth API with Centralized Session Management
 Ensures proper session lifecycle and prevents session leaks
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, status, Query
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, status, Query, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -177,20 +177,7 @@ async def login_optimized_v2(
                 # Generate real tokens
                 access_token, refresh_token = generate_tokens_for_user(user, session)
                 
-                # Cache user session info
                 user_id_str = str(user.id)
-                cache_key = f"user_session:{user_id_str}"
-                session_data = {
-                    "user_id": user_id_str,
-                    "email": user.email,
-                    "is_active": user.is_active,
-                    "login_time": time.time()
-                }
-                
-                try:
-                    cache.set(cache_key, session_data, ttl=3600)  # 1 hour
-                except Exception as cache_error:
-                    logger.warning(f"Failed to cache user session: {cache_error}")
                 
                 # Log performance
                 duration = time.time() - start_time
@@ -249,11 +236,19 @@ async def login_optimized_v2(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_optimized_v2(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    response: Response = None
 ) -> UserResponse:
     """
     Get current user with optimized session management
     """
+    # CRITICAL FIX: Disable browser caching for /me endpoint
+    # This prevents browser from returning cached data from previous user
+    if response:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    
     start_time = time.time()
     
     try:
@@ -296,24 +291,10 @@ async def get_current_user_optimized_v2(
                 detail="Invalid token format"
             )
         
-        # Check cache first
-        cache_key = f"user_session:{user_id_str}"
-        try:
-            cached_session = cache.get(cache_key)
-            if cached_session:
-                logger.debug(f"Using cached session for user {user_id_str}")
-                return UserResponse(
-                    id=cached_session["user_id"],
-                    email=cached_session["email"],
-                    username=cached_session["email"],
-                    is_active=cached_session["is_active"],
-                    is_verified=True,
-                    role="user",
-                    avatar=None,
-                    providers=["password"]
-                )
-        except Exception as cache_error:
-            logger.warning(f"Cache lookup failed: {cache_error}")
+        # CRITICAL FIX: NEVER use cache for /me endpoint
+        # The /me endpoint is called after login to verify user identity
+        # If we return cached data from a previous user, the app gets confused
+        # Always fetch fresh data from database to ensure correct user is returned
         
         # Use database session for user lookup
         try:
@@ -333,19 +314,6 @@ async def get_current_user_optimized_v2(
                     status_code=403,
                     detail="User account is inactive"
                 )
-            
-            # Update cache
-            session_data = {
-                "user_id": user_id_str,
-                "email": user.email,
-                "is_active": user.is_active,
-                "last_access": time.time()
-            }
-            
-            try:
-                cache.set(cache_key, session_data, ttl=3600)
-            except Exception as cache_error:
-                logger.warning(f"Failed to update user session cache: {cache_error}")
             
             # Log performance
             duration = time.time() - start_time
@@ -394,9 +362,21 @@ async def logout_optimized_v2(
         # Extract token
         token = credentials.credentials
         
-        if token and token.startswith("access_token_for_"):
-            user_id_str = token.replace("access_token_for_", "")
-            
+        if not token:
+            return {"message": "Successfully logged out"}
+        
+        # CRITICAL FIX: Decode JWT token to extract user ID (not just check for prefix)
+        user_id_str = None
+        try:
+            from auth_service.app.utils.jwt import decode_token
+            claims = decode_token(token)
+            if claims:
+                user_id_str = claims.get("uid")
+        except Exception as decode_error:
+            logger.warning(f"Failed to decode token during logout: {decode_error}")
+        
+        # If we got a user ID, clear all their caches
+        if user_id_str:
             try:
                 uuid.UUID(user_id_str)
                 
@@ -643,12 +623,13 @@ async def login_fast_alias(
 @router.get("/me/fast", response_model=UserResponse)
 async def get_current_user_fast_alias(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    response: Response = None
 ) -> UserResponse:
     """
     Fast get current user endpoint - alias for the main optimized endpoint
     """
-    return await get_current_user_optimized_v2(credentials, db)
+    return await get_current_user_optimized_v2(credentials, db, response)
 
 @router.post("/logout/fast")
 async def logout_fast_alias(

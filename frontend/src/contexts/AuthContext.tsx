@@ -104,7 +104,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (cachedUserData && cachedUserId) {
             try {
               const userData = JSON.parse(cachedUserData);
-              if (userData.id === cachedUserId) {
+              // CRITICAL FIX: Validate cached data consistency
+              if (userData.id === cachedUserId && userData.id && userData.email) {
                 setUser(userData);
                 questionService.setAuthToken(token);
                 
@@ -250,6 +251,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           throw new Error('No access token received');
         }
 
+        // CRITICAL FIX: Validate user ID is present and valid
+        if (!responseData.id) {
+          throw new Error('No user ID received from server');
+        }
+
         // Create user object with comprehensive data
         const userData: User = {
           id: responseData.id || '',
@@ -263,8 +269,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           avatar: responseData.avatar || responseData.profilePicture || ''
         };
 
+        // CRITICAL FIX: Validate user ID is not empty
+        if (!userData.id || userData.id.trim() === '') {
+          throw new Error('Invalid user ID received');
+        }
+
         // Store tokens AFTER user data validation with user ID tracking
-        console.log('🔐 [AUTH] Storing tokens and user data...');
+        console.log('🔐 [AUTH] Storing tokens and user data for user:', userData.id);
         tokenStore.setTokens(access_token, refresh_token, userData.id);
         
         // Set token in question service
@@ -278,7 +289,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Only set loading to false on success
         setIsLoading(false);
 
-        console.log('✅ [AUTH] Login completed successfully');
+        console.log('✅ [AUTH] Login completed successfully for user:', userData.id);
         return { success: true, user: userData };
       } else {
         // Handle error case - throw error with the message from backend

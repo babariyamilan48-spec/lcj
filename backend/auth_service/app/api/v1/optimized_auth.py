@@ -3,7 +3,7 @@ Optimized Auth API Endpoints
 Ultra-fast authentication with response times under 300ms
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -244,9 +244,9 @@ async def login_fast(
 
 @router.get("/auth/me/fast")
 @limiter.limit("100/minute")
-@cache_async_result(ttl=300, key_prefix="fast_user_me")  # 5 minute cache
 async def get_current_user_fast(
     request: Request,
+    response: Response,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
@@ -254,15 +254,24 @@ async def get_current_user_fast(
     Ultra-fast current user retrieval
     Target response time: < 200ms
     """
+    # CRITICAL FIX: Disable browser caching for /me endpoint
+    # This prevents browser from returning cached data from previous user
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
     start_time = time.time()
     
     try:
         # Fast token verification
-        payload = decode_token(credentials.credentials)
+        token = credentials.credentials
+        logger.info(f"🔐 [FAST ME] Decoding token...")
+        payload = decode_token(token)
         if not payload:
             raise HTTPException(status_code=401, detail="Invalid token")
         
         user_id = payload.get("uid")
+        logger.info(f"🔐 [FAST ME] Token decoded successfully, user_id: {user_id}")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token payload")
         
@@ -272,6 +281,8 @@ async def get_current_user_fast(
             
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
+            
+            logger.info(f"🔐 [FAST ME] Retrieved user: {user.email} (id: {user.id})")
             
             # Prepare response
             user_data = {
@@ -284,21 +295,15 @@ async def get_current_user_fast(
                 "created_at": user.created_at.isoformat() if user.created_at else None,
                 "updated_at": user.updated_at.isoformat() if user.updated_at else None
             }
+            logger.info(f"🔐 [FAST ME] Returning user data: {user_data}")
         
         processing_time = (time.time() - start_time) * 1000
         
-        result = {
-            "user": user_data,
-            "performance": {
-                "processing_time_ms": round(processing_time, 2),
-                "optimized": True,
-                "endpoint": "fast_me",
-                "cached": False  # Will be set to True by cache decorator if cached
-            }
-        }
-        
+        # CRITICAL FIX: Return user data in the format expected by frontend
+        # Frontend expects: { success: true, data: { id, email, username, ... } }
+        # NOT: { success: true, data: { user: { ... }, performance: { ... } } }
         logger.info(f"Fast user retrieval completed in {processing_time:.2f}ms")
-        return resp(result, True, "User retrieved successfully", "success")
+        return resp(user_data, True, "User retrieved successfully", "success")
         
     except HTTPException:
         raise

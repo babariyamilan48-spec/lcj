@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, Query
+from fastapi import APIRouter, HTTPException, Depends, Request, Query, Response
 from sqlalchemy.orm import Session
 from core.database_dependencies_singleton import get_user_db, get_db
 from typing import List, Optional, Dict, Any
@@ -107,9 +107,15 @@ async def submit_result(result: TestResultCreate, db: Session = Depends(get_db))
 
 @router.get("/results/{user_id}")
 @limiter.limit("100/minute")
-async def get_user_results(request: Request, user_id: str, page: int = 1, size: int = 10, db: Session = Depends(get_db)):
+async def get_user_results(request: Request, user_id: str, page: int = 1, size: int = 10, db: Session = Depends(get_db), response: Response = None):
     """Get paginated results for a user - OPTIMIZED"""
     try:
+        # CRITICAL FIX: Disable browser caching for user results
+        if response:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        
         logger.info(f"Getting results for user {user_id}, page {page}, size {size}")
         results = await ResultService.get_user_results_paginated(user_id, page, size)
         logger.info(f"Successfully retrieved {len(results.get('results', []))} results")
@@ -151,9 +157,16 @@ async def update_user_profile(user_id: str, profile_data: UserProfileUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/analytics/{user_id}")
-async def get_user_analytics(user_id: str):
+async def get_user_analytics(user_id: str, response: Response = None):
     """Get user analytics data"""
     try:
+        # CRITICAL FIX: Disable browser caching for analytics endpoint
+        # This prevents browser from returning cached data from previous test completions
+        if response:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        
         return await ResultService.get_user_analytics(user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

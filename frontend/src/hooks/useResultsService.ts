@@ -364,6 +364,19 @@ export const useAnalytics = (userId?: string) => {
       fetchAnalytics();
     }
   }, [userId, fetchAnalytics]);
+  
+  // Also refresh when page becomes visible (e.g., when navigating back from profile)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && userId) {
+        console.log('📊 [useAnalytics] Page became visible, refreshing analytics data...');
+        fetchAnalytics();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [userId, fetchAnalytics]);
 
   return {
     analyticsData,

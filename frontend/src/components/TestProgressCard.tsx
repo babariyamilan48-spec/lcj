@@ -76,9 +76,24 @@ const TestProgressCard: React.FC<TestProgressCardProps> = ({
 
   useEffect(() => {
     if (userId) {
-      // Use cache-busting on initial load to ensure fresh data
+      // CRITICAL FIX: Always use cache-busting to ensure fresh completion data
+      // This is important because completion status changes frequently when tests are completed
+      console.log(`📊 [TestProgressCard] Fetching fresh completion data for user ${userId}`);
       fetchData(true);
     }
+  }, [userId]);
+  
+  // Also refresh when component becomes visible (e.g., when navigating back from profile)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && userId) {
+        console.log('📊 [TestProgressCard] Page became visible, refreshing data...');
+        fetchData(true);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [userId]);
   
   // Add refresh function for external use

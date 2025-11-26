@@ -311,8 +311,15 @@ class ResultsService {
     progressOverTime: { week: number; score: number }[];
     goals: any[];
   }> {
-    const response = await fetch(`${this.getBaseUrl()}/results_service/analytics/${userId}`, {
-      headers: this.getHeaders(),
+    // CRITICAL FIX: Add cache-busting parameters to prevent browser caching
+    // This ensures fresh analytics data is always fetched
+    const cacheBuster = `?_t=${Date.now()}&_r=${Math.random()}`;
+    const response = await fetch(`${this.getBaseUrl()}/results_service/analytics/${userId}${cacheBuster}`, {
+      headers: {
+        ...this.getHeaders(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      },
     });
     
     return this.handleResponse<{

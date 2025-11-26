@@ -29,10 +29,18 @@ export default function HomeRoot() {
 
   // Ensure we start on home screen when component mounts
   React.useEffect(() => {
-    if (currentScreen === 'about' || currentScreen === 'contact') {
+    // CRITICAL FIX: Always reset to home when navigating to /home page
+    // This prevents showing results/quiz screens when user navigates from profile
+    if (currentScreen !== 'home') {
+      console.log(`🏠 [HOME] Resetting from ${currentScreen} to home`);
       setCurrentScreen('home');
+      setSelectedTest(null);
+      setTestResults(null);
+      setUserAnswers({});
+      setCurrentQuestionIndex(0);
+      setTestProgress(0);
     }
-  }, [currentScreen, setCurrentScreen]);
+  }, []);
 
   const handleStart = () => {
     setCurrentScreen('selection');
@@ -64,6 +72,14 @@ export default function HomeRoot() {
   const handleNavigate = (screen: 'home' | 'selection' | 'quiz' | 'results' | 'about' | 'contact') => {
     if (screen === 'about' || screen === 'contact') {
       router.push(`/${screen}`);
+    } else if (screen === 'home') {
+      // CRITICAL FIX: Always reset to home screen, clear any previous state
+      setCurrentScreen('home');
+      setSelectedTest(null);
+      setTestResults(null);
+      setUserAnswers({});
+      setCurrentQuestionIndex(0);
+      setTestProgress(0);
     } else {
       setCurrentScreen(screen);
     }

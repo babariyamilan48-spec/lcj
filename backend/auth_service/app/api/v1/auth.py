@@ -97,6 +97,24 @@ async def login(request: Request, payload: LoginInput, db: Session = Depends(get
     ensure_password_provider(user)
     check_user_login_eligibility(user)
     access_token, refresh_token = generate_tokens_for_user(user, db)
+    
+    # CRITICAL FIX: Clear all cache for this user on login
+    user_id_str = str(user.id)
+    from core.cache import cache
+    cache_keys_to_clear = [
+        f"user_session:{user_id_str}",
+        f"user_profile:get_user_profile:{user_id_str}",
+        f"fast_user_me:get_current_user_fast:{user_id_str}",
+        f"user_results:{user_id_str}",
+        f"user_analytics:{user_id_str}",
+    ]
+    for cache_key in cache_keys_to_clear:
+        try:
+            cache.delete(cache_key)
+            logger.info(f"Cleared cache on login: {cache_key}")
+        except Exception as cache_error:
+            logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
+    
     out = UserOut(
         id=str(user.id),
         email=user.email,
@@ -317,6 +335,24 @@ async def google_login(
     with user_session_context(user_email) as db:
         user = upsert_user_from_google(db, claims)
         access_token, refresh_token = generate_tokens_for_user(user, db)
+    
+    # CRITICAL FIX: Clear all cache for this user on login
+    user_id_str = str(user.id)
+    from core.cache import cache
+    cache_keys_to_clear = [
+        f"user_session:{user_id_str}",
+        f"user_profile:get_user_profile:{user_id_str}",
+        f"fast_user_me:get_current_user_fast:{user_id_str}",
+        f"user_results:{user_id_str}",
+        f"user_analytics:{user_id_str}",
+    ]
+    for cache_key in cache_keys_to_clear:
+        try:
+            cache.delete(cache_key)
+            logger.info(f"Cleared cache on Google login: {cache_key}")
+        except Exception as cache_error:
+            logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
+    
     out = UserOut(
         id=str(user.id),
         email=user.email,
