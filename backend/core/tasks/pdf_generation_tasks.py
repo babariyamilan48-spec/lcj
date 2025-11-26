@@ -4,11 +4,18 @@ Handles asynchronous PDF generation to prevent blocking API requests.
 """
 
 import logging
+import sys
+import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 
 from celery import current_task
 from core.celery_app import celery_app
+
+# Ensure backend directory is in path for Celery workers
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +54,7 @@ def generate_pdf_report_task(
         logger.info(f"Starting PDF report generation for user {user_id} - Task ID: {self.request.id}")
         
         # Import here to avoid circular imports
-        import sys
-        import os
-        
-        # Add the backend directory to the Python path if not already there
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        if backend_dir not in sys.path:
-            sys.path.append(backend_dir)
-        
-        from results_service.app.services.result_service import ResultService
+        from results_service.app.services.result_service import ResultService  # noqa: E402
         
         # Update progress
         self.update_state(

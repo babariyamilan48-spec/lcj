@@ -4,12 +4,19 @@ Handles asynchronous AI insight generation to prevent blocking API requests.
 """
 
 import logging
+import sys
+import os
 from typing import Dict, Any
 from datetime import datetime
 
 from celery import current_task
 from core.celery_app import celery_app
 from core.services.ai_service import AIInsightService
+
+# Ensure backend directory is in path for Celery workers
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +104,7 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
         if result.get("success") and test_data.get('user_id'):
             try:
                 from core.database_fixed import get_db_session
-                from results_service.app.services.result_service import ResultService
+                from results_service.app.services.result_service import ResultService  # noqa: E402
                 
                 # Store the individual AI insights with proper session management
                 with get_db_session() as session:
@@ -243,7 +250,7 @@ def generate_comprehensive_ai_insights_task(self, request_data: Dict[str, Any]) 
         if result.get("success"):
             try:
                 from core.database_fixed import get_db_session
-                from results_service.app.services.result_service import ResultService
+                from results_service.app.services.result_service import ResultService  # noqa: E402
                 
                 # Store the AI insights with proper session management
                 with get_db_session() as session:
