@@ -35,6 +35,10 @@ class TestResult(Base):
         Index('idx_test_results_user_created', 'user_id', 'created_at'),  # User results by time
         Index('idx_test_results_test_completed', 'test_id', 'is_completed'),  # Test completion stats
         Index('idx_test_results_completed_at', 'completed_at'),  # Recent completions
+        # ✅ CRITICAL INDEXES FOR ANALYTICS QUERIES
+        Index('idx_test_results_is_completed_created', 'is_completed', 'created_at'),  # Analytics time-based queries
+        Index('idx_test_results_test_type_created', 'test_id', 'created_at'),  # Test type analytics
+        Index('idx_test_results_user_test_completed', 'user_id', 'test_id', 'is_completed'),  # Duplicate check
     )
 
     # Relationships

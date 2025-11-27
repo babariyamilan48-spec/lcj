@@ -113,24 +113,21 @@ class CompletionStatusService:
                 return []
             
             try:
-                # Query completed tests from database
-                completed_results = db.query(DBTestResult).filter(
-                    and_(
-                        DBTestResult.user_id == user_uuid,
-                        DBTestResult.is_completed == True
-                    )
-                ).all()
+                # ✅ OPTIMIZED: Get unique test IDs directly from database (no data transfer overhead)
+                completed_tests = [
+                    row[0] for row in db.query(DBTestResult.test_id).filter(
+                        and_(
+                            DBTestResult.user_id == user_uuid,
+                            DBTestResult.is_completed == True
+                        )
+                    ).distinct().all()
+                    if row[0] and row[0].strip()
+                ]
                 
-                # Extract unique test IDs
-                completed_tests = list(set([
-                    result.test_id for result in completed_results 
-                    if result.test_id and result.test_id.strip()
-                ]))
-                
-                # Cache the result for 2 minutes (shorter TTL for faster updates)
+                # Cache the result for 30 seconds (faster invalidation for frequently changing data)
                 try:
                     from core.cache import cache
-                    cache.set(cache_key, completed_tests, ttl=120)
+                    cache.set(cache_key, completed_tests, ttl=30)
                 except Exception as cache_error:
                     logger.warning(f"Failed to cache completed tests for user {user_id}: {cache_error}")
                 

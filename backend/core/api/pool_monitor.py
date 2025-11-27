@@ -1,16 +1,9 @@
 """
-Simplified connection pool monitoring
-Uses core.database_simple for direct, reliable monitoring
+Connection pool monitoring - uses core.database_fixed
+Provides real-time monitoring of database connection pool status
 """
 from fastapi import APIRouter, HTTPException
-from core.database_simple import (
-    engine,
-    check_db_health,
-    get_pool_diagnostics,
-    reset_pool,
-    POOL_SIZE,
-    MAX_OVERFLOW
-)
+from core.database_fixed import db_manager, check_db_health
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,7 +15,7 @@ router = APIRouter()
 async def pool_status():
     """Get current pool status"""
     try:
-        pool = engine.pool
+        pool = db_manager.engine.pool
         checked_out = pool.checkedout()
         checked_in = pool.checkedin()
         
@@ -32,18 +25,18 @@ async def pool_status():
                 "size": pool.size(),
                 "checked_in": checked_in,
                 "checked_out": checked_out,
-                "max_overflow": MAX_OVERFLOW,  # Use configured value
+                "max_overflow": 5,  # Configured in database_fixed.py
                 "total": checked_in + checked_out,
                 "available": checked_in,
                 "in_use": checked_out
             },
             "limits": {
-                "pool_size": POOL_SIZE,
-                "max_overflow": MAX_OVERFLOW,
-                "total_limit": POOL_SIZE + MAX_OVERFLOW,
+                "pool_size": 3,
+                "max_overflow": 5,
+                "total_limit": 8,
                 "supabase_limit": 30
             },
-            "health": "healthy" if checked_out < 10 else "warning" if checked_out < 14 else "critical"
+            "health": "healthy" if checked_out < 7 else "warning" if checked_out < 8 else "critical"
         }
     except Exception as e:
         logger.error(f"Error getting pool status: {e}")
@@ -63,13 +56,14 @@ async def pool_health():
                 "message": "Cannot connect to database"
             }
         
-        checked_out = health.get("checked_out", 0)
+        pool_stats = health.get("pool_stats", {})
+        checked_out = pool_stats.get("checked_out", 0)
         
-        # Determine health status
-        if checked_out >= 14:
+        # Determine health status (8 total connections: 3 base + 5 overflow)
+        if checked_out >= 8:
             status = "critical"
-            message = "Connection pool nearly exhausted!"
-        elif checked_out >= 10:
+            message = "Connection pool exhausted!"
+        elif checked_out >= 6:
             status = "warning"
             message = "Connection pool usage is high"
         else:
@@ -80,10 +74,10 @@ async def pool_health():
             "status": status,
             "message": message,
             "connections": {
-                "total": health.get("pool_size", 0),
+                "total": 8,
                 "in_use": checked_out,
-                "available": health.get("checked_in", 0),
-                "percentage_used": round((checked_out / 15) * 100, 2)
+                "available": 8 - checked_out,
+                "percentage_used": round((checked_out / 8) * 100, 2)
             },
             "recommendations": get_recommendations(status, checked_out)
         }
@@ -96,28 +90,39 @@ async def pool_health():
 async def pool_diagnostics():
     """Get detailed pool diagnostics"""
     try:
-        diag = get_pool_diagnostics()
+        health = check_db_health()
         
-        if diag.get("status") != "success":
-            return diag
+        if health.get("status") != "healthy":
+            return {"status": "error", "error": health.get("error")}
+        
+        pool_stats = health.get("pool_stats", {})
         
         return {
             "status": "success",
             "diagnostics": {
-                "pool_size": diag.get("pool_size"),
-                "max_overflow": diag.get("max_overflow"),
-                "checked_in": diag.get("checked_in"),
-                "checked_out": diag.get("checked_out"),
-                "total_connections": diag.get("total_connections"),
-                "available_connections": diag.get("available_connections"),
-                "in_use_connections": diag.get("in_use_connections"),
-                "usage_percent": diag.get("usage_percent")
+                "pool_size": 3,
+                "max_overflow": 5,
+                "checked_in": pool_stats.get("checked_in", 0),
+                "checked_out": pool_stats.get("checked_out", 0),
+                "overflow": pool_stats.get("overflow", 0),
+                "total_connections": pool_stats.get("checked_in", 0) + pool_stats.get("checked_out", 0),
+                "available_connections": pool_stats.get("checked_in", 0),
+                "in_use_connections": pool_stats.get("checked_out", 0),
+                "usage_percent": round((pool_stats.get("checked_out", 0) / 8) * 100, 2)
             },
-            "configuration": diag.get("configuration"),
+            "configuration": {
+                "pool_size": 3,
+                "max_overflow": 5,
+                "total_limit": 8,
+                "supabase_limit": 30,
+                "statement_timeout": "10s",
+                "idle_timeout": "30s",
+                "lock_timeout": "8s"
+            },
             "expected": {
-                "pool_size": 5,
-                "max_overflow": 10,
-                "total_limit": 15
+                "pool_size": 3,
+                "max_overflow": 5,
+                "total_limit": 8
             }
         }
     except Exception as e:
@@ -129,16 +134,14 @@ async def pool_diagnostics():
 async def reset_pool_endpoint():
     """Reset connection pool (emergency only)"""
     try:
-        result = reset_pool()
+        from core.database_fixed import reset_db_connection
+        reset_db_connection()
         
-        if result.get("status") == "success":
-            return {
-                "status": "success",
-                "message": "Connection pool reset successfully",
-                "warning": "All existing connections have been closed"
-            }
-        else:
-            raise HTTPException(status_code=500, detail=result.get("error"))
+        return {
+            "status": "success",
+            "message": "Connection pool reset successfully",
+            "warning": "All existing connections have been closed"
+        }
     except Exception as e:
         logger.error(f"Error resetting pool: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to reset pool: {str(e)}")

@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional
 import logging
 from datetime import datetime
 
-from core.database_service import db_service
+from core.database_fixed import get_db, db_manager
 from core.supabase_client import supabase_manager
 
 logger = logging.getLogger(__name__)

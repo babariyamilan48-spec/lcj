@@ -9,7 +9,7 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.exc import OperationalError, TimeoutError, DisconnectionError
 from psycopg2 import OperationalError as Psycopg2OperationalError
-from core.database_singleton import db_singleton, reset_db_connection
+from core.database_fixed import get_db, db_manager
 
 logger = logging.getLogger(__name__)
 

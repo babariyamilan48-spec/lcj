@@ -44,7 +44,7 @@ async def test_supabase_connection():
     print("🔍 Testing Supabase connection...")
     
     try:
-        from core.database_service import db_health_check
+        from core.database_fixed import get_db, db_manager
         
         health = await db_health_check()
         

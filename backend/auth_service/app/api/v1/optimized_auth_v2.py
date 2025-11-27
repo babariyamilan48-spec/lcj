@@ -15,10 +15,10 @@ from ...schemas.user import SignupInput, UserOut, VerifyEmailRequestInput, Verif
 from ...schemas.auth import LoginRequest, LoginResponse, UserResponse
 from ...services.auth import authenticate_user_with_details, generate_tokens_for_user, register_user, verify_and_consume_otp, get_user_by_email, issue_reset_otp, verify_google_token, upsert_user_from_google, validate_refresh_token
 from ...utils.jwt import get_password_hash
-from core.database_dependencies_singleton import get_user_db, get_db
-from core.user_session_singleton import user_session_context
-from core.session_manager import get_session_health, force_close_user_sessions
-from core.database_pool import optimized_db_pool
+from core.database_fixed import get_db, get_db_session
+from core.database_fixed import get_db_session
+from core.database_fixed import get_db_session
+from core.database_fixed import get_db, db_manager
 from core.cache import cache
 from core.email import send_email_sync as send_email, otp_email_html, is_email_configured
 from core.rate_limit import limiter
@@ -44,7 +44,8 @@ async def signup_optimized_v2(
     start_time = time.time()
     
     try:
-        with optimized_db_pool.get_session() as session:
+        from core.database_fixed import get_db_session
+        with get_db_session() as session:
             try:
                 # Register the user
                 user = register_user(session, signup_data)
@@ -138,7 +139,8 @@ async def login_optimized_v2(
             )
         
         # Use centralized session manager for authentication
-        with optimized_db_pool.get_session() as session:
+        from core.database_fixed import get_db_session
+        with get_db_session() as session:
             try:
                 # Authenticate user with detailed error information
                 user, error_type = authenticate_user_with_details(
@@ -426,7 +428,7 @@ async def verify_email_request_optimized(
     Request email verification OTP
     """
     try:
-        with optimized_db_pool.get_session() as session:
+        with get_db_session() as session:
             user = get_user_by_email(session, payload.email)
             if not user:
                 raise HTTPException(
@@ -500,7 +502,7 @@ async def verify_email_confirm_optimized(
     Confirm email verification with OTP
     """
     try:
-        with optimized_db_pool.get_session() as session:
+        with get_db_session() as session:
             # Verify and consume OTP
             user = verify_and_consume_otp(
                 session,
@@ -552,7 +554,7 @@ async def auth_health_check_optimized_v2() -> Dict[str, Any]:
         # Test database connection
         connection_test = False
         try:
-            with optimized_db_pool.get_session() as session:
+            with get_db_session() as session:
                 from sqlalchemy import text
                 result = session.execute(text("SELECT 1")).scalar()
                 connection_test = (result == 1)
@@ -816,8 +818,9 @@ async def google_login_optimized(
         # Get user email from claims for session management
         user_email = claims.get("email", "google-user")
         
-        # Use session context for proper session management
-        with user_session_context(user_email) as db:
+        # Use proper session management with get_db_session
+        from core.database_fixed import get_db_session
+        with get_db_session() as db:
             user = upsert_user_from_google(db, claims)
             access_token, refresh_token = generate_tokens_for_user(user, db)
         

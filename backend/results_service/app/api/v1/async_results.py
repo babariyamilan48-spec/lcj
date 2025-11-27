@@ -24,7 +24,7 @@ from core.tasks.pdf_generation_tasks import (
 
 # Import ResultService for one-time restriction check
 from results_service.app.services.result_service import ResultService
-from core.database_dependencies_singleton import get_user_db, get_db
+from core.database_fixed import get_db, get_db_session
 
 logger = logging.getLogger(__name__)
 

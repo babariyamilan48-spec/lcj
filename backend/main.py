@@ -18,7 +18,9 @@ from contact_service.app.api.v1.api import api_router as contact_router  # noqa:
 from core.api.session_management import router as session_management_router  # noqa: E402
 from core.api.session_singleton_management import router as session_singleton_router  # noqa: E402
 from core.api.pool_monitor import router as pool_monitor_router  # noqa: E402
+from core.api.connection_diagnostics import router as connection_diagnostics_router  # noqa: E402
 from core.database_fixed import close_db_connection  # noqa: E402
+from core.middleware.query_monitoring import *  # noqa: E402, F401, F403 - Auto-registers query monitoring
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ app.include_router(contact_router, prefix="/api/v1/contact_service", tags=["Cont
 app.include_router(session_management_router, prefix="/api/v1/core", tags=["Session Management"])
 app.include_router(session_singleton_router, prefix="/api/v1/core", tags=["Session Management"])
 app.include_router(pool_monitor_router, prefix="/api/v1/core", tags=["Pool Monitoring"])
+app.include_router(connection_diagnostics_router, prefix="/api/v1/core", tags=["Connection Diagnostics"])
 
 # Health check endpoints for individual services
 @app.get("/health")
@@ -144,10 +147,6 @@ async def startup_event():
     print("   • Query optimization with eager loading")
     print("   • JSON response optimization")
     print("   • Background session cleanup tasks")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    print("🛑 LCJ Unified API Server shutting down...")
 
 # Performance monitoring endpoints
 @app.get("/performance")

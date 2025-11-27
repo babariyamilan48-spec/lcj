@@ -9,7 +9,7 @@ from core.middleware.middlewares import setup_middlewares
 from core.rate_limit import limiter
 import json
 from datetime import datetime
-from core.user_session_singleton import get_user_session_manager
+from core.database_fixed import get_db_session
 
 def create_app(config: dict | None = None) -> FastAPI:
     config = config or {}
@@ -45,26 +45,6 @@ def create_app(config: dict | None = None) -> FastAPI:
         app.add_middleware(SlowAPIMiddleware)
     except Exception:
         pass
-    
-    # Initialize session manager with cleanup thread
-    @app.on_event("startup")
-    async def startup_session_manager():
-        """Start session cleanup thread on startup"""
-        try:
-            manager = get_user_session_manager()
-            manager.start_cleanup_thread()
-        except Exception as e:
-            print(f"Warning: Failed to start session cleanup thread: {e}")
-    
-    @app.on_event("shutdown")
-    async def shutdown_session_manager():
-        """Stop session cleanup thread on shutdown"""
-        try:
-            manager = get_user_session_manager()
-            manager.stop_cleanup_thread()
-            manager.force_cleanup_all()
-        except Exception as e:
-            print(f"Warning: Failed to stop session cleanup thread: {e}")
 
     return app
 

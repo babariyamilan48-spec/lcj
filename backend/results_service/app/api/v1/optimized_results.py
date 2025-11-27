@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 
 from core.cache import cache_async_result
-from core.database_dependencies_singleton import get_user_db, get_db
+from core.database_fixed import get_db, get_db_session
 from core.middleware.compression import compress_json_response, optimize_large_response
 from core.rate_limit import limiter
 from core.app_factory import resp

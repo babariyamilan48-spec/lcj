@@ -28,6 +28,9 @@ class AIInsights(Base):
         Index('idx_ai_insights_user_status', 'user_id', 'status'),  # User insights by status
         Index('idx_ai_insights_generated_at', 'generated_at'),  # Recent insights
         Index('idx_ai_insights_type_status', 'insights_type', 'status'),  # Insights by type and status
+        # ✅ CRITICAL INDEXES FOR PERFORMANCE
+        Index('idx_ai_insights_user_generated', 'user_id', 'generated_at'),  # User insights by time
+        Index('idx_ai_insights_user_created', 'user_id', 'created_at'),  # User creation time queries
     )
 
     # Relationships would be defined if User model is available

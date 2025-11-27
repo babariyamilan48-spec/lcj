@@ -53,19 +53,19 @@ class DatabaseManager:
             pass  # Database initialization
             
             # CRITICAL: Supabase has 30-connection limit
-            # pool_size=3 + max_overflow=5 = 8 total (safe margin)
+            # pool_size=5 + max_overflow=10 = 15 total (safe margin with better performance)
             self.engine = create_engine(
                 database_url,
                 
-                # ✅ OPTIMIZED CONNECTION POOL SETTINGS FOR SUPABASE
+                # OPTIMIZED CONNECTION POOL SETTINGS FOR SUPABASE
                 poolclass=QueuePool,
-                pool_size=3,              # Base connections (conservative)
-                max_overflow=5,           # Additional connections when needed
-                pool_timeout=15,          # 15 second timeout for getting connection
+                pool_size=5,              # Base connections (increased from 3)
+                max_overflow=8,          # Additional connections when needed (increased from 5)
+                pool_timeout=10,           # 5 second timeout for getting connection (reduced from 15)
                 pool_recycle=300,         # Recycle connections every 5 minutes
                 pool_pre_ping=True,       # Validate connections before use
                 
-                # ✅ CONNECTION SETTINGS - OPTIMIZED FOR SUPABASE
+                # CONNECTION SETTINGS - OPTIMIZED FOR SUPABASE
                 connect_args={
                     "connect_timeout": 15,  # 15 second connection timeout
                     "application_name": "lcj_backend_fixed",

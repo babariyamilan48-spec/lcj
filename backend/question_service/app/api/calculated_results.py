@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
 
-from core.database_dependencies_singleton import get_db
+from core.database_fixed import get_db, get_db_session
 from ..models.calculated_result import CalculatedTestResult
 from ..services.calculated_result_service import CalculatedResultService
 

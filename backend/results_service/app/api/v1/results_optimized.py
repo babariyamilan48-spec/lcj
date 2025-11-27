@@ -18,9 +18,9 @@ from results_service.app.services.optimized_result_service_v2 import OptimizedRe
 from results_service.app.services.markdown_report_service import MarkdownReportService
 from results_service.app.services.pdf_generator import PDFGeneratorService
 from core.services.ai_service import AIInsightService
-from core.database_dependencies_singleton import get_user_db
-from core.user_session_singleton import user_session_context
-from core.session_manager import force_close_user_sessions
+from core.database_fixed import get_db, get_db_session
+from core.database_fixed import get_db_session
+from core.database_fixed import get_db_session
 from core.cache import cache_async_result, QueryCache
 from core.middleware.compression import compress_json_response, optimize_large_response
 from core.rate_limit import limiter
@@ -439,7 +439,7 @@ async def results_health_check_optimized() -> Dict[str, Any]:
     Health check for optimized results service
     """
     try:
-        from core.session_manager import get_session_health
+        from core.database_fixed import get_db_session
         
         # Get session health
         session_health = get_session_health()

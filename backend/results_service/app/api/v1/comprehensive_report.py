@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from core.database_dependencies_singleton import get_user_db, get_db
+from core.database_fixed import get_db, get_db_session
 from results_service.app.services.result_service import ResultService
 from datetime import datetime
 import logging

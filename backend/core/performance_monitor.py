@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 from core.cache import cache, cache_health_check
-from core.database import DatabaseMonitor, check_db_health
+from core.database_fixed importDatabaseMonitor, check_db_health
 from core.middleware.middlewares import middleware_health_check
 import asyncio
 

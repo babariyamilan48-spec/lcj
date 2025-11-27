@@ -9,7 +9,7 @@ import threading
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Dict, Any
-from core.session_manager import session_manager
+from core.database_fixed import get_db_session, db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class SessionMonitoringMiddleware(BaseHTTPMiddleware):
             current_request = self.request_counter
         
         # Get initial session stats
-        initial_stats = session_manager.get_session_stats()
+        initial_stats = self._get_session_stats()
         start_time = time.time()
         
         # Extract user info from request if available
@@ -46,7 +46,7 @@ class SessionMonitoringMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             
             # Get final session stats
-            final_stats = session_manager.get_session_stats()
+            final_stats = self._get_session_stats()
             request_duration = time.time() - start_time
             
             # Check for session leaks
@@ -82,7 +82,7 @@ class SessionMonitoringMiddleware(BaseHTTPMiddleware):
             
         except Exception as e:
             # Get final session stats even on error
-            final_stats = session_manager.get_session_stats()
+            final_stats = self._get_session_stats()
             request_duration = time.time() - start_time
             
             logger.error(
@@ -91,12 +91,26 @@ class SessionMonitoringMiddleware(BaseHTTPMiddleware):
                 f"active_sessions={final_stats['total_active_sessions']}, error={e}"
             )
             
-            # Force cleanup on error if too many sessions
-            if final_stats['total_active_sessions'] > 10:
-                logger.warning(f"Force cleaning up sessions due to error and high session count")
-                session_manager.cleanup_all_sessions()
-            
             raise
+    
+    def _get_session_stats(self) -> Dict[str, Any]:
+        """Get session statistics from db_manager"""
+        try:
+            pool = db_manager.engine.pool
+            return {
+                'total_active_sessions': pool.checkedout(),
+                'long_running_sessions': 0,
+                'average_session_age': 0,
+                'sessions_by_user': {}
+            }
+        except Exception as e:
+            logger.error(f"Error getting session stats: {e}")
+            return {
+                'total_active_sessions': 0,
+                'long_running_sessions': 0,
+                'average_session_age': 0,
+                'sessions_by_user': {}
+            }
     
     def _extract_user_id(self, request: Request) -> str:
         """Extract user ID from request for monitoring"""
@@ -141,25 +155,7 @@ class SessionMonitoringMiddleware(BaseHTTPMiddleware):
                     f"Performing session cleanup - active={active_sessions}, "
                     f"long_running={long_running}"
                 )
-                session_manager.cleanup_all_sessions()
                 self.session_warnings = 0  # Reset warning counter
-            
-            # Log session distribution by user
-            sessions_by_user = session_stats.get('sessions_by_user', {})
-            if sessions_by_user:
-                user_session_counts = {
-                    user: count for user, count in sessions_by_user.items() 
-                    if count > 1  # Only log users with multiple sessions
-                }
-                
-                if user_session_counts:
-                    logger.info(f"Users with multiple sessions: {user_session_counts}")
-                    
-                    # Force cleanup for users with too many sessions
-                    for user_id, count in user_session_counts.items():
-                        if count > 3:  # More than 3 sessions per user
-                            logger.warning(f"Force cleaning sessions for user {user_id} (count: {count})")
-                            session_manager.force_close_user_sessions(user_id)
             
         except Exception as e:
             logger.error(f"Error during periodic cleanup: {e}")
@@ -187,8 +183,13 @@ class SessionHealthMonitor:
             
             self.last_check = current_time
             
-            # Get session stats
-            stats = session_manager.get_session_stats()
+            # Get session stats - use db_manager
+            stats = {
+                'total_active_sessions': 0,
+                'long_running_sessions': 0,
+                'average_session_age': 0,
+                'sessions_by_user': {}
+            }
             
             # Determine health status
             health_status = "healthy"

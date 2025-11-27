@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 
-from core.database_dependencies_singleton import get_db
+from core.database_fixed import get_db, get_db_session
 from auth_service.app.deps.auth import get_current_admin_user
 from auth_service.app.models.user import User, Payment
 from core.app_factory import resp

@@ -8,12 +8,7 @@ from typing import Dict, Any, List
 import logging
 import time
 
-from core.session_manager import (
-    session_manager, 
-    get_session_health, 
-    cleanup_sessions, 
-    force_close_user_sessions
-)
+from core.database_fixed import get_db_session
 from core.middleware.session_monitoring import (
     session_health_monitor,
     get_session_monitoring_health,

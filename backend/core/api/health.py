@@ -4,7 +4,7 @@ Monitor database and system health
 """
 
 from fastapi import APIRouter, HTTPException
-from core.database_singleton import check_db_health, reset_db_connection
+from core.database_fixed import get_db, db_manager
 from core.middleware.database_error_handler import get_database_health, get_database_health_summary
 from sqlalchemy import text
 import logging

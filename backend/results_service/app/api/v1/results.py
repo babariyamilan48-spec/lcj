@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request, Query, Response
 from sqlalchemy.orm import Session
-from core.database_dependencies_singleton import get_user_db, get_db
+from core.database_fixed import get_db, get_db_session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import io
@@ -57,18 +57,33 @@ async def submit_result(result: TestResultCreate, db: Session = Depends(get_db))
     try:
         logger.info(f"Submitting result for user {result.user_id}, test {result.test_id}")
         
-        # Check for existing results to prevent duplicates
-        existing_results = await ResultService.get_user_results(str(result.user_id))
+        # ✅ OPTIMIZED: Single targeted query instead of fetching all results
+        import uuid
+        from sqlalchemy import and_
+        from question_service.app.models.test_result import TestResult as DBTestResult
         
-        # Check if user has already completed this test (one-time restriction)
-        for existing_result in existing_results:
-            if existing_result.test_id == result.test_id:
-                logger.info(f"Test already completed by user {result.user_id}, test {result.test_id}. Preventing retake.")
-                return ResultSubmissionResponse(
-                    message="Test already completed. Each test can only be taken once.", 
-                    result_id=existing_result.id,
-                    is_duplicate=True
-                )
+        try:
+            user_uuid = uuid.UUID(str(result.user_id))
+        except (ValueError, TypeError):
+            logger.error(f"Invalid user_id format: {result.user_id}")
+            raise HTTPException(status_code=400, detail="Invalid user ID format")
+        
+        # Check for existing result with single targeted query
+        existing_result = db.query(DBTestResult).filter(
+            and_(
+                DBTestResult.user_id == user_uuid,
+                DBTestResult.test_id == result.test_id,
+                DBTestResult.is_completed == True
+            )
+        ).first()
+        
+        if existing_result:
+            logger.info(f"Test already completed by user {result.user_id}, test {result.test_id}. Preventing retake.")
+            return ResultSubmissionResponse(
+                message="Test already completed. Each test can only be taken once.", 
+                result_id=str(existing_result.id),
+                is_duplicate=True
+            )
         
         # Create new result if no recent duplicate found
         created_result = await ResultService.create_result(result)

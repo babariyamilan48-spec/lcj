@@ -9,7 +9,7 @@ import uuid
 import logging
 
 from ..schemas.result import TestResult, TestResultCreate, UserProfile, UserProfileUpdate, AnalyticsData, UserStats
-from core.session_manager import get_user_session, get_session
+from core.database_fixed import get_db_session
 from core.cache import cache_async_result, QueryCache
 
 logger = logging.getLogger(__name__)

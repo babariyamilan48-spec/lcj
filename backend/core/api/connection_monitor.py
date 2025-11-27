@@ -5,8 +5,8 @@ Helps diagnose and fix connection pool exhaustion issues
 from fastapi import APIRouter, HTTPException
 from core.database_fixed import db_manager
 # engine = db_manager.engine, DatabaseMonitor
-from core.database_pool import optimized_db_pool
-from core.database_singleton import db_singleton
+from core.database_fixed import get_db, db_manager
+from core.database_fixed import get_db, db_manager
 import logging
 
 logger = logging.getLogger(__name__)

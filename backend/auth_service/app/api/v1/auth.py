@@ -3,7 +3,7 @@ import secrets
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.orm import Session
-from core.database_dependencies_singleton import get_user_db, get_db
+from core.database_fixed import get_db
 from auth_service.app.deps.auth import get_current_user
 from core.app_factory import resp
 from auth_service.app.schemas.user import (
@@ -329,10 +329,9 @@ async def google_login(
     
     # Get user email from claims for session management
     user_email = claims.get("email", "google-user")
-    from core.database_dependencies_singleton import get_user_db as get_user_db_func
-    from core.user_session_singleton import user_session_context
+    from core.database_fixed import get_db_session
     
-    with user_session_context(user_email) as db:
+    with get_db_session() as db:
         user = upsert_user_from_google(db, claims)
         access_token, refresh_token = generate_tokens_for_user(user, db)
     

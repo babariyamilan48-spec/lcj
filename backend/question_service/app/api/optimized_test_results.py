@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 import time
 import logging
 
-from core.database_dependencies_singleton import get_user_db, get_db
+from core.database_fixed import get_db, get_db_session
 from auth_service.app.models.user import User
 from ..deps.auth import get_current_user
 from ..models.test_result import TestResult

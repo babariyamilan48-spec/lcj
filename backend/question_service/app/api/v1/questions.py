@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
-from core.database_dependencies_singleton import get_db
+from core.database_fixed import get_db, get_db_session
 from core.app_factory import resp
 from question_service.app.deps.auth import get_current_user
 # Removed: from app.models.user import User

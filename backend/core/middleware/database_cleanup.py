@@ -49,7 +49,7 @@ class DatabaseCleanupMiddleware(BaseHTTPMiddleware):
             # Force cleanup of any lingering database connections
             try:
                 # Import here to avoid circular imports
-                from core.database_pool import optimized_db_pool
+                from core.database_fixed import get_db, db_manager
                 
                 # Force cleanup if request took too long
                 processing_time = time.time() - start_time
