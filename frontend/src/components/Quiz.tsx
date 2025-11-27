@@ -86,17 +86,44 @@ const Quiz: React.FC<QuizProps> = ({ onComplete, onBack }) => {
 
     if (apiQuestions && apiQuestions.length > 0) {
       console.log('✅ Converting API questions to local format:', apiQuestions.length, 'questions');
+      
+      // Debug: Log first question's options to see their order
+      if (apiQuestions.length > 0) {
+        console.log('🔍 First question options (before sort):', apiQuestions[0].options.map((o: ApiOption) => ({
+          text: o.option_text?.substring(0, 30),
+          option_order: o.option_order
+        })));
+      }
 
       const convertedQuestions: Question[] = apiQuestions.map((apiQ: ApiQuestion) => ({
         question: apiQ.question_text,
-        options: apiQ.options.map((opt: ApiOption) => ({
-          text: opt.option_text,
-          dimension: opt.dimension,
-          weight: opt.weight,
-          score: opt.weight // Use weight as score for compatibility
-        })),
+        options: apiQ.options
+          .sort((a: ApiOption, b: ApiOption) => {
+            // First try sorting by option_order if available
+            if ((a.option_order || 0) !== (b.option_order || 0)) {
+              return (a.option_order || 0) - (b.option_order || 0);
+            }
+            // Fallback: Extract letter from text (A), (B), (C), (D)
+            const aMatch = a.option_text?.match(/\(([A-Z])\)/);
+            const bMatch = b.option_text?.match(/\(([A-Z])\)/);
+            if (aMatch && bMatch) {
+              return aMatch[1].charCodeAt(0) - bMatch[1].charCodeAt(0);
+            }
+            return 0;
+          })
+          .map((opt: ApiOption) => ({
+            text: opt.option_text,
+            dimension: opt.dimension,
+            weight: opt.weight,
+            score: opt.weight // Use weight as score for compatibility
+          })),
         category: apiQ.section_id?.toString() || 'general'
       }));
+      
+      // Debug: Log first question's options after sort
+      if (convertedQuestions.length > 0) {
+        console.log('✅ First question options (after sort):', convertedQuestions[0].options.map((o: QuestionOption) => o.text?.substring(0, 30)));
+      }
 
       console.log('✅ Converted questions:', convertedQuestions.length);
       setQuestions(convertedQuestions);
