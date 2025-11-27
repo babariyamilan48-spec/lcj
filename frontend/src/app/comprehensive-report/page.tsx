@@ -154,7 +154,7 @@ const ComprehensiveReportPage = () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
         
-        const workerResponse = await fetch('https://lcj-celery-worker.onrender.com', {
+        const workerResponse = await fetch('https://lcj-celery-worker.onrender.com/health', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

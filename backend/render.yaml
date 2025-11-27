@@ -33,13 +33,13 @@ services:
         sync: false
     healthCheckPath: /health
     
-  # Celery Worker Service
-  - type: worker
+  # Celery Worker Service with Health Check
+  - type: web
     name: lcj-celery-worker
     env: python
     plan: starter
     buildCommand: pip install -r requirements.prod.txt
-    startCommand: python start_celery_worker.py
+    startCommand: python celery_health_server.py
     envVars:
       - key: ENVIRONMENT
         value: production
@@ -59,6 +59,7 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+    healthCheckPath: /health
 
   # Celery Beat Scheduler (Optional - for periodic tasks)
   - type: worker
