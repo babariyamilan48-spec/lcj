@@ -43,48 +43,14 @@ app.include_router(pool_monitor_router, prefix="/api/v1/core", tags=["Pool Monit
 # Health check endpoints for individual services
 @app.get("/health")
 async def health_check():
-    """Fast health check with session management monitoring"""
-    try:
-        # Quick database check
-        from core.database_fixed import check_db_health
-        db_status = check_db_health()
-        
-        # Session management health check
-        try:
-            from core.session_manager import get_session_health
-            session_status = get_session_health()
-        except Exception as e:
-            session_status = {"status": "error", "error": str(e)}
-        
-        # Determine overall status
-        overall_status = "healthy"
-        if db_status.get("status") != "healthy":
-            overall_status = "degraded"
-        if session_status.get("status") not in ["healthy", "warning"]:
-            overall_status = "degraded"
-        if session_status.get("status") == "critical":
-            overall_status = "critical"
-        
-        return {
-            "status": overall_status,
-            "service": "unified_lcj_api_with_session_management",
-            "services": {
-                "auth": "healthy",
-                "questions": "healthy", 
-                "results": "healthy",
-                "contact": "healthy"
-            },
-            "database": db_status,
-            "session_management": session_status,
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "service": "unified_lcj_api_with_session_management", 
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
+    """⚡ ULTRA-FAST health check - no database queries"""
+    # This endpoint is called by load balancers every second
+    # Must respond in <100ms to avoid cascading slowness
+    return {
+        "status": "healthy",
+        "service": "unified_lcj_api",
+        "timestamp": datetime.now().isoformat()
+    }
 
 @app.get("/health/database")
 async def database_health():
