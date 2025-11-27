@@ -119,14 +119,9 @@ class SessionManager:
         start_time = time.time()
         
         try:
-            # Get session from optimized pool with fallback
-            try:
-                session = optimized_db_pool.get_session_sync()
-                logger.debug(f"Using optimized pool session for operation: {operation}")
-            except Exception as pool_error:
-                logger.warning(f"Optimized pool failed for operation {operation}: {pool_error}")
-                session = db_singleton.SessionLocal()
-                logger.debug(f"Using singleton session for operation: {operation}")
+            # ✅ FIXED: Get session from fixed database manager only
+            session = db_manager.SessionLocal()
+            logger.debug(f"Using database manager session for operation: {operation}")
             
             # Test connection
             session.execute(text("SELECT 1"))

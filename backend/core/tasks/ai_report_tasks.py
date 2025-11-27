@@ -104,28 +104,43 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
         if result.get("success") and test_data.get('user_id'):
             try:
                 from core.database_fixed import get_db_session
-                from results_service.app.services.result_service import ResultService  # noqa: E402
+                from question_service.app.models.ai_insights import AIInsights  # noqa: E402
+                import uuid
+                import json
+                
+                user_id = test_data.get('user_id')
                 
                 # Store the individual AI insights with proper session management
                 with get_db_session() as session:
-                    stored_result = ResultService.store_ai_insights_sync(
-                        session=session,
-                        user_id=test_data.get('user_id'),
-                        insights_data=result["insights"],
-                        generated_at=result.get("generated_at"),
-                        model=result.get("model"),
-                        test_results_used=[test_data.get('test_id')],
-                        generation_duration=None,
-                        insights_type="individual"
-                    )
-                
-                if stored_result:
-                    logger.info(f"Individual AI insights stored successfully in database for user {test_data.get('user_id')}")
-                    result['stored_in_db'] = True
-                    result['db_record_id'] = stored_result.get('id')
-                else:
-                    logger.warning(f"Failed to store individual AI insights in database for user {test_data.get('user_id')}")
-                    result['stored_in_db'] = False
+                    try:
+                        # Convert user_id to UUID
+                        user_uuid = uuid.UUID(user_id)
+                    except (ValueError, TypeError):
+                        logger.error(f"Invalid user_id format: {user_id}")
+                        result['stored_in_db'] = False
+                        result['storage_error'] = "Invalid user_id format"
+                    else:
+                        # Create AI insights record
+                        ai_insights = AIInsights(
+                            user_id=user_uuid,
+                            insights_type="individual",
+                            insights_data=json.dumps(result["insights"]),
+                            model_used=result.get("model", "gemini"),
+                            confidence_score=95,
+                            status="completed",
+                            generated_at=result.get("generated_at") or datetime.utcnow().isoformat(),
+                            test_results_used=json.dumps([test_data.get('test_id')]),
+                            generation_duration=None
+                        )
+                        
+                        # Save to database
+                        session.add(ai_insights)
+                        session.commit()
+                        session.refresh(ai_insights)
+                        
+                        logger.info(f"Individual AI insights stored successfully in database for user {user_id}")
+                        result['stored_in_db'] = True
+                        result['db_record_id'] = str(ai_insights.id)
                     
             except Exception as storage_error:
                 logger.error(f"Error storing individual AI insights for user {test_data.get('user_id')}: {str(storage_error)}")
@@ -250,31 +265,44 @@ def generate_comprehensive_ai_insights_task(self, request_data: Dict[str, Any]) 
         if result.get("success"):
             try:
                 from core.database_fixed import get_db_session
-                from results_service.app.services.result_service import ResultService  # noqa: E402
+                from question_service.app.models.ai_insights import AIInsights  # noqa: E402
+                import uuid
+                import json
                 
                 # Store the AI insights with proper session management
                 with get_db_session() as session:
-                    stored_result = ResultService.store_ai_insights_sync(
-                        session=session,
-                        user_id=user_id,
-                        insights_data=result["insights"],
-                        generated_at=result.get("generated_at"),
-                        model=result.get("model"),
-                        test_results_used=list(request_data.get('all_test_results', {}).keys()),
-                        generation_duration=None,  # Could calculate from task start time
-                        insights_type="comprehensive"
-                    )
-                
-                if stored_result:
-                    logger.info(f"AI insights stored successfully in database for user {user_id}")
-                    result['stored_in_db'] = True
-                    result['db_record_id'] = stored_result.get('id')
-                else:
-                    logger.warning(f"Failed to store AI insights in database for user {user_id}")
-                    result['stored_in_db'] = False
+                    try:
+                        # Convert user_id to UUID
+                        user_uuid = uuid.UUID(user_id)
+                    except (ValueError, TypeError):
+                        logger.error(f"Invalid user_id format: {user_id}")
+                        result['stored_in_db'] = False
+                        result['storage_error'] = "Invalid user_id format"
+                    else:
+                        # Create AI insights record
+                        ai_insights = AIInsights(
+                            user_id=user_uuid,
+                            insights_type="comprehensive",
+                            insights_data=json.dumps(result["insights"]),
+                            model_used=result.get("model", "gemini"),
+                            confidence_score=95,
+                            status="completed",
+                            generated_at=result.get("generated_at") or datetime.utcnow().isoformat(),
+                            test_results_used=json.dumps(list(request_data.get('all_test_results', {}).keys())),
+                            generation_duration=None
+                        )
+                        
+                        # Save to database
+                        session.add(ai_insights)
+                        session.commit()
+                        session.refresh(ai_insights)
+                        
+                        logger.info(f"Comprehensive AI insights stored successfully in database for user {user_id}")
+                        result['stored_in_db'] = True
+                        result['db_record_id'] = str(ai_insights.id)
                     
             except Exception as storage_error:
-                logger.error(f"Error storing AI insights for user {user_id}: {str(storage_error)}")
+                logger.error(f"Error storing comprehensive AI insights for user {user_id}: {str(storage_error)}")
                 result['stored_in_db'] = False
                 result['storage_error'] = str(storage_error)
         

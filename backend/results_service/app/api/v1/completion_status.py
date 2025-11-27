@@ -239,7 +239,7 @@ async def debug_user_database(request: Request, user_id: str, db: Session = Depe
     """
     try:
         import uuid
-        from core.database_fixed import get_db_session as get_db
+        from core.database_fixed import get_db_session
         from question_service.app.models.test_result import TestResult as DBTestResult
         from sqlalchemy import and_
         
