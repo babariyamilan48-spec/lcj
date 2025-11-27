@@ -54,7 +54,7 @@ class OptimizedResultServiceV2:
             raise RuntimeError("Database models not available")
         
         # Use centralized session manager for user-specific operation
-        with get_user_session(user_id_str, "create_result") as session:
+        with get_db_session() as session:
             try:
                 # Check for existing recent results to prevent duplicates
                 five_minutes_ago = datetime.now() - timedelta(minutes=5)
@@ -200,7 +200,7 @@ class OptimizedResultServiceV2:
             return []
         
         # Use centralized session manager for user-specific operation
-        with get_user_session(user_id, "get_user_results") as session:
+        with get_db_session() as session:
             try:
                 logger.debug(f"Querying database for user_uuid: {user_uuid}")
                 

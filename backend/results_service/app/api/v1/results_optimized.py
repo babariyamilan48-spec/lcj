@@ -81,11 +81,7 @@ async def submit_test_result_optimized(
         # Create result using optimized service
         result = await OptimizedResultServiceV2.create_result(result_data)
         
-        # Background task to cleanup any orphaned sessions for this user
-        background_tasks.add_task(
-            force_close_user_sessions,
-            str(result_data.user_id)
-        )
+        # Session cleanup is handled automatically by context manager in get_db_session()
         
         return ResultSubmissionResponse(
             message="Test result submitted successfully",
@@ -122,11 +118,7 @@ async def get_user_results_optimized(
         # Get results using optimized service
         results = await OptimizedResultServiceV2.get_user_results(user_id)
         
-        # Background task to cleanup any orphaned sessions for this user
-        background_tasks.add_task(
-            force_close_user_sessions,
-            user_id
-        )
+        # Session cleanup is handled automatically by context manager in get_db_session()
         
         return results
         
@@ -184,12 +176,7 @@ async def get_user_results_paginated_optimized(
                 
             results_data.append(result_dict)
         
-        # Background task to cleanup any orphaned sessions for this user
-        if background_tasks:
-            background_tasks.add_task(
-                force_close_user_sessions,
-                user_id
-            )
+        # Session cleanup is handled automatically by context manager in get_db_session()
         
         return {
             "results": results_data,
@@ -229,11 +216,7 @@ async def get_user_analytics_optimized(
         # Get analytics using optimized service
         analytics = await OptimizedResultServiceV2.get_user_analytics(user_id)
         
-        # Background task to cleanup any orphaned sessions for this user
-        background_tasks.add_task(
-            force_close_user_sessions,
-            user_id
-        )
+        # Session cleanup is handled automatically by context manager in get_db_session()
         
         return AnalyticsData(**analytics)
         
@@ -324,11 +307,7 @@ async def get_all_test_results_optimized(
         except Exception as ai_error:
             logger.warning(f"Could not add AI insights to all-results for user {user_id}: {ai_error}")
         
-        # Background task to cleanup any orphaned sessions for this user
-        background_tasks.add_task(
-            force_close_user_sessions,
-            user_id
-        )
+        # Session cleanup is handled automatically by context manager in get_db_session()
         
         return organized_results
         
@@ -361,12 +340,7 @@ async def generate_ai_insights_optimized(
             user_id=insight_request.user_id
         )
         
-        # Background task to cleanup any orphaned sessions for this user
-        if insight_request.user_id:
-            background_tasks.add_task(
-                force_close_user_sessions,
-                str(insight_request.user_id)
-            )
+        # Session cleanup is handled automatically by context manager in get_db_session()
         
         return AIInsightResponse(
             success=True,
@@ -410,11 +384,7 @@ async def generate_comprehensive_ai_insights_optimized(
             all_test_results=insight_request.all_test_results
         )
         
-        # Background task to cleanup any orphaned sessions for this user
-        background_tasks.add_task(
-            force_close_user_sessions,
-            insight_request.user_id
-        )
+        # Session cleanup is handled automatically by context manager in get_db_session()
         
         return ComprehensiveAIResponse(
             success=True,

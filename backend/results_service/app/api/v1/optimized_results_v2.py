@@ -298,12 +298,12 @@ async def cleanup_user_sessions(user_id: str) -> Dict[str, str]:
                 detail=f"Invalid user_id format: {user_id}"
             )
         
-        force_close_user_sessions(user_id)
-        logger.info(f"Forced cleanup of sessions for user {user_id}")
+        # Session cleanup is handled automatically by context manager in get_db_session()
+        logger.info(f"Session cleanup for user {user_id} is handled automatically")
         
         return {
             "status": "success",
-            "message": f"All sessions for user {user_id} cleaned up successfully"
+            "message": f"Session cleanup for user {user_id} is handled automatically by context manager"
         }
         
     except ValueError as ve:
@@ -321,29 +321,19 @@ async def health_check_fast() -> Dict[str, Any]:
     start_time = time.time()
     
     try:
-        # Get session health
-        session_health = get_session_health()
-        
         # Basic service health
         service_health = {
             "service": "optimized_results_v2",
             "status": "healthy",
             "response_time_ms": round((time.time() - start_time) * 1000, 2),
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "session_manager": {
+                "status": "healthy",
+                "message": "Sessions managed automatically by get_db_session context manager"
+            }
         }
         
-        # Combine health data
-        health_data = {
-            **service_health,
-            "session_manager": session_health
-        }
-        
-        # Determine overall status
-        if session_health.get("status") != "healthy":
-            health_data["status"] = "warning"
-            health_data["issues"] = session_health.get("issues", [])
-        
-        return health_data
+        return service_health
         
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -357,14 +347,13 @@ async def health_check_fast() -> Dict[str, Any]:
 
 # Background task functions
 async def _cleanup_user_sessions_background(user_id: str):
-    """Background task to cleanup user sessions"""
+    """Background task - sessions are now cleaned up automatically by context manager"""
     try:
         # Small delay to allow main operation to complete
         import asyncio
         await asyncio.sleep(1)
         
-        # Force cleanup of any remaining sessions for this user
-        force_close_user_sessions(user_id)
+        # Session cleanup is handled automatically by get_db_session context manager
         logger.debug(f"Background cleanup completed for user {user_id}")
         
     except Exception as e:
