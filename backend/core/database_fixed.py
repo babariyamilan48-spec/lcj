@@ -132,6 +132,18 @@ class DatabaseManager:
             except Exception as e:
                 pass
         
+        @event.listens_for(self.engine, "reset")
+        def reset_connection_handler(dbapi_connection, connection_record):
+            """Handle connection reset - suppress errors when server closes connection"""
+            try:
+                # Try to rollback any pending transaction
+                dbapi_connection.rollback()
+            except Exception as e:
+                # Suppress errors during reset - connection may already be closed by server
+                # This is normal when Supabase closes idle connections
+                logger.debug(f"Connection reset error (expected for closed connections): {type(e).__name__}")
+                pass
+        
         @event.listens_for(self.engine, "checkout")
         def log_checkout(dbapi_connection, connection_record, connection_proxy):
             """Log connection checkout with timestamp"""

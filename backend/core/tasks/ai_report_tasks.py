@@ -8,6 +8,8 @@ import sys
 import os
 from typing import Dict, Any
 from datetime import datetime
+import uuid
+import json
 
 from celery import current_task
 from core.celery_app import celery_app
@@ -17,6 +19,10 @@ from core.services.ai_service import AIInsightService
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
+
+# Import database and models AFTER sys.path is set
+from core.database_fixed import get_db_session  # noqa: E402
+from question_service.app.models.ai_insights import AIInsights  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -103,11 +109,6 @@ def generate_ai_insights_task(self, test_data: Dict[str, Any]) -> Dict[str, Any]
         # Store individual AI insights in database if generation was successful
         if result.get("success") and test_data.get('user_id'):
             try:
-                from core.database_fixed import get_db_session
-                from question_service.app.models.ai_insights import AIInsights  # noqa: E402
-                import uuid
-                import json
-                
                 user_id = test_data.get('user_id')
                 
                 # Store the individual AI insights with proper session management
@@ -264,11 +265,6 @@ def generate_comprehensive_ai_insights_task(self, request_data: Dict[str, Any]) 
         # Store AI insights in database if generation was successful
         if result.get("success"):
             try:
-                from core.database_fixed import get_db_session
-                from question_service.app.models.ai_insights import AIInsights  # noqa: E402
-                import uuid
-                import json
-                
                 # Store the AI insights with proper session management
                 with get_db_session() as session:
                     try:

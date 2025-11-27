@@ -148,15 +148,20 @@ const ComprehensiveReportPage = () => {
       setProgressMessage('રિપોર્ટ તૈયાર કરી રહ્યું છે...');
       setProgressPercentage(0);
 
-      // 🚀 Start Celery worker
+      // 🚀 Start Celery worker (with timeout to prevent hanging)
       console.log('🚀 Starting Celery worker for comprehensive report...');
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        
         const workerResponse = await fetch('https://lcj-celery-worker.onrender.com', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         console.log('✅ Celery worker started:', workerResponse.status);
       } catch (workerError) {
         console.warn('⚠️ Could not reach Celery worker, but continuing with comprehensive insights generation:', workerError);
