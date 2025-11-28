@@ -62,12 +62,59 @@ async def get_comprehensive_report(user_id: str, db: Session = Depends(get_db)):
             logger.warning(f"⚠️ No test results found for user {user_id}")
             all_results = {}
         
-        # Get AI insights
+        # ✅ FIXED: Get AI insights from ai_insights table
         ai_insights = None
+        ai_insights_list = []
         try:
-            ai_insights = await ResultService.get_user_ai_insights(user_id)
+            from question_service.app.models.ai_insights import AIInsights as AIInsightsModel
+            
+            # Query ai_insights table for user
+            logger.info(f"🔍 Querying ai_insights table for user {user_uuid}")
+            ai_records = db.query(AIInsightsModel).filter(
+                AIInsightsModel.user_id == user_uuid,
+                AIInsightsModel.status == "completed"
+            ).order_by(AIInsightsModel.created_at.desc()).all()
+            
+            logger.info(f"✅ Found {len(ai_records)} AI insights for user {user_id}")
+            
+            # Get the latest comprehensive AI insight
+            for record in ai_records:
+                if record.insights_type == "comprehensive":
+                    ai_insights = {
+                        "id": record.id,
+                        "insights_type": record.insights_type,
+                        "insights_data": record.insights_data,
+                        "model_used": record.model_used,
+                        "confidence_score": record.confidence_score,
+                        "generated_at": record.generated_at.isoformat() if record.generated_at else None,
+                        "status": record.status
+                    }
+                    logger.info(f"✅ Found comprehensive AI insights: {record.insights_type}")
+                    break
+            
+            # Also format all AI insights for test history
+            for record in ai_records:
+                ai_insights_list.append({
+                    "id": f"ai_insights_{record.id}",
+                    "test_id": "comprehensive-ai-insights",
+                    "test_name": f"AI Analysis - {record.insights_type.title()}",
+                    "primary_result": "AI_INSIGHTS",
+                    "completion_date": record.created_at.isoformat() if record.created_at else None,
+                    "timestamp": record.created_at.isoformat() if record.created_at else None,
+                    "percentage": 100,
+                    "score": record.confidence_score or 100,
+                    "status": record.status,
+                    "model_used": record.model_used,
+                    "insights_type": record.insights_type
+                })
+            
+            if ai_insights:
+                logger.info(f"✅ AI insights retrieved successfully")
+            else:
+                logger.warning(f"⚠️ No comprehensive AI insights found for user {user_id}")
+                
         except Exception as ai_error:
-            logger.warning(f"Could not fetch AI insights for comprehensive report: {ai_error}")
+            logger.warning(f"⚠️ Could not fetch AI insights from database: {ai_error}")
         
         # Get user analytics for summary stats
         analytics = await ResultService.get_user_analytics(user_id)
@@ -92,6 +139,9 @@ async def get_comprehensive_report(user_id: str, db: Session = Depends(get_db)):
             
             # AI insights (if available)
             "ai_insights": ai_insights,
+            
+            # AI insights list for test history display
+            "ai_insights_list": ai_insights_list,
             
             # Test categories for organization
             "test_categories": {
