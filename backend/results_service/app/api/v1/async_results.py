@@ -73,7 +73,7 @@ class TaskStatusResponse(BaseModel):
     error: Optional[str] = None
 
 @router.post("/ai-insights/generate-async", response_model=TaskResponse)
-async def generate_ai_insights_async(request: AsyncAIInsightRequest, db: Session = Depends(get_db)):
+async def generate_ai_insights_async(request: AsyncAIInsightRequest):
     """
     Start asynchronous AI insights generation.
     Returns immediately with task ID for status tracking.
@@ -110,7 +110,7 @@ async def generate_ai_insights_async(request: AsyncAIInsightRequest, db: Session
         )
 
 @router.post("/ai-insights/comprehensive-async", response_model=TaskResponse)
-async def generate_comprehensive_ai_insights_async(request: AsyncComprehensiveAIRequest, db: Session = Depends(get_db)):
+async def generate_comprehensive_ai_insights_async(request: AsyncComprehensiveAIRequest):
     """
     Start asynchronous comprehensive AI insights generation.
     Returns immediately with task ID for status tracking.
@@ -152,7 +152,7 @@ async def generate_comprehensive_ai_insights_async(request: AsyncComprehensiveAI
         )
 
 @router.post("/pdf/generate-async", response_model=TaskResponse)
-async def generate_pdf_async(request: AsyncPDFRequest, db: Session = Depends(get_db)):
+async def generate_pdf_async(request: AsyncPDFRequest):
     """
     Start asynchronous PDF report generation.
     Returns immediately with task ID for status tracking.
@@ -185,7 +185,7 @@ async def generate_pdf_async(request: AsyncPDFRequest, db: Session = Depends(get
         )
 
 @router.post("/pdf/comprehensive-async", response_model=TaskResponse)
-async def generate_comprehensive_pdf_async(request: AsyncComprehensivePDFRequest, db: Session = Depends(get_db)):
+async def generate_comprehensive_pdf_async(request: AsyncComprehensivePDFRequest):
     """
     Start asynchronous comprehensive PDF generation with AI insights.
     Returns immediately with task ID for status tracking.

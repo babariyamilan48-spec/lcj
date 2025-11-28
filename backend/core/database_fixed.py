@@ -61,7 +61,7 @@ class DatabaseManager:
                 poolclass=QueuePool,
                 pool_size=8,             # Base connections (increased from 5 for concurrency)
                 max_overflow=5,          # Additional connections when needed (increased from 8)
-                pool_timeout=10,           # 5 second timeout for getting connection (reduced from 10)
+                pool_timeout=15,           # 5 second timeout for getting connection (reduced from 10)
                 pool_recycle=300,         # Recycle connections every 5 minutes
                 pool_pre_ping=True,       # Validate connections before use
                 
@@ -114,7 +114,7 @@ class DatabaseManager:
             try:
                 with dbapi_connection.cursor() as cursor:
                     # Set optimal timeouts for Supabase
-                    cursor.execute("SET statement_timeout = '10s'")  # 10 second query timeout
+                    cursor.execute("SET statement_timeout = '15s'")  # 10 second query timeout
                     cursor.execute("SET lock_timeout = '8s'")        # 8 second lock timeout
                     cursor.execute("SET idle_in_transaction_session_timeout = '30s'")  # 30 second idle timeout
                     
@@ -254,17 +254,13 @@ class DatabaseManager:
             elif session_duration > 1.0:
                 pass
             
-            # ✅ CRITICAL: Always close and dispose the session to return connection to pool
+            # ✅ CRITICAL: Always close the session to return connection to pool
             # This is essential for preventing connection leaks
             if session and not session_closed:
                 try:
-                    # First close the session
+                    # Close the session - this returns the connection to the pool
                     session.close()
                     session_closed = True
-                    
-                    # Then dispose the connection to ensure it's returned to pool
-                    # This is critical for SSL errors and connection issues
-                    session.connection().close()
                     pass
                 except Exception as close_error:
                     # Even if close fails, we've done our best
@@ -383,28 +379,60 @@ def get_db() -> Generator[Session, None, None]:
     FastAPI dependency for getting optimized database session
     CRITICAL: Use this in ALL endpoints
     
-    ✅ CRITICAL FIX: Ensure session is ALWAYS closed after use
-    This prevents connection pool exhaustion
+    ✅ CRITICAL FIX: Close session IMMEDIATELY after endpoint, before response sent
     """
     session = None
+    session_id = None
     try:
+        # Create session
         session = db_manager.SessionLocal()
+        session_id = id(session)
+        print(f"[SESSION OPEN] Created session {session_id}")
         yield session
+        print(f"[ENDPOINT COMPLETE] Endpoint finished using session {session_id}")
+        
+        # Commit on success - BEFORE closing
+        if session and session.is_active:
+            try:
+                print(f"[SESSION COMMIT] Committing session {session_id}")
+                session.commit()
+                print(f"[SESSION COMMIT OK] Session {session_id} committed successfully")
+            except Exception as e:
+                print(f"[SESSION COMMIT ERROR] Session {session_id} commit failed: {e}")
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
+                raise
+        
+        # Close immediately after commit (don't wait for finally)
+        print(f"[SESSION CLOSE IMMEDIATE] Closing session {session_id} immediately")
+        session.expunge_all()
+        session.close()
+        print(f"[SESSION CLOSED IMMEDIATE] ✅ Session {session_id} closed immediately - connection returned to pool")
+        session = None  # Prevent double-close in finally
+        
+    except Exception as e:
+        # Rollback on error
+        print(f"[SESSION ERROR] Session {session_id} encountered error: {e}")
+        if session and session.is_active:
+            try:
+                print(f"[SESSION ROLLBACK] Rolling back session {session_id}")
+                session.rollback()
+                print(f"[SESSION ROLLBACK OK] Session {session_id} rolled back")
+            except Exception:
+                pass
+        raise
     finally:
-        # ✅ CRITICAL: Always close the session, even if an exception occurred
+        # Final safety check - close if not already closed
         if session:
             try:
-                # Rollback any pending transaction
-                if session.is_active:
-                    session.rollback()
-            except Exception:
-                pass
-            
-            try:
-                # Close the session to return connection to pool
+                print(f"[FINALLY SAFETY] Closing session {session_id} in finally (safety check)")
+                session.expunge_all()
                 session.close()
-            except Exception:
-                pass
+                print(f"[FINALLY CLOSED] ✅ Session {session_id} closed in finally")
+            except Exception as e:
+                print(f"[FINALLY CLOSE ERROR] Session {session_id} close failed in finally: {e}")
 
 # Context manager for manual session management
 @contextmanager

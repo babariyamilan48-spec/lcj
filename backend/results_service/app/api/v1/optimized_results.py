@@ -145,7 +145,8 @@ async def submit_result_fast(
 
 @router.get("/profile-dashboard/{user_id}")
 @limiter.limit("200/minute")
-@cache_async_result(ttl=300)  # 5-minute cache
+# ✅ REMOVED CACHE: Profile dashboard must always show fresh data
+# Cache invalidation was unreliable, so we removed caching entirely
 async def get_profile_dashboard(
     request: Request,
     user_id: str,
@@ -159,11 +160,13 @@ async def get_profile_dashboard(
     - Single database query for all data
     - Returns ALL completed test results (not limited to 5)
     - Returns both results and analytics
-    - 5-minute caching
+    - NO CACHING: Always returns fresh data from database
     """
     try:
         from question_service.app.models.test_result import TestResult
         import uuid
+        
+        logger.info(f"🔍 [profile-dashboard] Fetching fresh data for user: {user_id}")
         
         # Validate user ID
         try:
@@ -202,17 +205,21 @@ async def get_profile_dashboard(
             for r in latest_results
         ]
         
+        logger.info(f"✅ [profile-dashboard] Found {len(results_data)} completed tests for user {user_id}")
+        
         # Build analytics data
         total_tests = stats.total_tests or 0
         avg_score = round(stats.avg_score, 2) if stats.avg_score else 0
         completed_tests = stats.completed_tests or 0
         completion_rate = round((completed_tests / total_tests) * 100, 1) if total_tests > 0 else 0
         
+        logger.info(f"📊 [profile-dashboard] Analytics - total_tests: {total_tests}, completed: {completed_tests}")
+        
         # ✅ NEW: Fetch AI insights for history display
         ai_insights_history = []
         try:
-            from results_service.app.services.result_service import ResultService
-            ai_insights_history = await ResultService.get_user_ai_insights_for_history(user_id)
+            from results_service.app.services.optimized_result_service_v2 import OptimizedResultServiceV2
+            ai_insights_history = await OptimizedResultServiceV2.get_user_ai_insights_for_history(user_id, db)
         except Exception as e:
             logger.warning(f"Could not fetch AI insights for user {user_id}: {e}")
             # Continue without AI insights if fetch fails
@@ -232,7 +239,12 @@ async def get_profile_dashboard(
             "message": "Profile dashboard data retrieved successfully"
         }
         
-        return compress_json_response(response, request)
+        # ✅ CRITICAL: Add cache-busting headers to prevent browser caching
+        json_response = compress_json_response(response, request)
+        json_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        json_response.headers["Pragma"] = "no-cache"
+        json_response.headers["Expires"] = "0"
+        return json_response
         
     except HTTPException:
         raise

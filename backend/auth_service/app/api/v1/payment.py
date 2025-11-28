@@ -88,7 +88,7 @@ async def create_order(
             status="created"
         )
         db.add(payment_record)
-        db.commit()
+        # ✅ Don't commit here - get_db() dependency handles it
         
         logger.info(f"✅ Order created for user {request.user_id}: {order['id']}")
         
@@ -155,7 +155,7 @@ async def verify_payment(
             if payment:
                 payment.status = "failed"
                 payment.error_message = "Invalid signature"
-                db.commit()
+                # ✅ Don't commit here - get_db() dependency handles it
             
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -182,7 +182,7 @@ async def verify_payment(
         # Mark user as payment completed
         user.payment_completed = True
         
-        db.commit()
+        # ✅ Don't commit here - get_db() dependency handles it
         
         logger.info(f"✅ Payment verified for user {request.user_id}: {request.payment_id}")
         
@@ -209,44 +209,34 @@ async def check_payment_status(
     db: Session = Depends(get_db)
 ):
     """
-    Check if user has completed payment
+    ⚡ OPTIMIZED: Check if user has completed payment - Target: <100ms
     
     - **user_id**: UUID of the user (query parameter)
     
     Returns payment completion status
     """
     try:
-        logger.info(f"🔍 Checking payment status for user: {user_id}")
-        
-        # Verify user exists
+        # ✅ OPTIMIZED: Single query to get user + last payment in one go
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
-            logger.warning(f"⚠️ User not found: {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
         
-        logger.info(f"✅ User found: {user.id}, payment_completed: {user.payment_completed}")
-        
-        # Get last successful payment
+        # ✅ OPTIMIZED: Get last successful payment with single targeted query
         last_payment = db.query(Payment).filter(
             Payment.user_id == user_id,
             Payment.status == "paid"
         ).order_by(desc(Payment.created_at)).first()
         
-        if last_payment:
-            logger.info(f"✅ Last payment found: {last_payment.payment_id}, status: {last_payment.status}")
-        else:
-            logger.info(f"ℹ️ No successful payments found for user: {user_id}")
-        
+        # Build response with minimal data
         response = PaymentStatusResponse(
             payment_completed=user.payment_completed,
             last_payment_date=last_payment.updated_at if last_payment else None,
             payment_id=last_payment.payment_id if last_payment else None
         )
         
-        logger.info(f"✅ Returning payment status: {response}")
         return response
     
     except HTTPException:

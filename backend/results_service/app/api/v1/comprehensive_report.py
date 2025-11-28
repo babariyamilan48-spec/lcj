@@ -14,39 +14,53 @@ async def get_comprehensive_report(user_id: str, db: Session = Depends(get_db)):
     """
     Generate a comprehensive report combining all test results for a user
     This endpoint provides data for the "Download All" functionality
-    Uses pre-calculated results for instant performance
+    Queries test_results table directly for calculated_result column
     """
     try:
-        logger.info(f"Generating comprehensive report for user {user_id}")
+        logger.info(f"🔍 Generating comprehensive report for user {user_id}")
         
-        from question_service.app.services.calculated_result_service import CalculatedResultService
+        import uuid
+        from question_service.app.models.test_result import TestResult as DBTestResult
         
-        # Get pre-calculated results by test (latest for each test type)
-        calculated_results = CalculatedResultService.get_latest_results_by_test(db, user_id)
-        logger.info(f"Found {len(calculated_results)} pre-calculated results for user {user_id}")
+        # Convert user_id to UUID
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except (ValueError, TypeError):
+            logger.error(f"Invalid user_id format: {user_id}")
+            raise HTTPException(status_code=400, detail="Invalid user ID format")
         
-        # If no calculated results found, fallback to get_all_test_results for backward compatibility
-        if not calculated_results:
-            logger.warning(f"No pre-calculated results found for user {user_id}, falling back to test_results table")
-            all_results = await ResultService.get_all_test_results(user_id)
-        else:
-            # Convert to format expected by frontend
-            all_results = {}
-            for test_id, result in calculated_results.items():
-                logger.info(f"Processing test {test_id}: {result.result_summary}")
+        # ✅ FIXED: Query test_results table directly for calculated_result column
+        logger.info(f"🔍 Querying test_results table for user {user_uuid}")
+        db_results = db.query(DBTestResult).filter(
+            DBTestResult.user_id == user_uuid
+        ).order_by(DBTestResult.created_at.desc()).all()
+        
+        logger.info(f"✅ Found {len(db_results)} test results for user {user_id}")
+        
+        # Organize results by test type (latest for each)
+        all_results = {}
+        for db_result in db_results:
+            test_id = db_result.test_id
+            if test_id not in all_results:  # Keep only latest for each test type
+                calculated_result = db_result.calculated_result or {}
+                logger.info(f"✅ Processing test {test_id}: {db_result.result_summary}")
                 all_results[test_id] = {
                     'test_id': test_id,
-                    'test_name': result.result_summary or f"Test: {test_id}",
-                    'analysis': result.calculated_result or {},
-                    'primary_result': result.primary_result,
-                    'traits': result.traits or [],
-                    'careers': result.careers or [],
-                    'strengths': result.strengths or [],
-                    'recommendations': result.recommendations or [],
-                    'dimensions_scores': result.dimensions_scores or {},
-                    'created_at': result.created_at.isoformat() if result.created_at else None,
-                    'updated_at': result.updated_at.isoformat() if result.updated_at else None,
+                    'test_name': db_result.result_summary or f"Test: {test_id}",
+                    'analysis': calculated_result,
+                    'primary_result': db_result.primary_result,
+                    'traits': calculated_result.get('traits', []),
+                    'careers': calculated_result.get('careers', []),
+                    'strengths': calculated_result.get('strengths', []),
+                    'recommendations': calculated_result.get('recommendations', []),
+                    'dimensions_scores': calculated_result.get('dimensions_scores', {}),
+                    'created_at': db_result.created_at.isoformat() if db_result.created_at else None,
+                    'updated_at': db_result.updated_at.isoformat() if db_result.updated_at else None,
                 }
+        
+        if not all_results:
+            logger.warning(f"⚠️ No test results found for user {user_id}")
+            all_results = {}
         
         # Get AI insights
         ai_insights = None

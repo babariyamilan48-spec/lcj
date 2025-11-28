@@ -43,28 +43,17 @@ class OptimizedQuestionService:
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensure database session is properly closed"""
-        try:
-            if self.db:
-                self.db.close()
-        except Exception as e:
-            logger.warning(f"Error closing database session: {e}")
+        """Handle context manager exit - let FastAPI's dependency handle cleanup"""
+        # ✅ CRITICAL: Don't close the session here
+        # FastAPI's get_db() dependency will handle all cleanup
+        # This context manager is just for code organization
+        pass
     
     def _ensure_session_closed(self):
-        """Ensure database session is closed after operation"""
-        try:
-            if self.db:
-                # Commit any pending transactions
-                self.db.commit()
-                # Close the session
-                self.db.close()
-        except Exception as e:
-            logger.warning(f"Error in session cleanup: {e}")
-            try:
-                self.db.rollback()
-                self.db.close()
-            except:
-                pass
+        """DEPRECATED: Don't use this - FastAPI dependency handles cleanup"""
+        # ✅ CRITICAL: Don't close the session here
+        # FastAPI's get_db() dependency will handle all cleanup
+        pass
     
     @cache_async_result(ttl=1800, key_prefix="fast_questions")
     async def get_questions_fast(
@@ -126,9 +115,6 @@ class OptimizedQuestionService:
         except Exception as e:
             logger.error(f"Error in get_questions_fast: {str(e)}")
             return [], 0
-        finally:
-            # Always ensure session is closed
-            self._ensure_session_closed()
     
     @cache_async_result(ttl=1800, key_prefix="fast_question_with_options")
     async def get_question_with_options_fast(self, question_id: int) -> Optional[Dict[str, Any]]:
@@ -171,9 +157,6 @@ class OptimizedQuestionService:
         except Exception as e:
             logger.error(f"Error in get_question_with_options_fast: {str(e)}")
             return None
-        finally:
-            # Always ensure session is closed
-            self._ensure_session_closed()
     
     @cache_async_result(ttl=1800, key_prefix="fast_test_questions")
     async def get_test_questions_fast(self, test_id: int) -> List[Dict[str, Any]]:
@@ -215,9 +198,6 @@ class OptimizedQuestionService:
         except Exception as e:
             logger.error(f"Error in get_test_questions_fast: {str(e)}")
             return []
-        finally:
-            # Always ensure session is closed
-            self._ensure_session_closed()
     
     async def batch_get_questions_with_options(self, question_ids: List[int]) -> List[Dict[str, Any]]:
         """
@@ -267,9 +247,6 @@ class OptimizedQuestionService:
         except Exception as e:
             logger.error(f"Error in batch_get_questions_with_options: {str(e)}")
             return []
-        finally:
-            # Always ensure session is closed
-            self._ensure_session_closed()
     
     @cache_async_result(ttl=3600, key_prefix="fast_test_structure")
     async def get_test_structure_fast(self, test_id: int) -> Dict[str, Any]:
@@ -327,9 +304,6 @@ class OptimizedQuestionService:
         except Exception as e:
             logger.error(f"Error in get_test_structure_fast: {str(e)}")
             return {}
-        finally:
-            # Always ensure session is closed
-            self._ensure_session_closed()
     
     async def create_question_fast(self, question_data: QuestionCreate) -> Optional[Dict[str, Any]]:
         """
@@ -361,9 +335,6 @@ class OptimizedQuestionService:
             except:
                 pass
             return None
-        finally:
-            # Always ensure session is closed
-            self._ensure_session_closed()
     
     async def update_question_fast(self, question_id: int, question_data: QuestionUpdate) -> Optional[Dict[str, Any]]:
         """
@@ -405,9 +376,6 @@ class OptimizedQuestionService:
             except:
                 pass
             return None
-        finally:
-            # Always ensure session is closed
-            self._ensure_session_closed()
     
     async def _invalidate_question_cache(self, test_id: int):
         """

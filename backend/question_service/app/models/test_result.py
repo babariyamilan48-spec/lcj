@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from core.database_fixed import Base
+from auth_service.app.models.user import User  # ✅ CRITICAL: Import User for relationship
 
 class TestResult(Base):
     """
@@ -48,7 +49,7 @@ class TestResult(Base):
     )
 
     # ✅ OPTIMIZED: Relationships with user relationship added
-    user = relationship("User", foreign_keys=[user_id])  # ✅ NEW: User relationship for eager loading
+    user = relationship(User, foreign_keys=[user_id])  # ✅ FIXED: Use User class directly instead of string
     test = relationship("Test", back_populates="results")
     details = relationship("TestResultDetail", back_populates="test_result", cascade="all, delete-orphan")
 

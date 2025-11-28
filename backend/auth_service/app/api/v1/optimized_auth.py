@@ -59,18 +59,11 @@ class OptimizedAuthService:
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Handle context manager exit - don't close session as it's managed by FastAPI"""
-        try:
-            if self.db:
-                if exc_type is not None:
-                    # Rollback on exception
-                    self.db.rollback()
-                else:
-                    # Commit on success
-                    self.db.commit()
-                # Don't close the session - it's managed by FastAPI's dependency injection
-        except Exception as e:
-            logger.warning(f"Error in auth service context manager: {e}")
+        """Handle context manager exit - let FastAPI's dependency handle cleanup"""
+        # ✅ CRITICAL: Don't commit/rollback/close here
+        # FastAPI's get_db() dependency will handle all cleanup
+        # This context manager is just for code organization
+        pass
     
     def authenticate_user_fast(self, email: str, password: str) -> Optional[User]:
         """Ultra-fast user authentication with minimal database queries"""

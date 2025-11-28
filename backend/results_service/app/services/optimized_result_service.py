@@ -508,12 +508,11 @@ class OptimizedResultService:
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensure database session is properly closed"""
-        try:
-            if self.db:
-                self.db.close()
-        except Exception as e:
-            logger.warning(f"Error closing results database session: {e}")
+        """Handle context manager exit - let FastAPI's dependency handle cleanup"""
+        # ✅ CRITICAL: Don't close the session here
+        # FastAPI's get_db() dependency will handle all cleanup
+        # This context manager is just for code organization
+        pass
     
     async def get_user_results_fast(self, user_id: str, page: int, size: int):
         """Get paginated user results"""

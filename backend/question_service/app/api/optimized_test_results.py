@@ -53,20 +53,21 @@ def _process_calculated_result_async(
         logger.warning(f"⚠️ Failed to process calculated result: {e}")
 
 def _invalidate_user_cache_async(user_id: str):
-    """Invalidate user cache asynchronously (doesn't block response)"""
+    """Invalidate user cache SYNCHRONOUSLY (blocks response to ensure fresh data)"""
     try:
         from core.cache import QueryCache, cache
         QueryCache.invalidate_completion_status(str(user_id))
         QueryCache.invalidate_user_results(str(user_id))
         
-        # ✅ NEW: Also invalidate profile-dashboard cache with correct key format
+        # ✅ CRITICAL: Also invalidate profile-dashboard cache with correct key format
         # The cache decorator generates keys as: "async:get_profile_dashboard:{user_id}"
+        # This MUST be synchronous to ensure next API call gets fresh data
         cache_key = f"async:get_profile_dashboard:{user_id}"
         try:
             cache.delete(cache_key)
             logger.debug(f"✅ Profile dashboard cache cleared for user {user_id}")
-        except:
-            pass  # Cache might not exist, that's okay
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to delete profile-dashboard cache: {e}")
         
         logger.debug(f"✅ Cache invalidated for user {user_id}")
     except Exception as e:
@@ -229,6 +230,10 @@ async def calculate_and_save_test_result_fast(
         # ✅ OPTIMIZED: Single commit instead of multiple
         db.commit()
         
+        # ✅ CRITICAL: Invalidate cache IMMEDIATELY (blocking) before returning response
+        # This ensures the next API call gets fresh data
+        _invalidate_user_cache_async(user_id)
+        
         # ✅ OPTIMIZED: Move heavy operations to background tasks
         # Extract data asynchronously (don't wait for response)
         background_tasks.add_task(
@@ -239,12 +244,6 @@ async def calculate_and_save_test_result_fast(
             calculated_result=calculated_result,
             primary_result=primary_result,
             result_summary=result_summary
-        )
-        
-        # ✅ OPTIMIZED: Invalidate cache asynchronously
-        background_tasks.add_task(
-            _invalidate_user_cache_async,
-            user_id=user_id
         )
         
         processing_time = (time.time() - start_time) * 1000

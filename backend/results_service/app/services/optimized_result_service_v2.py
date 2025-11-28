@@ -7,6 +7,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import uuid
 import logging
+from sqlalchemy.orm import Session
 
 from ..schemas.result import TestResult, TestResultCreate, UserProfile, UserProfileUpdate, AnalyticsData, UserStats
 from core.database_fixed import get_db_session
@@ -34,8 +35,13 @@ class OptimizedResultServiceV2:
     """
     
     @staticmethod
-    async def create_result(result_data: TestResultCreate) -> TestResult:
+    async def create_result(result_data: TestResultCreate, db: Session = None) -> TestResult:
         """Create a new test result with proper session management"""
+        
+        # If no session provided, create one
+        if db is None:
+            with get_db_session() as session:
+                return await OptimizedResultServiceV2.create_result(result_data, session)
         
         # Convert user_id to UUID if it's a string
         try:
@@ -53,131 +59,136 @@ class OptimizedResultServiceV2:
             logger.error("Database models not available")
             raise RuntimeError("Database models not available")
         
-        # Use centralized session manager for user-specific operation
-        with get_db_session() as session:
-            try:
-                # Check for existing recent results to prevent duplicates
-                five_minutes_ago = datetime.now() - timedelta(minutes=5)
-                
-                existing_result = session.query(DBTestResult).filter(
-                    DBTestResult.user_id == user_uuid,
-                    DBTestResult.test_id == result_data.test_id,
-                    DBTestResult.created_at > five_minutes_ago,
-                    DBTestResult.is_completed == True
-                ).first()
-                
-                if existing_result:
-                    logger.info(f"Duplicate result found for user {user_id_str}, test {result_data.test_id}")
-                    # Return existing result instead of creating duplicate
-                    result_dict = {
-                        "id": str(existing_result.id),
-                        "user_id": str(existing_result.user_id),
-                        "test_id": existing_result.test_id,
-                        "test_name": result_data.test_name,
-                        "score": result_data.total_score or result_data.score or 0,
-                        "percentage": existing_result.completion_percentage,
-                        "percentage_score": existing_result.completion_percentage,
-                        "total_score": result_data.total_score or result_data.score or 0,
-                        "answers": existing_result.answers,
-                        "analysis": result_data.analysis,
-                        "recommendations": result_data.recommendations or [],
-                        "duration_seconds": existing_result.time_taken_seconds,
-                        "duration_minutes": result_data.duration_minutes,
-                        "total_questions": result_data.total_questions,
-                        "dimensions_scores": result_data.dimensions_scores,
-                        "timestamp": existing_result.created_at,
-                        "completed_at": existing_result.completed_at
-                    }
-                    return TestResult(**result_dict)
-                
-                # Ensure answers is properly formatted for database storage
-                answers_data = result_data.answers or {}
-                if isinstance(answers_data, list):
-                    answers_data = {str(i): answer for i, answer in enumerate(answers_data)}
-                
-                # Create database record
-                db_result = DBTestResult(
-                    user_id=user_uuid,
-                    test_id=result_data.test_id,
-                    answers=answers_data,
-                    completion_percentage=result_data.percentage_score or result_data.percentage or result_data.score or 0,
-                    time_taken_seconds=result_data.duration_seconds,
-                    calculated_result={
-                        "analysis": result_data.analysis,
-                        "score": result_data.total_score or result_data.score or 0,
-                        "percentage": result_data.percentage_score or result_data.percentage or result_data.score or 0,
-                        "dimensions_scores": result_data.dimensions_scores,
-                        "recommendations": result_data.recommendations
-                    },
-                    primary_result=str(result_data.analysis.get('code', '')) if result_data.analysis else '',
-                    result_summary=result_data.test_name,
-                    is_completed=True,
-                    completed_at=datetime.now()
-                )
-                
-                session.add(db_result)
-                session.flush()  # Get ID without committing
-                session.refresh(db_result)
-                
-                # Convert to response format
+        # Use provided session
+        session = db
+        try:
+            # Check for existing recent results to prevent duplicates
+            five_minutes_ago = datetime.now() - timedelta(minutes=5)
+            
+            existing_result = session.query(DBTestResult).filter(
+                DBTestResult.user_id == user_uuid,
+                DBTestResult.test_id == result_data.test_id,
+                DBTestResult.created_at > five_minutes_ago,
+                DBTestResult.is_completed == True
+            ).first()
+            
+            if existing_result:
+                logger.info(f"Duplicate result found for user {user_id_str}, test {result_data.test_id}")
+                # Return existing result instead of creating duplicate
                 result_dict = {
-                    "id": str(db_result.id),
-                    "user_id": str(db_result.user_id),
-                    "test_id": db_result.test_id,
+                    "id": str(existing_result.id),
+                    "user_id": str(existing_result.user_id),
+                    "test_id": existing_result.test_id,
                     "test_name": result_data.test_name,
                     "score": result_data.total_score or result_data.score or 0,
-                    "percentage": db_result.completion_percentage,
-                    "percentage_score": db_result.completion_percentage,
+                    "percentage": existing_result.completion_percentage,
+                    "percentage_score": existing_result.completion_percentage,
                     "total_score": result_data.total_score or result_data.score or 0,
-                    "answers": db_result.answers,
+                    "answers": existing_result.answers,
                     "analysis": result_data.analysis,
                     "recommendations": result_data.recommendations or [],
-                    "duration_seconds": db_result.time_taken_seconds,
+                    "duration_seconds": existing_result.time_taken_seconds,
                     "duration_minutes": result_data.duration_minutes,
                     "total_questions": result_data.total_questions,
                     "dimensions_scores": result_data.dimensions_scores,
-                    "timestamp": db_result.created_at,
-                    "completed_at": db_result.completed_at
+                    "timestamp": existing_result.created_at,
+                    "completed_at": existing_result.completed_at
                 }
-                
-                # Invalidate ALL user cache to prevent cross-user contamination
-                QueryCache.invalidate_all_user_cache(user_id_str)
-                
-                # Clear completion status cache
-                try:
-                    QueryCache.invalidate_completion_status(user_id_str)
-                    QueryCache.invalidate_user_results(user_id_str)
-                    
-                    # Also clear specific keys using cache instance
-                    from core.cache import cache
-                    cache_keys = [
-                        f"completion_status:{user_id_str}",
-                        f"completed_tests:{user_id_str}",
-                        f"progress_summary:{user_id_str}",
-                        f"completion_status_v2:{user_id_str}",
-                    ]
-                    
-                    for cache_key in cache_keys:
-                        try:
-                            cache.delete(cache_key)
-                        except Exception as cache_error:
-                            logger.debug(f"Cache key {cache_key} not found or already cleared: {cache_error}")
-                    
-                    logger.info(f"Invalidated completion status cache for user {user_id_str}")
-                except Exception as e:
-                    logger.warning(f"Failed to clear completion status cache: {e}")
-                
-                # Session will be committed automatically by context manager
-                logger.info(f"Created result {db_result.id} for user {user_id_str}")
                 return TestResult(**result_dict)
+            
+            # Ensure answers is properly formatted for database storage
+            answers_data = result_data.answers or {}
+            if isinstance(answers_data, list):
+                answers_data = {str(i): answer for i, answer in enumerate(answers_data)}
+            
+            # Create database record
+            db_result = DBTestResult(
+                user_id=user_uuid,
+                test_id=result_data.test_id,
+                answers=answers_data,
+                completion_percentage=result_data.percentage_score or result_data.percentage or result_data.score or 0,
+                time_taken_seconds=result_data.duration_seconds,
+                calculated_result={
+                    "analysis": result_data.analysis,
+                    "score": result_data.total_score or result_data.score or 0,
+                    "percentage": result_data.percentage_score or result_data.percentage or result_data.score or 0,
+                    "dimensions_scores": result_data.dimensions_scores,
+                    "recommendations": result_data.recommendations
+                },
+                primary_result=str(result_data.analysis.get('code', '')) if result_data.analysis else '',
+                result_summary=result_data.test_name,
+                is_completed=True,
+                completed_at=datetime.now()
+            )
+            
+            session.add(db_result)
+            session.flush()  # Get ID without committing
+            session.refresh(db_result)
+            
+            # Convert to response format
+            result_dict = {
+                "id": str(db_result.id),
+                "user_id": str(db_result.user_id),
+                "test_id": db_result.test_id,
+                "test_name": result_data.test_name,
+                "score": result_data.total_score or result_data.score or 0,
+                "percentage": db_result.completion_percentage,
+                "percentage_score": db_result.completion_percentage,
+                "total_score": result_data.total_score or result_data.score or 0,
+                "answers": db_result.answers,
+                "analysis": result_data.analysis,
+                "recommendations": result_data.recommendations or [],
+                "duration_seconds": db_result.time_taken_seconds,
+                "duration_minutes": result_data.duration_minutes,
+                "total_questions": result_data.total_questions,
+                "dimensions_scores": result_data.dimensions_scores,
+                "timestamp": db_result.created_at,
+                "completed_at": db_result.completed_at
+            }
+            
+            # Invalidate ALL user cache to prevent cross-user contamination
+            QueryCache.invalidate_all_user_cache(user_id_str)
+            
+            # Clear completion status cache
+            try:
+                QueryCache.invalidate_completion_status(user_id_str)
+                QueryCache.invalidate_user_results(user_id_str)
                 
+                # Also clear specific keys using cache instance
+                from core.cache import cache
+                cache_keys = [
+                    f"completion_status:{user_id_str}",
+                    f"completed_tests:{user_id_str}",
+                    f"progress_summary:{user_id_str}",
+                    f"completion_status_v2:{user_id_str}",
+                ]
+                
+                for cache_key in cache_keys:
+                    try:
+                        cache.delete(cache_key)
+                    except Exception as cache_error:
+                        logger.debug(f"Cache key {cache_key} not found or already cleared: {cache_error}")
+                
+                logger.info(f"Invalidated completion status cache for user {user_id_str}")
             except Exception as e:
-                logger.error(f"Database save failed for user {user_id_str}: {e}")
-                raise
+                logger.warning(f"Failed to clear completion status cache: {e}")
+            
+            # Session will be committed automatically by context manager
+            logger.info(f"Created result {db_result.id} for user {user_id_str}")
+            return TestResult(**result_dict)
+            
+        except Exception as e:
+            logger.error(f"Database save failed for user {user_id_str}: {e}")
+            raise
     
     @staticmethod
-    async def get_user_results(user_id: str) -> List[TestResult]:
+    async def get_user_results(user_id: str, db: Session = None) -> List[TestResult]:
         """Get all results for a user with proper session management"""
+        
+        # If no session provided, create one
+        if db is None:
+            with get_db_session() as session:
+                return await OptimizedResultServiceV2.get_user_results(user_id, session)
         
         # Convert user_id to UUID if it's a string
         try:
@@ -199,68 +210,68 @@ class OptimizedResultServiceV2:
             logger.error("Database models not available")
             return []
         
-        # Use centralized session manager for user-specific operation
-        with get_db_session() as session:
-            try:
-                logger.debug(f"Querying database for user_uuid: {user_uuid}")
+        # Use provided session
+        session = db
+        try:
+            logger.debug(f"Querying database for user_uuid: {user_uuid}")
+            
+            # Optimized query with proper filtering
+            db_results = session.query(DBTestResult).filter(
+                DBTestResult.user_id == user_uuid,
+                DBTestResult.is_completed == True
+            ).order_by(DBTestResult.created_at.desc()).all()
+            
+            logger.info(f"Database query returned {len(db_results)} results for user {user_id}")
+            
+            user_results = []
+            for db_result in db_results:
+                calculated_result = db_result.calculated_result or {}
                 
-                # Optimized query with proper filtering
-                db_results = session.query(DBTestResult).filter(
-                    DBTestResult.user_id == user_uuid,
-                    DBTestResult.is_completed == True
-                ).order_by(DBTestResult.created_at.desc()).all()
+                # Enrich empty analysis data from configurations
+                analysis = calculated_result.get('analysis', {})
+                if not analysis or not analysis.get('code'):
+                    analysis = OptimizedResultServiceV2._get_fallback_analysis(db_result.test_id, db_result.primary_result)
                 
-                logger.info(f"Database query returned {len(db_results)} results for user {user_id}")
+                # Enrich empty recommendations
+                recommendations = calculated_result.get('recommendations', [])
+                if not recommendations:
+                    recommendations = OptimizedResultServiceV2._get_fallback_recommendations(db_result.test_id, analysis.get('code'))
                 
-                user_results = []
-                for db_result in db_results:
-                    calculated_result = db_result.calculated_result or {}
-                    
-                    # Enrich empty analysis data from configurations
-                    analysis = calculated_result.get('analysis', {})
-                    if not analysis or not analysis.get('code'):
-                        analysis = OptimizedResultServiceV2._get_fallback_analysis(db_result.test_id, db_result.primary_result)
-                    
-                    # Enrich empty recommendations
-                    recommendations = calculated_result.get('recommendations', [])
-                    if not recommendations:
-                        recommendations = OptimizedResultServiceV2._get_fallback_recommendations(db_result.test_id, analysis.get('code'))
-                    
-                    # Enrich empty dimensions_scores
-                    dimensions_scores = calculated_result.get('dimensions_scores', {})
-                    if not dimensions_scores:
-                        dimensions_scores = OptimizedResultServiceV2._get_fallback_dimensions(db_result.test_id, analysis.get('code'))
-                    
-                    result_dict = {
-                        "id": str(db_result.id),
-                        "user_id": str(db_result.user_id),
-                        "test_id": db_result.test_id,
-                        "test_name": db_result.result_summary or db_result.test_id,
-                        "score": calculated_result.get('score', 0),
-                        "percentage": db_result.completion_percentage,
-                        "percentage_score": db_result.completion_percentage,
-                        "total_score": calculated_result.get('score', 0),
-                        "answers": db_result.answers,
-                        "analysis": analysis,
-                        "recommendations": recommendations,
-                        "duration_seconds": db_result.time_taken_seconds,
-                        "duration_minutes": db_result.time_taken_seconds // 60 if db_result.time_taken_seconds else 0,
-                        "total_questions": len(db_result.answers) if db_result.answers else 0,
-                        "dimensions_scores": dimensions_scores,
-                        "timestamp": db_result.created_at,
-                        "completed_at": db_result.completed_at
-                    }
-                    user_results.append(TestResult(**result_dict))
+                # Enrich empty dimensions_scores
+                dimensions_scores = calculated_result.get('dimensions_scores', {})
+                if not dimensions_scores:
+                    dimensions_scores = OptimizedResultServiceV2._get_fallback_dimensions(db_result.test_id, analysis.get('code'))
                 
-                # Cache the results
-                QueryCache.set_user_results(user_id, user_results, ttl=600)
-                
-                logger.debug(f"Returning {len(user_results)} results for user {user_id}")
-                return user_results
-                
-            except Exception as e:
-                logger.error(f"Error getting user results for {user_id}: {e}")
-                raise
+                result_dict = {
+                    "id": str(db_result.id),
+                    "user_id": str(db_result.user_id),
+                    "test_id": db_result.test_id,
+                    "test_name": db_result.result_summary or db_result.test_id,
+                    "score": calculated_result.get('score', 0),
+                    "percentage": db_result.completion_percentage,
+                    "percentage_score": db_result.completion_percentage,
+                    "total_score": calculated_result.get('score', 0),
+                    "answers": db_result.answers,
+                    "analysis": analysis,
+                    "recommendations": recommendations,
+                    "duration_seconds": db_result.time_taken_seconds,
+                    "duration_minutes": db_result.time_taken_seconds // 60 if db_result.time_taken_seconds else 0,
+                    "total_questions": len(db_result.answers) if db_result.answers else 0,
+                    "dimensions_scores": dimensions_scores,
+                    "timestamp": db_result.created_at,
+                    "completed_at": db_result.completed_at
+                }
+                user_results.append(TestResult(**result_dict))
+            
+            # Cache the results
+            QueryCache.set_user_results(user_id, user_results, ttl=600)
+            
+            logger.debug(f"Returning {len(user_results)} results for user {user_id}")
+            return user_results
+            
+        except Exception as e:
+            logger.error(f"Error getting user results for {user_id}: {e}")
+            raise
     
     @staticmethod
     async def get_user_analytics(user_id: str) -> Dict[str, Any]:
@@ -356,8 +367,13 @@ class OptimizedResultServiceV2:
         }
     
     @staticmethod
-    async def get_user_ai_insights(user_id: str) -> Optional[Dict[str, Any]]:
+    async def get_user_ai_insights(user_id: str, db: Session = None) -> Optional[Dict[str, Any]]:
         """Get AI insights for a user with proper session management"""
+        
+        # If no session provided, create one
+        if db is None:
+            with get_db_session() as session:
+                return await OptimizedResultServiceV2.get_user_ai_insights(user_id, session)
         
         if not AIInsights:
             logger.warning("AIInsights model not available")
@@ -369,30 +385,35 @@ class OptimizedResultServiceV2:
             logger.error(f"Invalid user_id format in get_user_ai_insights: {user_id}")
             return None
         
-        # Use general session for AI insights query
-        with get_session("get_ai_insights") as session:
-            try:
-                ai_insight = session.query(AIInsights).filter(
-                    AIInsights.user_id == user_uuid
-                ).order_by(AIInsights.generated_at.desc()).first()
-                
-                if ai_insight:
-                    return {
-                        'insights_data': ai_insight.insights_data,
-                        'model_used': ai_insight.model_used,
-                        'generated_at': ai_insight.generated_at.isoformat() if ai_insight.generated_at else None,
-                        'insights_type': ai_insight.insights_type
-                    }
-                
-                return None
-                
-            except Exception as e:
-                logger.error(f"Error getting AI insights for user {user_id}: {e}")
-                return None
+        # Use provided session
+        session = db
+        try:
+            ai_insight = session.query(AIInsights).filter(
+                AIInsights.user_id == user_uuid
+            ).order_by(AIInsights.generated_at.desc()).first()
+            
+            if ai_insight:
+                return {
+                    'insights_data': ai_insight.insights_data,
+                    'model_used': ai_insight.model_used,
+                    'generated_at': ai_insight.generated_at.isoformat() if ai_insight.generated_at else None,
+                    'insights_type': ai_insight.insights_type
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting AI insights for user {user_id}: {e}")
+            return None
     
     @staticmethod
-    async def get_user_ai_insights_for_history(user_id: str) -> List[Dict[str, Any]]:
+    async def get_user_ai_insights_for_history(user_id: str, db: Session = None) -> List[Dict[str, Any]]:
         """Get AI insights formatted for test history with proper session management"""
+        
+        # If no session provided, create one
+        if db is None:
+            with get_db_session() as session:
+                return await OptimizedResultServiceV2.get_user_ai_insights_for_history(user_id, session)
         
         if not AIInsights:
             return []
@@ -403,27 +424,27 @@ class OptimizedResultServiceV2:
             logger.error(f"Invalid user_id format in get_user_ai_insights_for_history: {user_id}")
             return []
         
-        # Use general session for AI insights query
-        with get_session("get_ai_insights_history") as session:
-            try:
-                ai_insights = session.query(AIInsights).filter(
-                    AIInsights.user_id == user_uuid
-                ).order_by(AIInsights.generated_at.desc()).all()
-                
-                insights_history = []
-                for insight in ai_insights:
-                    insights_history.append({
-                        "id": f"ai_insights_{insight.id}",
-                        "test_name": "સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)",
-                        "score": 100,
-                        "completion_date": insight.generated_at.isoformat() if insight.generated_at else None
-                    })
-                
-                return insights_history
-                
-            except Exception as e:
-                logger.error(f"Error getting AI insights history for user {user_id}: {e}")
-                return []
+        # Use provided session
+        session = db
+        try:
+            ai_insights = session.query(AIInsights).filter(
+                AIInsights.user_id == user_uuid
+            ).order_by(AIInsights.generated_at.desc()).all()
+            
+            insights_history = []
+            for insight in ai_insights:
+                insights_history.append({
+                    "id": f"ai_insights_{insight.id}",
+                    "test_name": "સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)",
+                    "score": 100,
+                    "completion_date": insight.generated_at.isoformat() if insight.generated_at else None
+                })
+            
+            return insights_history
+            
+        except Exception as e:
+            logger.error(f"Error getting AI insights history for user {user_id}: {e}")
+            return []
     
     @staticmethod
     def _get_fallback_analysis(test_id: str, primary_result: str) -> Dict[str, Any]:

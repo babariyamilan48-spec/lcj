@@ -1134,7 +1134,7 @@ export default function ProfilePage() {
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium text-gray-900 mb-2">શું સમાવેશ થાય છે:</h4>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• બધા {pagination.total} પૂર્ણ થયેલા ટેસ્ટ</li>
+                  <li>• બધા {dashboardData?.analytics?.total_tests || 0} પૂર્ણ થયેલા ટેસ્ટ</li>
                   <li>• વિગતવાર વિશ્લેષણ અને સ્કોર</li>
                   <li>• AI વિશ્લેષણ (જો ઉપલબ્ધ હોય)</li>
                   <li>• સારાંશ આંકડાકીય માહિતી</li>

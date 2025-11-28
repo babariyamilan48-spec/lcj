@@ -156,23 +156,23 @@ async def get_latest_result(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/profile/{user_id}", response_model=UserProfile)
-async def get_user_profile(user_id: str):
+async def get_user_profile(user_id: str, db: Session = Depends(get_db)):
     """Get user profile"""
     try:
-        return await ResultService.get_user_profile(user_id)
+        return await ResultService.get_user_profile(user_id, db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/profile/{user_id}", response_model=UserProfile)
-async def update_user_profile(user_id: str, profile_data: UserProfileUpdate):
+async def update_user_profile(user_id: str, profile_data: UserProfileUpdate, db: Session = Depends(get_db)):
     """Update user profile"""
     try:
-        return await ResultService.update_user_profile(user_id, profile_data)
+        return await ResultService.update_user_profile(user_id, profile_data, db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/analytics/{user_id}")
-async def get_user_analytics(user_id: str, response: Response = None):
+async def get_user_analytics(user_id: str, response: Response = None, db: Session = Depends(get_db)):
     """Get user analytics data"""
     try:
         # CRITICAL FIX: Disable browser caching for analytics endpoint
@@ -182,7 +182,7 @@ async def get_user_analytics(user_id: str, response: Response = None):
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
         
-        return await ResultService.get_user_analytics(user_id)
+        return await ResultService.get_user_analytics(user_id, db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

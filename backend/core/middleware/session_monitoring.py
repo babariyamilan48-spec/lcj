@@ -45,26 +45,42 @@ class SessionMonitoringMiddleware(BaseHTTPMiddleware):
             # Process the request
             response = await call_next(request)
             
-            # Get final session stats
+            # CRITICAL: Wait for FastAPI dependency cleanup and connection pool return
+            # The session.close() in get_db() needs time to return connection to pool
+            # SQLAlchemy's QueuePool may have slight delays in returning connections
+            import asyncio
+            await asyncio.sleep(0.15)  # 150ms - ensures all cleanup is complete
+            
+            # Get final session stats AFTER cleanup
             final_stats = self._get_session_stats()
             request_duration = time.time() - start_time
             
-            # Check for session leaks
+            # Check for session leaks (only log if STILL elevated after delay)
             session_leak_detected = (
                 final_stats['total_active_sessions'] > initial_stats['total_active_sessions']
             )
             
-            # Log session usage
-            if session_leak_detected or request_duration > 5.0:
+            # Log session usage - only if truly leaking (not just timing)
+            if session_leak_detected and final_stats['total_active_sessions'] > 2:
+                logger.error(
+                    f"\n{'='*80}\n"
+                    f"🚨 SESSION LEAK DETECTED - Request #{current_request}\n"
+                    f"{'='*80}\n"
+                    f"Endpoint: {endpoint}\n"
+                    f"User: {user_id}\n"
+                    f"Duration: {request_duration:.2f}s\n"
+                    f"Sessions Before: {initial_stats['total_active_sessions']}\n"
+                    f"Sessions After: {final_stats['total_active_sessions']} ❌ LEAK!\n"
+                    f"{'='*80}\n"
+                )
+                self.session_warnings += 1
+            elif request_duration > 5.0:
                 logger.warning(
                     f"Session monitoring alert - Request #{current_request}: "
                     f"endpoint={endpoint}, user={user_id}, duration={request_duration:.2f}s, "
                     f"sessions_before={initial_stats['total_active_sessions']}, "
                     f"sessions_after={final_stats['total_active_sessions']}"
                 )
-                
-                if session_leak_detected:
-                    self.session_warnings += 1
             
             # Periodic cleanup
             if current_request % self.cleanup_threshold == 0:

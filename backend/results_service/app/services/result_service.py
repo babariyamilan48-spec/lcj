@@ -274,20 +274,37 @@ class ResultService:
         # Try cache first - use string user_id for cache key consistency
         cached_results = QueryCache.get_user_results(user_id)
         if cached_results:
+            logger.info(f"✅ Returning {len(cached_results)} cached results for user {user_id}")
             return cached_results
         
         # ✅ FIXED: Use context manager for proper session cleanup
         if DBTestResult:
             try:
                 with get_db_session() as db:
-                    logger.info(f"Querying database for user_uuid: {user_uuid}")
+                    logger.info(f"🔍 Querying database for user_uuid: {user_uuid} (user_id: {user_id})")
                     # Optimized query with eager loading - use UUID for database query
                     db_results = db.query(DBTestResult).filter(
                         DBTestResult.user_id == user_uuid,
                         DBTestResult.is_completed == True
                     ).order_by(desc(DBTestResult.created_at)).all()
                     
-                    logger.info(f"Database query returned {len(db_results)} results for user {user_id}")
+                    logger.info(f"✅ Database query returned {len(db_results)} completed results for user {user_id}")
+                    if len(db_results) == 0:
+                        logger.warning(f"⚠️ No completed results found. Checking all results for user {user_uuid}...")
+                        all_results = db.query(DBTestResult).filter(
+                            DBTestResult.user_id == user_uuid
+                        ).all()
+                        logger.warning(f"⚠️ Total results (all statuses): {len(all_results)}")
+                        for r in all_results:
+                            logger.warning(f"  - Test: {r.test_id}, is_completed: {r.is_completed}, created_at: {r.created_at}")
+                    
+                    # If no completed results, try to get any results (fallback)
+                    if len(db_results) == 0:
+                        logger.warning(f"⚠️ No completed results found, trying to get ANY results for user {user_uuid}...")
+                        db_results = db.query(DBTestResult).filter(
+                            DBTestResult.user_id == user_uuid
+                        ).order_by(desc(DBTestResult.created_at)).all()
+                        logger.warning(f"⚠️ Found {len(db_results)} total results (any status)")
                     
                     user_results = []
                     for db_result in db_results:
@@ -329,6 +346,7 @@ class ResultService:
                         }
                         user_results.append(TestResult(**result_dict))
                     
+                    logger.info(f"✅ Successfully retrieved {len(user_results)} results for user {user_id}")
                     # Cache the results
                     QueryCache.set_user_results(user_id, user_results, ttl=600)
                     return user_results
@@ -384,14 +402,14 @@ class ResultService:
         }
     
     @staticmethod
-    async def get_latest_result(user_id: str) -> Optional[TestResult]:
+    async def get_latest_result(user_id: str, db: Session = None) -> Optional[TestResult]:
         """Get the latest result for a user"""
-        user_results = await ResultService.get_user_results(user_id)
+        user_results = await ResultService.get_user_results(user_id, db)
         return user_results[0] if user_results else None
     
     @staticmethod
     @cache_async_result(ttl=1800, key_prefix="user_profile")
-    async def get_user_profile(user_id: str) -> UserProfile:
+    async def get_user_profile(user_id: str, db: Session = None) -> UserProfile:
         """Get user profile with stats - OPTIMIZED with caching"""
         if user_id not in user_profiles_db:
             # Create minimal profile that can be updated by the user
@@ -420,7 +438,7 @@ class ResultService:
             user_profiles_db[user_id] = profile_dict
         
         # Get user stats
-        user_results = await ResultService.get_user_results(user_id)
+        user_results = await ResultService.get_user_results(user_id, db)
         stats = await ResultService._calculate_user_stats(user_id, user_results)
         
         profile_dict = user_profiles_db[user_id].copy()
@@ -429,7 +447,7 @@ class ResultService:
         return UserProfile(**profile_dict)
     
     @staticmethod
-    async def update_user_profile(user_id: str, profile_data: UserProfileUpdate) -> UserProfile:
+    async def update_user_profile(user_id: str, profile_data: UserProfileUpdate, db: Session = None) -> UserProfile:
         """Update user profile"""
         if user_id not in user_profiles_db:
             # Create new profile
@@ -521,7 +539,7 @@ class ResultService:
         return organized_results
 
     @staticmethod
-    async def get_user_analytics(user_id: str) -> Dict[str, Any]:
+    async def get_user_analytics(user_id: str, db: Session = None) -> Dict[str, Any]:
         """Get user analytics data - OPTIMIZED with caching"""
         user_results = await ResultService.get_user_results(user_id)
         

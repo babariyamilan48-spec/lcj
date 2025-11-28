@@ -307,11 +307,15 @@ export const useProfileDashboard = (userId?: string) => {
       console.log('📊 [useProfileDashboard] Fetching combined dashboard data for user:', userId);
       
       // ⚡ NEW: Use combined endpoint instead of 2 separate calls
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/results_service/optimized/profile-dashboard/${userId}`, {
+      // ✅ CRITICAL: Add cache-busting query parameter to force fresh data
+      const timestamp = Date.now();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/results_service/optimized/profile-dashboard/${userId}?t=${timestamp}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
         },
       });
 
