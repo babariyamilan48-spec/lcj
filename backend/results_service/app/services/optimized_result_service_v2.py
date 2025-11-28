@@ -433,11 +433,20 @@ class OptimizedResultServiceV2:
             
             insights_history = []
             for insight in ai_insights:
+                # ✅ FIXED: Include full insights_data
                 insights_history.append({
                     "id": f"ai_insights_{insight.id}",
+                    "test_id": "comprehensive-ai-insights",
                     "test_name": "સંપૂર્ણ AI વિશ્લેષણ રિપોર્ટ (Comprehensive AI Analysis)",
-                    "score": 100,
-                    "completion_date": insight.generated_at.isoformat() if insight.generated_at else None
+                    "primary_result": "AI_INSIGHTS",
+                    "completion_date": insight.generated_at.isoformat() if insight.generated_at else None,
+                    "timestamp": insight.generated_at.isoformat() if insight.generated_at else None,
+                    "percentage": 100,
+                    "score": insight.confidence_score or 100,
+                    "status": insight.status,
+                    "model_used": insight.model_used,
+                    "insights_type": insight.insights_type,
+                    "insights_data": insight.insights_data  # ✅ FIXED: Full insights data
                 })
             
             return insights_history

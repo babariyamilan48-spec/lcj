@@ -1832,7 +1832,7 @@ class ResultService:
             if not ai_insights:
                 return []
             
-            # Format AI insights as test result for history display
+            # ✅ FIXED: Include full insights_data in response
             formatted_insight = {
                 "id": f"ai_insights_{ai_insights['id']}",
                 "test_id": "comprehensive-ai-insights",
@@ -1846,7 +1846,10 @@ class ResultService:
                 "score": 100,
                 "status": "completed",
                 "model_used": ai_insights.get("model_used", "gemini"),
-                "insights_data": ai_insights["insights_data"]
+                "insights_type": ai_insights.get("insights_type", "comprehensive"),
+                "insights_data": ai_insights.get("insights_data", {}),  # ✅ FIXED: Full insights data
+                "confidence_score": ai_insights.get("confidence_score"),
+                "user_id": ai_insights.get("user_id")
             }
             
             return [formatted_insight]

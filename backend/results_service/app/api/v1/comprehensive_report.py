@@ -105,7 +105,8 @@ async def get_comprehensive_report(user_id: str, db: Session = Depends(get_db)):
                     "score": record.confidence_score or 100,
                     "status": record.status,
                     "model_used": record.model_used,
-                    "insights_type": record.insights_type
+                    "insights_type": record.insights_type,
+                    "insights_data": record.insights_data  # ✅ FIXED: Include full insights data
                 })
             
             if ai_insights:
