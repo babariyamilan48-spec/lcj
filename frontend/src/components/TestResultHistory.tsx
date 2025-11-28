@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { testResultService, TestResultResponse, UserAnalytics } from '@/services/testResultService';
 import { useOptimizedUserData } from '@/hooks/useTestResults';
-import { useReportDownload } from '@/hooks/useResultsService';
+import { useReportDownload, useProfileDashboard } from '@/hooks/useResultsService';  // ✅ Added useProfileDashboard
 import { aiInsightsHistoryService, AIInsightsHistoryItem } from '@/services/aiInsightsHistoryService';
 import { 
   Calendar, 
@@ -31,8 +31,8 @@ interface TestResultHistoryProps {
 
 const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId }) => {
 
-  // Use centralized hook instead of direct API calls
-  const { data: latestSummary, loading, error: hookError } = useOptimizedUserData(userId.toString());
+  // ✅ FIXED: Use useProfileDashboard hook which includes AI insights in response
+  const { dashboardData, loading, error: hookError } = useProfileDashboard(userId.toString());
   const { downloading, error: downloadError, downloadReport } = useReportDownload();
   const [results, setResults] = useState<TestResultResponse[]>([]);
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
@@ -42,72 +42,66 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
   const [aiInsights, setAiInsights] = useState<AIInsightsHistoryItem[]>([]);
 
   useEffect(() => {
-    if (latestSummary) {
-      // First fetch AI insights, then process data
-      fetchAIInsightsAndProcessData(latestSummary);
+    if (dashboardData) {
+      console.log('📊 [TestResultHistory] Dashboard data received:', dashboardData);
+      console.log('📊 [TestResultHistory] AI insights:', dashboardData.ai_insights);
+      // ✅ FIXED: Process data with AI insights from combined response
+      processDataWithAIInsights(dashboardData, dashboardData.ai_insights || []);
     }
     if (hookError) {
       setError(hookError);
     }
-  }, [latestSummary, testId, hookError]);
+  }, [dashboardData, testId, hookError]);
 
   const handleRefresh = async () => {
     console.log('🔄 Refreshing test history...');
-    // Invalidate both caches
+    // Invalidate cache
     aiInsightsHistoryService.invalidateCache(userId.toString());
     
-    // Re-fetch data
-    if (latestSummary) {
-      await fetchAIInsightsAndProcessData(latestSummary);
-    }
+    // Re-fetch data using the hook's refetch method
+    // Note: useProfileDashboard will automatically refetch when needed
   };
 
-  const fetchAIInsightsAndProcessData = async (latestSummary: any) => {
-    try {
-      // Fetch AI insights first
-      const aiInsightsHistory = await aiInsightsHistoryService.getAIInsightsHistory(userId.toString());
-      
-      setAiInsights(aiInsightsHistory);
-      
-      // Then process data with AI insights included
-      processDataWithAIInsights(latestSummary, aiInsightsHistory);
-    } catch (error) {
-      // Process data without AI insights if fetch fails
-      processDataWithAIInsights(latestSummary, []);
-    }
-  };
+  // ✅ REMOVED: fetchAIInsightsAndProcessData - now handled directly in useEffect above
 
-  const processDataWithAIInsights = (latestSummary: any, aiInsightsHistory: AIInsightsHistoryItem[]) => {
+  const processDataWithAIInsights = (dashboardData: any, aiInsightsHistory: AIInsightsHistoryItem[]) => {
     try {
+      console.log('🔄 [processDataWithAIInsights] Processing data...');
+      console.log('📊 Dashboard data:', dashboardData);
+      console.log('🤖 AI insights:', aiInsightsHistory);
       
-      // Convert latest summary to TestResultResponse format for compatibility
-      const convertedResults: TestResultResponse[] = (latestSummary?.latest_test_results || []).map((result: any) => ({
-        id: Math.floor(Math.random() * 1000000), // Generate temporary ID
+      // ✅ FIXED: Handle both old format (latest_test_results) and new format (results)
+      const testResults = dashboardData?.results || dashboardData?.latest_test_results || [];
+      console.log('📋 Test results extracted:', testResults);
+      
+      // Convert test results to TestResultResponse format for compatibility
+      const convertedResults: TestResultResponse[] = testResults.map((result: any) => ({
+        id: parseInt(result.id) || Math.floor(Math.random() * 1000000),
         userId: userId.toString(),
         testId: result.test_id,
         primaryResult: result.primary_result,
-        resultSummary: result.result_name_english || result.result_name_gujarati,
+        resultSummary: result.result_name_english || result.result_name_gujarati || result.test_name,
         calculatedResult: {},
-        completionPercentage: 100, // Latest results are always complete
+        completionPercentage: 100, // Results are always complete
         isCompleted: true,
-        createdAt: result.completion_date || new Date().toISOString(),
-        updatedAt: result.completion_date || new Date().toISOString(),
+        createdAt: result.completed_at || result.completion_date || new Date().toISOString(),
+        updatedAt: result.completed_at || result.completion_date || new Date().toISOString(),
         timeTakenSeconds: null,
         details: []
       }));
       
-      // Convert AI insights to TestResultResponse format
-      const aiInsightsResults: TestResultResponse[] = (aiInsightsHistory || []).map((insight) => ({
-        id: parseInt(insight.id) || Math.floor(Math.random() * 1000000),
+        // ✅ FIXED: Convert AI insights to TestResultResponse format with correct field mapping
+      const aiInsightsResults: TestResultResponse[] = (aiInsightsHistory || []).map((insight: any) => ({
+        id: parseInt(insight.id?.replace('ai_insights_', '') || Math.random().toString()),
         userId: userId.toString(),
-        testId: insight.test_id,
-        primaryResult: insight.primary_result,
-        resultSummary: insight.result_name_gujarati,
-        calculatedResult: {},
-        completionPercentage: insight.percentage,
+        testId: insight.test_id || 'comprehensive-ai-insights',
+        primaryResult: insight.primary_result || 'AI_INSIGHTS',
+        resultSummary: insight.result_name_gujarati || insight.test_name || 'AI વિશ્લેષણ',
+        calculatedResult: insight.insights_data || {},  // ✅ Include insights data
+        completionPercentage: insight.percentage || insight.score || 100,
         isCompleted: true,
-        createdAt: insight.completion_date,
-        updatedAt: insight.completion_date,
+        createdAt: insight.completion_date || insight.timestamp || new Date().toISOString(),
+        updatedAt: insight.completion_date || insight.timestamp || new Date().toISOString(),
         timeTakenSeconds: undefined,
         details: [],
         answers: [] // AI insights don't have answers
@@ -121,9 +115,9 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
         ? allResults.filter(r => r.testId === testId)
         : allResults;
       
-      // Filter to only include the 7 standard tests (plus AI insights)
+      // ✅ FIXED: Filter to only include the 7 standard tests (plus AI insights)
       const STANDARD_TESTS = [
-        'mbit',
+        'mbti',  // ✅ Fixed from 'mbit'
         'intelligence',
         'riasec',
         'bigfive',
@@ -155,33 +149,39 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
       
-      // Create analytics from latest summary data
+      // ✅ FIXED: Create analytics from dashboard data (both old and new formats)
       const mockAnalytics: UserAnalytics = {
-        totalTestsCompleted: latestSummary.total_tests_completed,
+        totalTestsCompleted: dashboardData?.analytics?.completed_tests || testResults.length,
         averageCompletionTime: 300, // 5 minutes default
-        testsByType: (latestSummary?.latest_test_results || []).reduce((acc: any, result: any) => {
+        testsByType: testResults.reduce((acc: any, result: any) => {
           acc[result.test_id] = 1;
           return acc;
         }, {}),
-        completionTimeline: (latestSummary?.latest_test_results || []).map((result: any) => ({
+        completionTimeline: testResults.map((result: any) => ({
           testId: result.test_id,
-          completedAt: result.completion_date || new Date().toISOString(),
+          completedAt: result.completed_at || result.completion_date || new Date().toISOString(),
           primaryResult: result.primary_result
         })),
-        latestResults: (latestSummary?.latest_test_results || []).reduce((acc: any, result: any) => {
+        latestResults: testResults.reduce((acc: any, result: any) => {
           acc[result.test_id] = {
             primaryResult: result.primary_result,
-            completedAt: result.completion_date || new Date().toISOString(),
-            resultSummary: result.result_name_english || result.result_name_gujarati
+            completedAt: result.completed_at || result.completion_date || new Date().toISOString(),
+            resultSummary: result.result_name_english || result.result_name_gujarati || result.test_name
           };
           return acc;
         }, {})
       };
       
+      console.log('✅ [processDataWithAIInsights] Filtered results:', filteredResults);
+      console.log('📊 [processDataWithAIInsights] Analytics:', mockAnalytics);
+      
       setResults(filteredResults);
       setAnalytics(mockAnalytics);
       setError(null); // Clear any previous errors on successful load
+      
+      console.log('✅ [processDataWithAIInsights] State updated successfully');
     } catch (err) {
+      console.error('❌ [processDataWithAIInsights] Error:', err);
       setError('પરિણામો લોડ કરવામાં ભૂલ થઈ');
     }
   };
@@ -229,9 +229,9 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
     });
   };
 
-  // Define the 7 standard tests in order
+  // ✅ FIXED: Define the 7 standard tests in order (corrected 'mbit' to 'mbti')
   const STANDARD_TESTS = [
-    'mbit',
+    'mbti',  // ✅ Fixed from 'mbit'
     'intelligence',
     'riasec',
     'bigfive',
@@ -242,7 +242,7 @@ const TestResultHistory: React.FC<TestResultHistoryProps> = ({ userId, testId })
 
   const getTestName = (testId: string): string => {
     const testNames: { [key: string]: string } = {
-      'mbit': 'MBIT Test',
+      'mbti': 'MBTI Test',  // ✅ Fixed from 'mbit'
       'intelligence': 'Intelligence Test',
       'riasec': 'RAISEC Test',
       'bigfive': 'Big Five Test',

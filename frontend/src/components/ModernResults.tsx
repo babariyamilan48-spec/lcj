@@ -383,6 +383,45 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
     return <div>Please log in to view results</div>;
   }
 
+  // ✅ SHOW LOADING SCREEN WHILE CALCULATING RESULT
+  if (isCalculating || !calculatedResult) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center space-y-6 max-w-md">
+          {/* Animated Loading Spinner */}
+          <div className="flex justify-center">
+            <div className="relative w-20 h-20">
+              <div className="absolute inset-0 rounded-full border-4 border-blue-200"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 border-r-blue-600 animate-spin"></div>
+            </div>
+          </div>
+
+          {/* Loading Text */}
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gray-800">
+              પરિણામ તૈયાર કરી રહ્યા છીએ
+            </h2>
+            <p className="text-gray-600">
+              તમારા પરીક્ષણ પરિણામોનું વિશ્લેષણ કરી રહ્યા છીએ...
+            </p>
+          </div>
+
+          {/* Progress Dots */}
+          <div className="flex justify-center gap-2">
+            <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+          </div>
+
+          {/* Estimated Time */}
+          <p className="text-sm text-gray-500">
+            આ કેટલાક સેકંડ લેશે...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!testResults) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center pt-4">

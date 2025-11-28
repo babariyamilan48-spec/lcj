@@ -36,12 +36,24 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
         const statusResponse = await completionStatusService.getCompletionStatus(userId, true); // Use cache-busting for fresh data
             
         const status = statusResponse.data;
-        setCompletedTests(status.completed_tests || []);
+        
+        // Handle both old format (array of test IDs) and new format (count)
+        let completedTestIds: string[] = [];
+        if (Array.isArray(status.completed_tests)) {
+          completedTestIds = status.completed_tests;
+        } else if (typeof status.completed_tests === 'number') {
+          // If it's a number, we need to fetch the actual test IDs
+          // For now, we'll use an empty array and rely on the backend to provide the list
+          completedTestIds = [];
+        }
+        
+        setCompletedTests(completedTestIds);
         setHasCheckedCompletion(true);
         
-        // Debug: Log what tests are marked as completed
       } catch (error) {
         console.error('❌ Error fetching completion status:', error);
+        setCompletedTests([]);
+        setHasCheckedCompletion(true);
       } finally {
         setLoadingCompletion(false);
       }
@@ -278,7 +290,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
         {/* Clean Test Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
           {tests && tests.length > 0 ? getSortedTests(tests).map((test, index) => {
-            const isCompleted = completedTests.includes(test.test_id);
+            const isCompleted = Array.isArray(completedTests) && completedTests.includes(test.test_id);
             return (
               <motion.div
                 key={test.id}

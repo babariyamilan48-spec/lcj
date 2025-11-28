@@ -242,115 +242,76 @@ async def get_current_user_optimized_v2(
     response: Response = None
 ) -> UserResponse:
     """
-    Get current user with optimized session management
+    ⚡ ULTRA-OPTIMIZED: Get current user - Target: <50ms
+    
+    CRITICAL: This endpoint NEVER uses cache and ALWAYS returns fresh data
+    to prevent showing previous user's data after logout/login
     """
-    # CRITICAL FIX: Disable browser caching for /me endpoint
+    # CRITICAL FIX: Disable ALL caching for /me endpoint
     # This prevents browser from returning cached data from previous user
     if response:
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+        response.headers["ETag"] = ""  # Disable ETag caching
     
     start_time = time.time()
     
     try:
-        # Extract token
+        # Extract and validate token
         token = credentials.credentials
-        
         if not token:
-            raise HTTPException(
-                status_code=401,
-                detail="No token provided"
-            )
+            raise HTTPException(status_code=401, detail="No token provided")
         
-        # Validate JWT token and extract claims
+        # Decode token
         from auth_service.app.utils.jwt import decode_token
         try:
             claims = decode_token(token)
             if not claims:
-                raise ValueError("Token decoding returned None")
-            logger.debug(f"Token validation successful, claims: {claims}")
-        except Exception as e:
-            logger.error(f"Token validation failed: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid or expired token"
-            )
+                raise HTTPException(status_code=401, detail="Invalid token")
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
         
-        # Extract user ID from token claims
+        # Extract user ID
         user_id_str = claims.get("uid")
         if not user_id_str:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid token: missing user ID"
-            )
+            raise HTTPException(status_code=401, detail="Invalid token payload")
         
         try:
             user_uuid = uuid.UUID(user_id_str)
         except (ValueError, TypeError):
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid token format"
-            )
+            raise HTTPException(status_code=401, detail="Invalid token format")
         
-        # CRITICAL FIX: NEVER use cache for /me endpoint
-        # The /me endpoint is called after login to verify user identity
-        # If we return cached data from a previous user, the app gets confused
-        # Always fetch fresh data from database to ensure correct user is returned
+        # ⚡ OPTIMIZED: SELECT only essential columns
+        from ...models.user import User
+        user = db.query(
+            User.id, User.email, User.username, User.is_active, 
+            User.is_verified, User.role, User.avatar, User.providers
+        ).filter(User.id == user_uuid).first()
         
-        # Use database session for user lookup
-        try:
-            # Import user model
-            from ...models.user import User
-            
-            user = db.query(User).filter(User.id == user_uuid).first()
-            
-            if not user:
-                raise HTTPException(
-                    status_code=404,
-                    detail="User not found"
-                )
-            
-            if not user.is_active:
-                raise HTTPException(
-                    status_code=403,
-                    detail="User account is inactive"
-                )
-            
-            # Log performance
-            duration = time.time() - start_time
-            logger.debug(f"Get current user completed in {duration:.3f}s for user {user.email}")
-            
-            return UserResponse(
-                id=str(user.id),
-                email=user.email,
-                username=user.username,
-                is_active=user.is_active,
-                is_verified=user.is_verified,
-                role=user.role,
-                avatar=user.avatar,
-                providers=user.providers or ["password"]
-            )
-            
-        except HTTPException:
-            # Re-raise HTTP exceptions
-            raise
-        except Exception as e:
-            logger.error(f"User lookup error: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500,
-                detail="User service temporarily unavailable"
-            )
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        if not user[3]:  # is_active is at index 3
+            raise HTTPException(status_code=403, detail="User account is inactive")
+        
+        # Return minimal response
+        return UserResponse(
+            id=str(user[0]),
+            email=user[1],
+            username=user[2],
+            is_active=user[3],
+            is_verified=user[4],
+            role=user[5],
+            avatar=user[6],
+            providers=user[7] or ["password"]
+        )
         
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
-        logger.error(f"Get current user error: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Authentication service temporarily unavailable"
-        )
+        logger.error(f"Get current user error: {e}")
+        raise HTTPException(status_code=500, detail="Authentication service unavailable")
 
 @router.post("/logout")
 async def logout_optimized_v2(

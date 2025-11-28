@@ -17,13 +17,14 @@ sys.path.append(str(BACKEND_ROOT))
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from core.database_fixed import get_db_session as get_db, engine, Base
+from core.database_fixed import get_db_session as get_db, Base, db_manager
+from auth_service.app.models.user import User
 from question_service.app.models.test import Test
 from question_service.app.models.test_dimension import TestDimension
 from question_service.app.models.test_section import TestSection
 from question_service.app.models.question import Question
 from question_service.app.models.option import Option
-from question_service.app.models.test_result import TestResultConfiguration
+from question_service.app.models.test_result import TestResultConfiguration, TestResult
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,16 +32,20 @@ logger = logging.getLogger(__name__)
 
 class DataPopulator:
     def __init__(self):
-        self.db = next(get_db())
+        self.session_context = db_manager.get_session()
+        self.db = self.session_context.__enter__()
         self.data_dir = BACKEND_ROOT / "question_service" / "data"
         
     def __enter__(self):
         return self
         
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type:
-            self.db.rollback()
-        self.db.close()
+        try:
+            if exc_type:
+                self.db.rollback()
+            self.session_context.__exit__(exc_type, exc_val, exc_tb)
+        except:
+            pass
 
     def load_json_file(self, filename: str) -> dict:
         """Load JSON data from file"""
@@ -520,7 +525,7 @@ class DataPopulator:
         
         try:
             # Step 1: Create tables if needed
-            Base.metadata.create_all(bind=engine)
+            Base.metadata.create_all(bind=db_manager.engine)
             
             # Step 2: Populate tests
             test_count = self.populate_tests()
@@ -560,9 +565,10 @@ def main():
     """Main function"""
     logger.info("Starting LCJ Data Population...")
     
+    populator = None
     try:
-        with DataPopulator() as populator:
-            success = populator.populate_all_data()
+        populator = DataPopulator()
+        success = populator.populate_all_data()
             
         if success:
             print("\n🎉 All data populated successfully!")
@@ -578,6 +584,12 @@ def main():
     except Exception as e:
         logger.error(f"Script execution failed: {e}")
         return 1
+    finally:
+        if populator:
+            try:
+                populator.db.close()
+            except:
+                pass
 
 if __name__ == "__main__":
     sys.exit(main())

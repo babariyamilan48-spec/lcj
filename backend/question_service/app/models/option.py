@@ -1,25 +1,28 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Index
+from sqlalchemy import Column, Integer, String, VARCHAR, ForeignKey, DateTime, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from core.database_fixed import Base
 
 class Option(Base):
+    """
+    ✅ OPTIMIZED: Options with proper indexing and VARCHAR for text
+    """
     __tablename__ = "options"
 
     id = Column(Integer, primary_key=True, index=True)
-    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False, index=True)  # Added index
-    option_text = Column(Text, nullable=False)
-    dimension = Column(String(10), nullable=True, index=True)  # Added index for MBTI filtering
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False, index=True)
+    option_text = Column(VARCHAR(1000), nullable=False)  # ✅ OPTIMIZED: VARCHAR with reasonable limit
+    dimension = Column(VARCHAR(10), nullable=True, index=True)  # MBTI dimension (E/I, S/N, etc.)
     weight = Column(Integer, default=1)
-    option_order = Column(Integer, default=0, index=True)  # Added index for ordering
-    is_active = Column(Boolean, default=True, index=True)  # Added index for filtering
+    option_order = Column(Integer, default=0, index=True)
+    is_active = Column(Boolean, default=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Performance indexes for common query patterns
+    # ✅ OPTIMIZED: Indexes in correct order for query patterns
     __table_args__ = (
-        Index('idx_options_question_active', 'question_id', 'is_active'),  # Composite index for active options by question
-        Index('idx_options_question_order', 'question_id', 'option_order'),  # Composite index for ordered options
+        Index('idx_options_question_active_order', 'question_id', 'is_active', 'option_order'),  # ✅ CRITICAL
+        Index('idx_options_dimension_active', 'dimension', 'is_active'),  # Dimension filtering
     )
 
     # Relationships

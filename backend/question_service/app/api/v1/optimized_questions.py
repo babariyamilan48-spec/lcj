@@ -5,6 +5,7 @@ Ultra-fast endpoints with response times under 200ms
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import asyncio
@@ -37,6 +38,7 @@ class HealthCheckResponse(BaseModel):
 
 @router.get("/questions")
 @limiter.limit("300/minute")
+@cache_async_result(ttl=1800)  # 30-minute cache for public endpoint
 async def get_questions(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -46,49 +48,58 @@ async def get_questions(
     is_active: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
-    """Get all questions with pagination and filtering (public endpoint)"""
-    start_time = time.time()
+    """
+    ⚡ ULTRA-OPTIMIZED: Get all questions with pagination and filtering
+    Target response time: <100ms
     
+    Optimizations:
+    - Only returns essential fields: id, question_text, options
+    - Removes performance metrics from response
+    - Uses database-level SELECT for field filtering
+    - Implements 30-minute caching
+    """
     try:
-        logger.debug(f"Questions retrieval: test_id={test_id}, limit={limit}")
+        from question_service.app.models.question import Question
         
-        with OptimizedQuestionService(db) as service:
-            questions, total = await service.get_questions_fast(
-                skip=skip,
-                limit=limit,
-                test_id=test_id,
-                section_id=section_id,
-                is_active=is_active
-            )
+        # ⚡ OPTIMIZED: SELECT only essential columns
+        query = db.query(
+            Question.id, Question.question_text, Question.options, Question.test_id
+        )
         
-        processing_time = (time.time() - start_time) * 1000
+        # Apply filters
+        if test_id:
+            query = query.filter(Question.test_id == test_id)
+        if section_id:
+            query = query.filter(Question.section_id == section_id)
+        if is_active is not None:
+            query = query.filter(Question.is_active == is_active)
         
+        # Get total count
+        total = query.count()
+        
+        # Apply pagination
+        questions = query.offset(skip).limit(limit).all()
+        
+        # Build minimal response
         result = {
-            "questions": questions,
+            "questions": [
+                {
+                    "id": q[0],
+                    "question_text": q[1],
+                    "options": q[2]
+                }
+                for q in questions
+            ],
             "total": total,
             "page": skip // limit + 1,
-            "size": limit,
-            "performance": {
-                "processing_time_ms": round(processing_time, 2),
-                "optimized": True,
-                "results_count": len(questions)
-            }
+            "size": limit
         }
         
-        # Optimize response for large datasets
-        if len(questions) > 50:
-            optimized_result = optimize_large_response(result, max_items=limit)
-            return compress_json_response(
-                {"success": True, "data": optimized_result, "error": None},
-                request
-            )
-        
-        logger.debug(f"Questions completed in {processing_time:.2f}ms")
-        return resp(result, True, None, "Questions retrieved successfully")
+        # Compress response
+        return compress_json_response(result, request)
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Questions failed in {processing_time:.2f}ms: {str(e)}")
+        logger.error(f"Questions retrieval failed: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve questions", 500)
 
 @router.get("/questions/fast")
@@ -121,18 +132,11 @@ async def get_questions_fast(
                 is_active=is_active
             )
         
-        processing_time = (time.time() - start_time) * 1000
-        
         result = {
             "questions": questions,
             "total": total,
             "page": skip // limit + 1,
-            "size": limit,
-            "performance": {
-                "processing_time_ms": round(processing_time, 2),
-                "optimized": True,
-                "results_count": len(questions)
-            }
+            "size": limit
         }
         
         # Optimize response for large datasets
@@ -143,12 +147,11 @@ async def get_questions_fast(
                 request
             )
         
-        logger.debug(f"Fast questions completed in {processing_time:.2f}ms")
+        logger.debug(f"Fast questions completed")
         return resp(result, True, None, "Questions retrieved successfully")
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast questions failed in {processing_time:.2f}ms: {str(e)}")
+        logger.error(f"Fast questions failed: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve questions", 500)
 
 @router.get("/questions/{question_id}/fast")
@@ -170,24 +173,14 @@ async def get_question_with_options_fast(
         with OptimizedQuestionService(db) as service:
             question = await service.get_question_with_options_fast(question_id)
         
-        processing_time = (time.time() - start_time) * 1000
-        
         if not question:
             return resp(None, False, "Question not found", "Question not found", 404)
         
-        # Add performance metadata
-        question["performance"] = {
-            "processing_time_ms": round(processing_time, 2),
-            "optimized": True,
-            "options_count": len(question.get("options", []))
-        }
-        
-        logger.debug(f"Fast question completed in {processing_time:.2f}ms")
+        logger.debug(f"Fast question completed")
         return resp(question, True, None, "Question retrieved successfully")
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast question failed in {processing_time:.2f}ms: {str(e)}")
+        logger.error(f"Fast question failed: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve question", 500)
 
 @router.get("/tests/{test_id}/questions/fast")
@@ -195,50 +188,60 @@ async def get_question_with_options_fast(
 @cache_async_result(ttl=1800, key_prefix="fast_test_questions")
 async def get_test_questions_fast(
     request: Request,
-    test_id: int,
+    test_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """
-    Ultra-fast test questions retrieval with all options
-    Target response time: < 300ms
-    """
-    start_time = time.time()
+    ⚡ ULTRA-OPTIMIZED: Get test questions - Target: <100ms
     
+    Optimizations:
+    - SELECT only essential columns: id, question_text, options
+    - Database-level pagination and filtering
+    - Minimal response payload
+    - 30-minute caching
+    """
     try:
-        logger.info(f"Fast test questions retrieval: test_id={test_id}")
+        from question_service.app.models.question import Question
         
-        with OptimizedQuestionService(db) as service:
-            questions = await service.get_test_questions_fast(test_id)
+        # ⚡ OPTIMIZED: SELECT only essential columns
+        offset = skip
+        questions = db.query(
+            Question.id, Question.question_text, Question.options
+        ).filter(
+            Question.test_id == test_id
+        ).offset(offset).limit(limit).all()
         
-        processing_time = (time.time() - start_time) * 1000
+        # Get total count
+        total_count = db.query(func.count(Question.id)).filter(
+            Question.test_id == test_id
+        ).scalar() or 0
+        
+        # Build minimal response
+        questions_data = [
+            {
+                "id": q[0],
+                "question_text": q[1],
+                "options": q[2]
+            }
+            for q in questions
+        ]
         
         result = {
             "test_id": test_id,
-            "questions": questions,
-            "total_questions": len(questions),
-            "performance": {
-                "processing_time_ms": round(processing_time, 2),
-                "optimized": True,
-                "questions_loaded": len(questions),
-                "total_options": sum(len(q.get("options", [])) for q in questions)
-            }
+            "questions": questions_data,
+            "total_questions": total_count,
+            "page": (skip // limit) + 1,
+            "size": limit
         }
         
-        # Optimize and compress large responses
-        if len(questions) > 20:
-            optimized_result = optimize_large_response(result)
-            return compress_json_response(
-                {"success": True, "data": optimized_result, "error": None},
-                request
-            )
-        
-        logger.info(f"Fast test questions completed in {processing_time:.2f}ms")
-        return resp(result, True, None, "Test questions retrieved successfully")
+        # Compress response
+        return compress_json_response(result, request)
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast test questions failed in {processing_time:.2f}ms: {str(e)}")
-        return resp(None, False, str(e), "Failed to retrieve test questions", 500)
+        logger.error(f"Error getting test questions: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve test questions")
 
 @router.get("/tests/")
 @limiter.limit("200/minute")
@@ -250,104 +253,87 @@ async def get_tests_fast(
     db: Session = Depends(get_db)
 ):
     """
-    Ultra-fast tests list retrieval
-    Target response time: < 200ms
+    ⚡ ULTRA-OPTIMIZED: Get tests list - Target: <100ms
+    
+    Optimizations:
+    - Single query with joinedload for sections and dimensions
+    - No N+1 queries
+    - Minimal response payload
+    - 30-minute caching
     """
     start_time = time.time()
     
     try:
         logger.debug(f"Fast tests retrieval: skip={skip}, limit={limit}")
         
-        # Import Test model here to avoid circular imports
+        # Import models
         from question_service.app.models.test import Test
+        from question_service.app.models.test_section import TestSection
+        from question_service.app.models.test_dimension import TestDimension
+        from sqlalchemy.orm import joinedload
         
-        with OptimizedQuestionService(db) as service:
-            # Get tests with all required fields
-            tests_query = db.query(
-                Test.id,
-                Test.test_id,
-                Test.name,
-                Test.english_name,
-                Test.description,
-                Test.icon,
-                Test.color,
-                Test.questions_count,
-                Test.duration,
-                Test.is_active,
-                Test.created_at,
-                Test.updated_at
-            ).filter(Test.is_active == True)
-            
-            total = tests_query.count()
-            tests = tests_query.offset(skip).limit(limit).all()
-            
-            # Convert to dictionaries
-            tests_list = []
-            for test in tests:
-                # Get sections and dimensions for this test
-                from question_service.app.models.test_section import TestSection
-                from question_service.app.models.test_dimension import TestDimension
-                
-                sections = db.query(TestSection).filter(TestSection.test_id == test.id).all()
-                dimensions = db.query(TestDimension).filter(TestDimension.test_id == test.id).all()
-                
-                test_dict = {
-                    "id": test.id,
-                    "test_id": test.test_id,
-                    "name": test.name,
-                    "english_name": test.english_name,
-                    "description": test.description,
-                    "icon": test.icon,
-                    "color": test.color,
-                    "questions_count": test.questions_count or 0,
-                    "duration": test.duration,
-                    "is_active": test.is_active,
-                    "created_at": test.created_at.isoformat() if test.created_at else None,
-                    "updated_at": test.updated_at.isoformat() if test.updated_at else None,
-                    "sections": [
-                        {
-                            "id": s.id,
-                            "section_id": s.section_id,
-                            "name": s.name,
-                            "gujarati_name": s.gujarati_name
-                        }
-                        for s in sections
-                    ],
-                    "dimensions": [
-                        {
-                            "id": d.id,
-                            "dimension_id": d.dimension_id,
-                            "name": d.name,
-                            "english_name": d.english_name,
-                            "gujarati_name": d.gujarati_name,
-                            "description": d.description,
-                            "careers": d.careers
-                        }
-                        for d in dimensions
-                    ]
-                }
-                tests_list.append(test_dict)
+        # ✅ OPTIMIZED: Single query with joinedload - NO N+1 queries
+        tests_query = db.query(Test).options(
+            joinedload(Test.sections),
+            joinedload(Test.dimensions)
+        ).filter(Test.is_active == True)
         
-        processing_time = (time.time() - start_time) * 1000
+        total = tests_query.count()
+        tests = tests_query.offset(skip).limit(limit).all()
+        
+        # ✅ OPTIMIZED: Convert to dictionaries (data already loaded)
+        tests_list = [
+            {
+                "id": test.id,
+                "test_id": test.test_id,
+                "name": test.name,
+                "english_name": test.english_name,
+                "description": test.description,
+                "icon": test.icon,
+                "color": test.color,
+                "questions_count": test.questions_count or 0,
+                "duration": test.duration,
+                "is_active": test.is_active,
+                "created_at": test.created_at.isoformat() if test.created_at else None,
+                "updated_at": test.updated_at.isoformat() if test.updated_at else None,
+                "sections": [
+                    {
+                        "id": s.id,
+                        "section_id": s.section_id,
+                        "name": s.name,
+                        "gujarati_name": s.gujarati_name
+                    }
+                    for s in (test.sections or [])
+                ],
+                "dimensions": [
+                    {
+                        "id": d.id,
+                        "dimension_id": d.dimension_id,
+                        "name": d.name,
+                        "english_name": d.english_name,
+                        "gujarati_name": d.gujarati_name,
+                        "description": d.description,
+                        "careers": d.careers
+                    }
+                    for d in (test.dimensions or [])
+                ]
+            }
+            for test in tests
+        ]
         
         result = {
             "tests": tests_list,
             "total": total,
             "page": skip // limit + 1,
-            "size": limit,
-            "performance": {
-                "processing_time_ms": round(processing_time, 2),
-                "optimized": True,
-                "endpoint": "fast_tests_list"
-            }
+            "size": limit
         }
         
+        processing_time = (time.time() - start_time) * 1000
         logger.info(f"Fast tests retrieval completed in {processing_time:.2f}ms")
         return resp(result, True, "Tests retrieved successfully", "success")
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast tests failed in {processing_time:.2f}ms: {str(e)}")
+        logger.error(f"Fast tests failed: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve tests", 500)
 
 @router.get("/tests/{test_id}/questions")
@@ -416,25 +402,17 @@ async def get_test_questions_fast(
                 }
                 questions_list.append(question_dict)
         
-        processing_time = (time.time() - start_time) * 1000
-        
         result = {
             "questions": questions_list,
             "total": len(questions_list),
-            "test_id": test_id,
-            "performance": {
-                "processing_time_ms": round(processing_time, 2),
-                "optimized": True,
-                "endpoint": "fast_test_questions"
-            }
+            "test_id": test_id
         }
         
-        logger.info(f"Fast test questions completed in {processing_time:.2f}ms")
+        logger.info(f"Fast test questions completed")
         return resp(result, True, None, "Test questions retrieved successfully")
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast test questions failed in {processing_time:.2f}ms: {str(e)}")
+        logger.error(f"Fast test questions failed: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve test questions", 500)
 
 @router.get("/tests/{test_id}/structure/fast")
@@ -457,18 +435,8 @@ async def get_test_structure_fast(
         with OptimizedQuestionService(db) as service:
             structure = await service.get_test_structure_fast(test_id)
         
-        processing_time = (time.time() - start_time) * 1000
-        
         if not structure:
             return resp(None, False, "Test not found", "Test not found", 404)
-        
-        # Add performance metadata
-        structure["performance"] = {
-            "processing_time_ms": round(processing_time, 2),
-            "optimized": True,
-            "sections_count": len(structure.get("sections", [])),
-            "total_questions": structure.get("total_questions", 0)
-        }
         
         # Optimize and compress large responses
         if structure.get("total_questions", 0) > 30:
@@ -478,12 +446,11 @@ async def get_test_structure_fast(
                 request
             )
         
-        logger.info(f"Fast test structure completed in {processing_time:.2f}ms")
+        logger.info(f"Fast test structure completed")
         return resp(structure, True, None, "Test structure retrieved successfully")
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast test structure failed in {processing_time:.2f}ms: {str(e)}")
+        logger.error(f"Fast test structure failed: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve test structure", 500)
 
 @router.post("/questions/batch/fast")
@@ -508,25 +475,17 @@ async def get_questions_batch_fast(
         with OptimizedQuestionService(db) as service:
             questions = await service.batch_get_questions_with_options(question_ids)
         
-        processing_time = (time.time() - start_time) * 1000
-        
         result = {
             "questions": questions,
             "requested_count": len(question_ids),
-            "returned_count": len(questions),
-            "performance": {
-                "processing_time_ms": round(processing_time, 2),
-                "optimized": True,
-                "batch_size": len(question_ids)
-            }
+            "returned_count": len(questions)
         }
         
-        logger.info(f"Fast batch questions completed in {processing_time:.2f}ms")
+        logger.info(f"Fast batch questions completed")
         return resp(result, True, None, "Batch questions retrieved successfully")
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast batch questions failed in {processing_time:.2f}ms: {str(e)}")
+        logger.error(f"Fast batch questions failed: {str(e)}")
         return resp(None, False, str(e), "Failed to retrieve batch questions", 500)
 
 @router.post("/questions/fast")
@@ -554,25 +513,17 @@ async def create_question_fast(
         with OptimizedQuestionService(db) as service:
             question = await service.create_question_fast(question_data)
         
-        processing_time = (time.time() - start_time) * 1000
-        
         if not question:
             return resp(None, False, "Failed to create question", "Question creation failed", 500)
         
         # Schedule background cache warming
         background_tasks.add_task(_warm_question_cache, question["test_id"])
         
-        question["performance"] = {
-            "processing_time_ms": round(processing_time, 2),
-            "optimized": True
-        }
-        
-        logger.info(f"Fast question created in {processing_time:.2f}ms: {question['id']}")
+        logger.info(f"Fast question created: {question['id']}")
         return resp(question, True, None, "Question created successfully", 201)
         
     except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast question creation failed in {processing_time:.2f}ms: {str(e)}")
+        logger.error(f"Fast question creation failed: {str(e)}")
         return resp(None, False, str(e), "Failed to create question", 500)
 
 @router.put("/questions/{question_id}/fast")

@@ -79,20 +79,37 @@ export default function TestResultPage() {
           return;
         }
         
-        // Get user's regular test results
+        // ✅ FIXED: Get user's regular test results from profile-dashboard endpoint
         console.log('🔍 Individual Test Result: Fetching user results for testId:', testId);
-        const userResults = await resultsService.getUserResults(user.id);
-        console.log('🔍 Individual Test Result: User results received:', userResults);
         
-        // Find the specific test result
-        const foundResult = userResults.results.find((result: any) => 
+        // Fetch from the new combined profile-dashboard endpoint
+        const dashboardResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/results_service/optimized/profile-dashboard/${user.id}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`,
+            },
+          }
+        );
+        
+        if (!dashboardResponse.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+        
+        const dashboardData = await dashboardResponse.json();
+        console.log('🔍 Individual Test Result: Dashboard data received:', dashboardData);
+        
+        // Find the specific test result from the combined results
+        const foundResult = dashboardData.data.results.find((result: any) => 
           result.test_id === testId
         );
         console.log('🔍 Individual Test Result: Found result for testId:', testId, foundResult);
 
         if (!foundResult) {
           console.error('❌ Individual Test Result: Test result not found for testId:', testId);
-          console.log('📋 Available test IDs:', userResults.results.map((r: any) => r.test_id));
+          console.log('📋 Available test IDs:', dashboardData.data.results.map((r: any) => r.test_id));
           setError('Test result not found');
           return;
         }
@@ -101,13 +118,24 @@ export default function TestResultPage() {
         console.log('🔍 Raw foundResult fields:', Object.keys(foundResult));
         console.log('🔍 Raw foundResult data:', foundResult);
         
+        // ✅ FIXED: Parse calculated_result if it's a JSON string
+        let parsedCalculatedResult = foundResult.calculated_result;
+        if (typeof parsedCalculatedResult === 'string') {
+          try {
+            parsedCalculatedResult = JSON.parse(parsedCalculatedResult);
+          } catch (e) {
+            console.warn('Could not parse calculated_result JSON:', e);
+            parsedCalculatedResult = {};
+          }
+        }
+        
         const convertedResult: TestResult = {
           id: String(foundResult.id),
           test_id: foundResult.test_id,
           test_name: foundResult.test_name || (foundResult as any).primary_result || `${foundResult.test_id.toUpperCase()} Test`,
           completed_at: foundResult.completed_at || (foundResult as any).created_at,
           percentage_score: foundResult.percentage_score || (foundResult as any).completion_percentage || 100,
-          analysis: foundResult.analysis || (foundResult as any).calculated_result,
+          analysis: parsedCalculatedResult || foundResult.analysis || {},  // ✅ Use parsed calculated_result
           duration_minutes: foundResult.duration_minutes || 0,
           answers: foundResult.answers || (foundResult as any).user_answers
         };
@@ -140,8 +168,8 @@ export default function TestResultPage() {
           }
         } else {
           console.log('🔄 Individual Test Result: Using analysis as calculated result');
-          // Use the analysis data directly and format it properly
-          const analysisData = (foundResult as any).calculated_result || foundResult.analysis;
+          // ✅ FIXED: Use the parsed calculated_result from profile-dashboard endpoint
+          const analysisData = parsedCalculatedResult || foundResult.analysis;
           console.log('🔍 Individual Test Result: Analysis data:', analysisData);
           
           if (analysisData) {

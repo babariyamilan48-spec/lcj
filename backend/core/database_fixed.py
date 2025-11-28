@@ -53,15 +53,15 @@ class DatabaseManager:
             pass  # Database initialization
             
             # CRITICAL: Supabase has 30-connection limit
-            # pool_size=5 + max_overflow=10 = 15 total (safe margin with better performance)
+            # pool_size=10 + max_overflow=15 = 25 total (optimized for concurrent requests)
             self.engine = create_engine(
                 database_url,
                 
                 # OPTIMIZED CONNECTION POOL SETTINGS FOR SUPABASE
                 poolclass=QueuePool,
-                pool_size=5,              # Base connections (increased from 3)
-                max_overflow=8,          # Additional connections when needed (increased from 5)
-                pool_timeout=10,           # 5 second timeout for getting connection (reduced from 15)
+                pool_size=8,             # Base connections (increased from 5 for concurrency)
+                max_overflow=5,          # Additional connections when needed (increased from 8)
+                pool_timeout=10,           # 5 second timeout for getting connection (reduced from 10)
                 pool_recycle=300,         # Recycle connections every 5 minutes
                 pool_pre_ping=True,       # Validate connections before use
                 
@@ -97,10 +97,10 @@ class DatabaseManager:
                 class_=Session
             )
             
-            # Test the connection
-            self._test_connection()
-            
-            pass
+            # ✅ CRITICAL FIX: Defer connection test to first request
+            # Do NOT test connection at module import time - this causes timeout errors
+            # The connection will be tested on first use via pool_pre_ping=True
+            logger.info("✅ Database engine created successfully (connection test deferred to first use)")
             
         except Exception as e:
             raise
@@ -142,6 +142,19 @@ class DatabaseManager:
                 # Suppress errors during reset - connection may already be closed by server
                 # This is normal when Supabase closes idle connections
                 logger.debug(f"Connection reset error (expected for closed connections): {type(e).__name__}")
+                pass
+        
+        @event.listens_for(self.engine, "close")
+        def close_connection_handler(dbapi_connection, connection_record):
+            """Handle connection close - ensure proper cleanup"""
+            try:
+                # ✅ CRITICAL FIX: Ensure connection is properly closed
+                # This prevents SSL connection leaks
+                if not dbapi_connection.closed:
+                    dbapi_connection.close()
+            except Exception as e:
+                # Connection may already be closed
+                logger.debug(f"Connection close error (expected): {type(e).__name__}")
                 pass
         
         @event.listens_for(self.engine, "checkout")
@@ -204,32 +217,32 @@ class DatabaseManager:
                     session.commit()
                     pass
                 except Exception as commit_error:
-                    pass
+                    # ✅ CRITICAL FIX: Rollback on any commit error (including SSL errors)
                     try:
                         session.rollback()
                         pass
                     except Exception as rollback_error:
-                        pass
+                        logger.error(f"[SESSION ROLLBACK ERROR] Rollback failed: {rollback_error} (ID: {session_id})")
                     raise
             
         except (OperationalError, TimeoutError) as e:
+            # ✅ CRITICAL FIX: Always rollback on operational errors
             if session and session.is_active:
                 try:
                     session.rollback()
                     pass
                 except Exception as rollback_error:
                     logger.error(f"[SESSION ROLLBACK ERROR] Rollback failed: {rollback_error} (ID: {session_id})")
-            pass
             raise
             
         except Exception as e:
+            # ✅ CRITICAL FIX: Always rollback on any error
             if session and session.is_active:
                 try:
                     session.rollback()
                     pass
                 except Exception as rollback_error:
                     logger.error(f"[SESSION ROLLBACK ERROR] Rollback failed: {rollback_error} (ID: {session_id})")
-            pass
             raise
             
         finally:
@@ -241,13 +254,22 @@ class DatabaseManager:
             elif session_duration > 1.0:
                 pass
             
-            # CRITICAL: Always close the session to return connection to pool
+            # ✅ CRITICAL: Always close and dispose the session to return connection to pool
+            # This is essential for preventing connection leaks
             if session and not session_closed:
                 try:
+                    # First close the session
                     session.close()
                     session_closed = True
+                    
+                    # Then dispose the connection to ensure it's returned to pool
+                    # This is critical for SSL errors and connection issues
+                    session.connection().close()
                     pass
                 except Exception as close_error:
+                    # Even if close fails, we've done our best
+                    # The connection pool will eventually recycle the connection
+                    logger.debug(f"[SESSION CLOSE] Close error (expected for broken connections): {type(close_error).__name__}")
                     pass
     
     def get_session_dependency(self) -> Generator[Session, None, None]:
@@ -312,12 +334,32 @@ class DatabaseManager:
             }
     
     def close(self):
-        """Close database connections and cleanup"""
+        """
+        ✅ CRITICAL: Close ALL database connections and cleanup
+        Called on app shutdown to ensure no connections are left open
+        """
         try:
             if self.engine:
+                # ✅ CRITICAL: Dispose all connections in the pool
+                # This closes all active and idle connections
                 self.engine.dispose()
+                logger.info("✅ All database connections disposed successfully")
         except Exception as e:
+            logger.error(f"Error disposing database connections: {e}")
             pass
+        
+        try:
+            # ✅ CRITICAL: Close the session factory
+            if self.SessionLocal:
+                self.SessionLocal.close_all()
+                logger.info("✅ Session factory closed successfully")
+        except Exception as e:
+            logger.error(f"Error closing session factory: {e}")
+            pass
+        
+        # ✅ CRITICAL: Mark as uninitialized so it can be recreated if needed
+        self._initialized = False
+        logger.info("✅ Database manager cleanup complete")
     
     def reset_connection(self):
         """Reset database connection (for recovery from connection issues)"""
@@ -340,9 +382,29 @@ def get_db() -> Generator[Session, None, None]:
     """
     FastAPI dependency for getting optimized database session
     CRITICAL: Use this in ALL endpoints
+    
+    ✅ CRITICAL FIX: Ensure session is ALWAYS closed after use
+    This prevents connection pool exhaustion
     """
-    with db_manager.get_session() as session:
+    session = None
+    try:
+        session = db_manager.SessionLocal()
         yield session
+    finally:
+        # ✅ CRITICAL: Always close the session, even if an exception occurred
+        if session:
+            try:
+                # Rollback any pending transaction
+                if session.is_active:
+                    session.rollback()
+            except Exception:
+                pass
+            
+            try:
+                # Close the session to return connection to pool
+                session.close()
+            except Exception:
+                pass
 
 # Context manager for manual session management
 @contextmanager

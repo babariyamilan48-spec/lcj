@@ -1,26 +1,28 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Index
+from sqlalchemy import Column, Integer, String, VARCHAR, ForeignKey, DateTime, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from core.database_fixed import Base
 
 class Question(Base):
+    """
+    ✅ OPTIMIZED: Questions with proper indexing and VARCHAR for text
+    """
     __tablename__ = "questions"
 
     id = Column(Integer, primary_key=True, index=True)
-    test_id = Column(Integer, ForeignKey("tests.id"), nullable=False, index=True)  # Added index
-    section_id = Column(Integer, ForeignKey("test_sections.id"), nullable=True, index=True)  # Added index
-    question_text = Column(Text, nullable=False)
-    question_type = Column(String(50), default="multiple_choice")  # multiple_choice, text, rating, etc.
-    question_order = Column(Integer, default=0, index=True)  # Added index for ordering
-    is_active = Column(Boolean, default=True, index=True)  # Added index for filtering
+    test_id = Column(Integer, ForeignKey("tests.id"), nullable=False, index=True)
+    section_id = Column(Integer, ForeignKey("test_sections.id"), nullable=True, index=True)
+    question_text = Column(VARCHAR(2000), nullable=False)  # ✅ OPTIMIZED: VARCHAR with reasonable limit
+    question_type = Column(VARCHAR(50), default="multiple_choice")
+    question_order = Column(Integer, default=0, index=True)
+    is_active = Column(Boolean, default=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Performance indexes for common query patterns
+    # ✅ OPTIMIZED: Indexes in correct order for query patterns
     __table_args__ = (
-        Index('idx_questions_test_active', 'test_id', 'is_active'),  # Composite index for active questions by test
-        Index('idx_questions_section_active', 'section_id', 'is_active'),  # Composite index for active questions by section
-        Index('idx_questions_test_order', 'test_id', 'question_order'),  # Composite index for ordered questions by test
+        Index('idx_questions_test_active_order', 'test_id', 'is_active', 'question_order'),  # ✅ CRITICAL
+        Index('idx_questions_section_active_order', 'section_id', 'is_active', 'question_order'),  # Section queries
     )
 
     # Relationships

@@ -283,6 +283,75 @@ export const useUserProfile = (userId?: string) => {
 };
 
 // Hook for analytics data
+// ⚡ NEW OPTIMIZED HOOK: Combined profile dashboard data
+export const useProfileDashboard = (userId?: string) => {
+  const [dashboardData, setDashboardData] = useState<{
+    results: TestResult[];
+    ai_insights?: any[];  // ✅ Added AI insights field
+    analytics: {
+      total_tests: number;
+      completed_tests: number;
+      avg_score: number;
+      completion_rate: number;
+    };
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDashboard = useCallback(async () => {
+    if (!userId) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('📊 [useProfileDashboard] Fetching combined dashboard data for user:', userId);
+      
+      // ⚡ NEW: Use combined endpoint instead of 2 separate calls
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/results_service/optimized/profile-dashboard/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dashboard: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ [useProfileDashboard] Full response:', data);
+      console.log('✅ [useProfileDashboard] Extracted data.data:', data.data);
+      console.log('✅ [useProfileDashboard] AI insights in response:', data.data?.ai_insights);
+      
+      setDashboardData(data.data);
+      setError(null);
+      return data.data;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch dashboard';
+      console.error('❌ [useProfileDashboard] Error:', errorMessage);
+      setError(errorMessage);
+      setDashboardData(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchDashboard();
+    }
+  }, [userId, fetchDashboard]);
+
+  return {
+    dashboardData,
+    loading,
+    error,
+    refetch: fetchDashboard,
+  };
+};
+
 export const useAnalytics = (userId?: string) => {
   const [analyticsData, setAnalyticsData] = useState<{
     stats: UserStats;

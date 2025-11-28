@@ -120,11 +120,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // If no cached data or validation failed, validate with server
           try {
             // Fetch real user data from /me endpoint to validate token
+            // Add cache-busting headers to prevent browser caching
             const response = await fetch(`${API_ENDPOINTS.AUTH.BASE}${API_ENDPOINTS.AUTH.ME}`, {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
               },
             });
 
@@ -323,6 +327,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       });
       

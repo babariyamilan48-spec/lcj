@@ -120,15 +120,28 @@ const ComprehensiveReportPage = () => {
       const statusResponse = await completionStatusService.getCompletionStatus(userId, true);
       console.log('🔍 Raw completion status response:', JSON.stringify(statusResponse, null, 2));
       
-      // Transform response to match old interface
+      // ✅ FIXED: Handle both old and new API response formats
+      const completedTests = statusResponse.data.completed_tests || [];
+      const totalTests = statusResponse.data.total_tests || 7;
+      const completionPercentage = statusResponse.data.completion_percentage || 0;
+      
+      // Calculate missing tests
+      const allStandardTests = ['mbti', 'intelligence', 'riasec', 'bigfive', 'decision', 'vark', 'life-situation'];
+      const missingTests = allStandardTests.filter(test => !completedTests.includes(test));
+      
+      // Check if all tests are completed
+      const allCompleted = completedTests.length === totalTests && completionPercentage === 100;
+      
       const status = {
-        allCompleted: statusResponse.data.all_completed,
-        completedTests: statusResponse.data.completed_tests,
-        missingTests: statusResponse.data.missing_tests,
-        totalTests: statusResponse.data.total_tests,
-        completionPercentage: statusResponse.data.completion_percentage
+        allCompleted: allCompleted,
+        completedTests: completedTests,
+        missingTests: missingTests,
+        totalTests: totalTests,
+        completionPercentage: completionPercentage
       };
       setCompletionStatus(status);
+
+      console.log('✅ Completion status:', status);
 
       if (!status.allCompleted) {
         setError(`કૃપા કરીને સંપૂર્ણ રિપોર્ટ જોવા માટે બધા ટેસ્ટ પૂર્ણ કરો.
@@ -299,7 +312,9 @@ const ComprehensiveReportPage = () => {
     );
   }
 
-  if (error || !completionStatus?.allCompleted) {
+  // ✅ FIXED: Only show error if we have insights AND error (not just error alone)
+  // If insights were generated successfully, show them even if error was set earlier
+  if ((error || !completionStatus?.allCompleted) && !comprehensiveInsights) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 flex items-center justify-center">
         <motion.div

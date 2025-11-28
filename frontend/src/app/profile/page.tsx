@@ -36,7 +36,7 @@ import ModernFooter from '@/components/layout/ModernFooter';
 import BackButton from '@/components/BackButton';
 import MobileNavDrawer from '@/components/MobileNavDrawer';
 import { modernToast } from '@/utils/toast';
-import { useUserProfile, useTestResults, useAnalytics, useReportDownload } from '@/hooks/useResultsService';
+import { useUserProfile, useTestResults, useAnalytics, useReportDownload, useProfileDashboard } from '@/hooks/useResultsService';
 import { resultsService } from '@/services/resultsService';
 import { tokenStore } from '@/services/token';
 import { Toaster } from 'react-hot-toast';
@@ -48,10 +48,30 @@ export default function ProfilePage() {
   const userId = user?.id || undefined;
 
   const { profile, loading: profileLoading, updateProfile } = useUserProfile(userId);
-  const { results, loading: resultsLoading, pagination, fetchResults } = useTestResults(userId);
-
-  // Remove this useEffect - fetchResults is already called by useTestResults hook automatically
-  const { analyticsData, loading: analyticsLoading } = useAnalytics(userId);
+  
+  // ⚡ NEW: Use combined dashboard endpoint instead of 2 separate calls
+  const { dashboardData, loading: dashboardLoading } = useProfileDashboard(userId);
+  
+  // ✅ FIXED: Extract results AND ai_insights from combined dashboard data
+  const results = dashboardData ? [
+    ...(dashboardData.ai_insights || []),  // ✅ Add AI insights first
+    ...(dashboardData.results || [])        // Then add regular test results
+  ] : [];
+  const resultsLoading = dashboardLoading;
+  const analyticsData = dashboardData ? {
+    stats: {
+      total_tests: dashboardData.analytics.total_tests,
+      average_score: dashboardData.analytics.avg_score,
+      streak_days: 0,
+      achievements: 0,
+      recent_tests: results
+    },
+    testHistory: results,
+    categoryScores: {},
+    progressOverTime: [],
+    goals: []
+  } : null;
+  const analyticsLoading = dashboardLoading;
   
   // State for download modal
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -734,7 +754,7 @@ export default function ProfilePage() {
                           <h4 className="text-lg font-medium text-gray-900 mb-2">No tests completed yet</h4>
                           <p className="text-gray-500 mb-6">Start your learning journey by taking your first assessment</p>
                           <button
-                            onClick={() => window.location.href = '/test'}
+                            onClick={() => window.location.href = '/home'}
                             className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
                           >
                             Take Your First Test
@@ -967,7 +987,7 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Test History</h3>
               <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                {pagination.total > 0 && (
+                {results.length > 0 && (
                   <motion.button
                     onClick={() => {
                       // Show preview modal first, then open report
@@ -983,9 +1003,9 @@ export default function ProfilePage() {
                     <span>Download All Reports</span>
                   </motion.button>
                 )}
-                {pagination.total > 0 && (
+                {results.length > 0 && (
                   <div className="text-sm text-gray-500">
-                    {pagination.total} total test{pagination.total !== 1 ? 's' : ''}
+                    {results.length} total test{results.length !== 1 ? 's' : ''}
                   </div>
                 )}
               </div>
@@ -1065,30 +1085,7 @@ export default function ProfilePage() {
                   ))}
                 </div>
 
-                {/* Pagination */}
-                {pagination.total_pages > 1 && (
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-8 pt-6 border-t border-gray-200 space-y-4 sm:space-y-0">
-                    <div className="text-sm text-gray-500">
-                      Page {pagination.page} of {pagination.total_pages}
-                    </div>
-                    <div className="flex space-x-2 justify-center sm:justify-start">
-                      <button
-                        onClick={() => fetchResults(pagination.page - 1)}
-                        disabled={pagination.page <= 1}
-                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        onClick={() => fetchResults(pagination.page + 1)}
-                        disabled={pagination.page >= pagination.total_pages}
-                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Note: Pagination removed - combined endpoint returns latest 5 results */}
               </>
             ) : (
               <div className="text-center py-12">

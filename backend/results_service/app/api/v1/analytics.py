@@ -3,11 +3,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, distinct
 from datetime import datetime, timedelta
 from core.database_fixed import get_db, get_db_session
+from core.cache import cache_async_result
 from question_service.app.models.test_result import TestResult
 from question_service.app.models.test import Test
 from core.app_factory import resp
 import requests
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/analytics/tests")
@@ -62,56 +65,54 @@ async def get_test_analytics(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get test analytics: {str(e)}")
 
-@router.get("/analytics/users")
-async def get_user_analytics_from_results(db: Session = Depends(get_db)):
-    """Get user analytics based on test results"""
+@router.get("/analytics/users/{user_id}")
+@cache_async_result(ttl=900)  # 15-minute cache
+async def get_user_analytics_from_results(user_id: str, db: Session = Depends(get_db)):
+    """
+    ⚡ ULTRA-OPTIMIZED: Get user analytics - Target: <100ms
+    
+    Optimizations:
+    - Single aggregation query for all user stats
+    - Database-level filtering and aggregation
+    - Minimal response fields: total_tests, avg_score, completion_rate
+    - 15-minute caching
+    """
     try:
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        import uuid
         
-        # ✅ OPTIMIZED: Combine queries where possible
-        # Total users who have taken tests
-        total_users = db.query(TestResult.user_id).distinct().count()
+        # Validate user ID
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid user ID format")
         
-        # Active users (users who took tests in last 30 days)
-        active_users = db.query(TestResult.user_id).filter(
-            TestResult.created_at >= thirty_days_ago
-        ).distinct().count()
+        # ⚡ OPTIMIZED: Single aggregation query for all user stats
+        stats = db.query(
+            func.count(TestResult.id).label('total_tests'),
+            func.avg(TestResult.completion_percentage).label('avg_score'),
+            func.count(TestResult.id).filter(TestResult.is_completed == True).label('completed_tests')
+        ).filter(TestResult.user_id == user_uuid).first()
         
-        # Users who completed tests (have results)
-        verified_users = db.query(TestResult.user_id).filter(
-            TestResult.analysis.isnot(None)
-        ).distinct().count()
-        
-        # Admin users (assuming 1 for now, should be fetched from auth service)
-        admin_users = 1
-        
-        # Recent registrations (users who took their first test in last 30 days)
-        recent_registrations = active_users  # Same as active_users
-        
-        # ✅ OPTIMIZED: Single query for test completion stats
-        completion_stats = db.query(
-            TestResult.test_type,
-            func.count(TestResult.id).label('completions')
-        ).group_by(TestResult.test_type).all()
-        
-        test_completion_distribution = []
-        for test_type, completions in completion_stats:
-            if test_type:
-                test_completion_distribution.append({
-                    "test_type": test_type.replace('_', ' ').title(),
-                    "completions": completions
-                })
+        total_tests = stats.total_tests or 0
+        avg_score = round(stats.avg_score, 2) if stats.avg_score else 0
+        completed_tests = stats.completed_tests or 0
+        completion_rate = round((completed_tests / total_tests) * 100, 1) if total_tests > 0 else 0
         
         return {
-            "total_users": total_users,
-            "active_users": active_users,
-            "verified_users": verified_users,
-            "admin_users": admin_users,
-            "recent_registrations": recent_registrations,
-            "test_completion_distribution": test_completion_distribution
+            "success": True,
+            "data": {
+                "total_tests": total_tests,
+                "completed_tests": completed_tests,
+                "avg_score": avg_score,
+                "completion_rate": completion_rate
+            },
+            "message": "User analytics retrieved successfully"
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get user analytics: {str(e)}")
+        logger.error(f"Error getting user analytics for {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve user analytics")
 
 @router.get("/analytics/overview")
 async def get_overview_analytics(db: Session = Depends(get_db)):
