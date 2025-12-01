@@ -72,26 +72,12 @@ async def get_completion_status(request: Request, user_id: str, force_refresh: b
             "message": "Completion status retrieved successfully"
         }
         
-        # ✅ CRITICAL FIX: Close session immediately after query
-        # This returns connection to pool before returning response
-        try:
-            db.expunge_all()
-            db.close()
-        except:
-            pass
-        
         return response
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting completion status for user {user_id}: {e}")
-        # ✅ CRITICAL FIX: Close session immediately on error
-        try:
-            db.expunge_all()
-            db.close()
-        except:
-            pass
         raise HTTPException(status_code=500, detail="Failed to retrieve completion status")
 
 

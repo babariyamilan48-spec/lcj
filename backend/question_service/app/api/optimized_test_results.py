@@ -231,11 +231,6 @@ async def calculate_and_save_test_result_fast(
         # ✅ OPTIMIZED: Single commit instead of multiple
         db.commit()
         
-        # ✅ CRITICAL FIX: Expunge all objects and close session IMMEDIATELY
-        # This returns connection to pool before slow operations
-        db.expunge_all()
-        db.close()
-        
         # ✅ CRITICAL: Invalidate cache IMMEDIATELY (blocking) before returning response
         # This ensures the next API call gets fresh data
         _invalidate_user_cache_async(user_id)
@@ -278,12 +273,6 @@ async def calculate_and_save_test_result_fast(
         logger.error(f"Fast calculation failed: {str(e)}")
         try:
             db.rollback()
-        except:
-            pass
-        # ✅ CRITICAL FIX: Close session immediately on error
-        try:
-            db.expunge_all()
-            db.close()
         except:
             pass
         raise HTTPException(status_code=400, detail=str(e))

@@ -253,26 +253,12 @@ async def check_payment_status(
             payment_id=last_payment.payment_id if last_payment else None
         )
         
-        # ✅ CRITICAL FIX: Close session immediately after query
-        # This returns connection to pool before returning response
-        try:
-            db.expunge_all()
-            db.close()
-        except:
-            pass
-        
         return response
     
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"❌ Error checking payment status: {str(e)}")
-        # ✅ CRITICAL FIX: Close session immediately on error
-        try:
-            db.expunge_all()
-            db.close()
-        except:
-            pass
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to check payment status"
