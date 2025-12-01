@@ -231,6 +231,11 @@ async def calculate_and_save_test_result_fast(
         # ✅ OPTIMIZED: Single commit instead of multiple
         db.commit()
         
+        # ✅ CRITICAL FIX: Expunge all objects and close session IMMEDIATELY
+        # This returns connection to pool before slow operations
+        db.expunge_all()
+        db.close()
+        
         # ✅ CRITICAL: Invalidate cache IMMEDIATELY (blocking) before returning response
         # This ensures the next API call gets fresh data
         _invalidate_user_cache_async(user_id)
@@ -249,13 +254,6 @@ async def calculate_and_save_test_result_fast(
         
         processing_time = (time.time() - start_time) * 1000
         logger.info(f"Fast calculation completed in {processing_time:.2f}ms for user {user_id}")
-        
-        # ✅ CRITICAL FIX: Explicitly close session to prevent connection leaks
-        if db and db.is_active:
-            try:
-                db.close()
-            except:
-                pass
         
         # ✅ OPTIMIZED: Return minimal response immediately with all required fields
         return TestResultResponse(
@@ -282,12 +280,12 @@ async def calculate_and_save_test_result_fast(
             db.rollback()
         except:
             pass
-        # ✅ CRITICAL FIX: Explicitly close session on error
-        if db and db.is_active:
-            try:
-                db.close()
-            except:
-                pass
+        # ✅ CRITICAL FIX: Close session immediately on error
+        try:
+            db.expunge_all()
+            db.close()
+        except:
+            pass
         raise HTTPException(status_code=400, detail=str(e))
 
 
