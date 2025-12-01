@@ -253,12 +253,23 @@ async def check_payment_status(
             payment_id=last_payment.payment_id if last_payment else None
         )
         
+        # ✅ CRITICAL FIX: Explicitly close session to prevent leaks
+        # FastAPI dependency should handle this, but explicit close ensures cleanup
+        if db and db.is_active:
+            db.close()
+        
         return response
     
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"❌ Error checking payment status: {str(e)}")
+        # ✅ CRITICAL FIX: Explicitly close session on error
+        if db and db.is_active:
+            try:
+                db.close()
+            except:
+                pass
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to check payment status"

@@ -63,11 +63,8 @@ class CalculatedResultService:
                 existing.calculated_result = calculated_result
                 existing.primary_result = primary_result
                 existing.result_summary = result_summary
-                existing.traits = traits
-                existing.careers = careers
-                existing.strengths = strengths
-                existing.recommendations = recommendations
-                existing.dimensions_scores = dimensions_scores
+                # ✅ FIXED: Don't set traits, careers, strengths, recommendations, dimensions_scores
+                # These fields don't exist in CalculatedTestResult model (removed for optimization)
                 existing.updated_at = datetime.utcnow()
                 existing.is_valid = True
                 
@@ -83,11 +80,8 @@ class CalculatedResultService:
                 calculated_result=calculated_result,
                 primary_result=primary_result,
                 result_summary=result_summary,
-                traits=traits or [],
-                careers=careers or [],
-                strengths=strengths or [],
-                recommendations=recommendations or [],
-                dimensions_scores=dimensions_scores or {},
+                # ✅ FIXED: Don't set traits, careers, strengths, recommendations, dimensions_scores
+                # These fields don't exist in CalculatedTestResult model (removed for optimization)
                 is_valid=True
             )
             

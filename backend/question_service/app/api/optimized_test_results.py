@@ -136,6 +136,7 @@ async def calculate_and_save_test_result_fast(
     - No unnecessary refresh() calls
     - Async cache invalidation via background tasks
     - Raw SQL for better performance
+    - ✅ CRITICAL: Explicit session cleanup to prevent connection leaks
     """
     start_time = time.time()
     
@@ -249,6 +250,13 @@ async def calculate_and_save_test_result_fast(
         processing_time = (time.time() - start_time) * 1000
         logger.info(f"Fast calculation completed in {processing_time:.2f}ms for user {user_id}")
         
+        # ✅ CRITICAL FIX: Explicitly close session to prevent connection leaks
+        if db and db.is_active:
+            try:
+                db.close()
+            except:
+                pass
+        
         # ✅ OPTIMIZED: Return minimal response immediately with all required fields
         return TestResultResponse(
             id=result_id,
@@ -274,6 +282,12 @@ async def calculate_and_save_test_result_fast(
             db.rollback()
         except:
             pass
+        # ✅ CRITICAL FIX: Explicitly close session on error
+        if db and db.is_active:
+            try:
+                db.close()
+            except:
+                pass
         raise HTTPException(status_code=400, detail=str(e))
 
 

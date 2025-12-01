@@ -427,8 +427,9 @@ class OptimizedCache:
             from results_service.app.services.optimized_result_service import OptimizedResultService
             
             # Pre-load critical user data
+            # ✅ FIXED: Use correct function signatures
             tasks = [
-                OptimizedResultService.get_user_results_fast(user_id, limit=20),
+                OptimizedResultService.get_user_results_fast(user_id),  # limit is optional
                 OptimizedResultService.get_all_test_results_fast(user_id),
                 OptimizedResultService.batch_get_user_data(user_id)
             ]
@@ -437,7 +438,7 @@ class OptimizedCache:
             logger.info(f"Optimized cache warmed for user {user_id}")
             
         except Exception as e:
-            logger.error(f"Optimized cache warming failed: {e}")
+            logger.error(f"Cache warming failed for user {user_id}: {e}")
 
 # Health check for cache
 def cache_health_check() -> Dict[str, Any]:

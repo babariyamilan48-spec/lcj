@@ -32,6 +32,7 @@ async def get_completion_status(request: Request, user_id: str, force_refresh: b
     - Database-level filtering
     - Minimal response fields: completed_tests, total_tests, completion_percentage
     - 5-minute caching
+    - ✅ CRITICAL: Explicit session cleanup to prevent connection leaks
     """
     try:
         from sqlalchemy import func
@@ -61,7 +62,7 @@ async def get_completion_status(request: Request, user_id: str, force_refresh: b
         total_tests = 7
         completion_percentage = round((completed_count / total_tests) * 100, 1) if total_tests > 0 else 0
         
-        return {
+        response = {
             "success": True,
             "data": {
                 "completed_tests": completed_test_ids,  # Return array of test IDs
@@ -71,10 +72,25 @@ async def get_completion_status(request: Request, user_id: str, force_refresh: b
             "message": "Completion status retrieved successfully"
         }
         
+        # ✅ CRITICAL FIX: Explicitly close session to prevent connection leaks
+        if db and db.is_active:
+            try:
+                db.close()
+            except:
+                pass
+        
+        return response
+        
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting completion status for user {user_id}: {e}")
+        # ✅ CRITICAL FIX: Explicitly close session on error
+        if db and db.is_active:
+            try:
+                db.close()
+            except:
+                pass
         raise HTTPException(status_code=500, detail="Failed to retrieve completion status")
 
 
