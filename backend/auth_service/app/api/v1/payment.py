@@ -29,29 +29,33 @@ router = APIRouter(prefix="/payment", tags=["Payment"])
 @router.post("/create-order", response_model=CreateOrderResponse)
 async def create_order(
     request: CreateOrderRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a Razorpay order for payment
     
-    - **user_id**: UUID of the user
     - **amount**: Optional amount in paise (uses default if not provided)
     
     Returns order details for frontend checkout
+    
+    Requires: Authentication token (user must be logged in)
     """
     try:
-        # Verify user exists
-        user = db.query(User).filter(User.id == request.user_id).first()
-        if not user:
-            logger.warning(f"User not found: {request.user_id}")
+        # ✅ Use authenticated user (no need to query)
+        if not current_user:
+            logger.warning("Unauthorized payment request - no authenticated user")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated. Please log in first."
             )
+        
+        user = current_user
+        logger.info(f"Payment request from authenticated user: {user.id}")
         
         # Check if user already completed payment
         if user.payment_completed:
-            logger.info(f"User {request.user_id} already completed payment")
+            logger.info(f"User {user.id} already completed payment")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Payment already completed for this user"
@@ -65,7 +69,7 @@ async def create_order(
         
         # Create order
         # Receipt must be <= 40 characters for Razorpay
-        user_id_str = str(request.user_id)
+        user_id_str = str(user.id)
         receipt = user_id_str[:40]  # Truncate to 40 chars max
         
         try:
@@ -88,7 +92,7 @@ async def create_order(
         
         # Store order in database
         payment_record = Payment(
-            user_id=request.user_id,
+            user_id=user.id,
             order_id=order["id"],
             amount=amount,
             currency="INR",
@@ -97,7 +101,7 @@ async def create_order(
         db.add(payment_record)
         db.commit()  # ✅ Explicitly commit to ensure order is saved
         
-        logger.info(f"✅ Order created for user {request.user_id}: {order['id']}")
+        logger.info(f"✅ Order created for user {user.id}: {order['id']}")
         
         return CreateOrderResponse(
             order_id=order["id"],
@@ -120,27 +124,31 @@ async def create_order(
 @router.post("/verify", response_model=VerifyPaymentResponse)
 async def verify_payment(
     request: VerifyPaymentRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Verify payment signature and mark user as payment completed
     
-    - **user_id**: UUID of the user
     - **order_id**: Razorpay Order ID
     - **payment_id**: Razorpay Payment ID
     - **signature**: Payment signature from Razorpay
     
     Returns verification result and updates user payment status
+    
+    Requires: Authentication token (user must be logged in)
     """
     try:
-        # Verify user exists
-        user = db.query(User).filter(User.id == request.user_id).first()
-        if not user:
-            logger.warning(f"⚠️ User not found: {request.user_id}")
+        # ✅ Use authenticated user
+        if not current_user:
+            logger.warning("Unauthorized payment verification - no authenticated user")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated. Please log in first."
             )
+        
+        user = current_user
+        logger.info(f"Payment verification from authenticated user: {user.id}")
         
         # Get Razorpay service
         razorpay_service = get_razorpay_service()
@@ -192,7 +200,7 @@ async def verify_payment(
         # ✅ Explicitly commit to ensure changes are saved
         db.commit()
         
-        logger.info(f"✅ Payment verified for user {request.user_id}: {request.payment_id}")
+        logger.info(f"✅ Payment verified for user {user.id}: {request.payment_id}")
         
         return VerifyPaymentResponse(
             success=True,

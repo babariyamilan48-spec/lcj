@@ -15,8 +15,8 @@ class Settings(BaseSettings):
 
     # Database - Optimized for Supabase (30 connection limit)
     DATABASE_URL: str = "postgresql+psycopg2://lcj_user:lcj_password@localhost:5432/lcj"
-    DATABASE_POOL_SIZE: int = 5  # Conservative for Supabase 30 connection limit
-    DATABASE_MAX_OVERFLOW: int = 10  # Limited overflow to prevent exhaustion
+    DATABASE_POOL_SIZE: int = 5  # Conservative pool size for Supabase
+    DATABASE_MAX_OVERFLOW: int = 3  # Limited overflow to prevent exhaustion
     
     # Redis Cache Configuration
     REDIS_URL: str = "redis://localhost:6379/0"

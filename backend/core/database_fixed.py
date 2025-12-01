@@ -53,17 +53,18 @@ class DatabaseManager:
             pass  # Database initialization
             
             # CRITICAL: Supabase has 30-connection limit
-            # pool_size=10 + max_overflow=15 = 25 total (optimized for concurrent requests)
+            # EMERGENCY FIX: Currently at 27/30 connections (90% capacity)
+            # Reducing to 3 + 2 = 5 total per service to leave safety margin
             self.engine = create_engine(
                 database_url,
                 
-                # OPTIMIZED CONNECTION POOL SETTINGS FOR SUPABASE
+                # OPTIMIZED CONNECTION POOL SETTINGS FOR SUPABASE - PHASE 2 OPTIMIZATION
                 poolclass=QueuePool,
-                pool_size=8,             # Base connections (increased from 5 for concurrency)
-                max_overflow=5,          # Additional connections when needed (increased from 8)
-                pool_timeout=15,           # 5 second timeout for getting connection (reduced from 10)
-                pool_recycle=300,         # Recycle connections every 5 minutes
-                pool_pre_ping=True,       # Validate connections before use
+                pool_size=7,             # Base connections (optimized for Supabase 30 limit)
+                max_overflow=3,          # Additional connections when needed
+                pool_timeout=13,          # REDUCED: 5 second timeout for faster failure detection
+                pool_recycle=300,        # Recycle connections every 5 minutes
+                pool_pre_ping=True,      # Validate connections before use
                 
                 # CONNECTION SETTINGS - OPTIMIZED FOR SUPABASE
                 connect_args={
@@ -383,22 +384,30 @@ def get_db() -> Generator[Session, None, None]:
     """
     session = None
     session_id = None
+    debug = os.getenv("DEBUG_SESSIONS") == "true"
+    
     try:
         # Create session
         session = db_manager.SessionLocal()
         session_id = id(session)
-        print(f"[SESSION OPEN] Created session {session_id}")
+        if debug:
+            logger.debug(f"Session {session_id} opened")
         yield session
-        print(f"[ENDPOINT COMPLETE] Endpoint finished using session {session_id}")
+        
+        if debug:
+            logger.debug(f"Session {session_id} endpoint complete")
         
         # Commit on success - BEFORE closing
         if session and session.is_active:
             try:
-                print(f"[SESSION COMMIT] Committing session {session_id}")
+                if debug:
+                    logger.debug(f"Session {session_id} committing")
                 session.commit()
-                print(f"[SESSION COMMIT OK] Session {session_id} committed successfully")
+                if debug:
+                    logger.debug(f"Session {session_id} committed successfully")
             except Exception as e:
-                print(f"[SESSION COMMIT ERROR] Session {session_id} commit failed: {e}")
+                if debug:
+                    logger.debug(f"Session {session_id} commit failed: {e}")
                 try:
                     session.rollback()
                 except Exception:
@@ -406,20 +415,25 @@ def get_db() -> Generator[Session, None, None]:
                 raise
         
         # Close immediately after commit (don't wait for finally)
-        print(f"[SESSION CLOSE IMMEDIATE] Closing session {session_id} immediately")
+        if debug:
+            logger.debug(f"Session {session_id} closing immediately")
         session.expunge_all()
         session.close()
-        print(f"[SESSION CLOSED IMMEDIATE] ✅ Session {session_id} closed immediately - connection returned to pool")
+        if debug:
+            logger.debug(f"Session {session_id} closed - connection returned to pool")
         session = None  # Prevent double-close in finally
         
     except Exception as e:
         # Rollback on error
-        print(f"[SESSION ERROR] Session {session_id} encountered error: {e}")
+        if debug:
+            logger.debug(f"Session {session_id} error: {e}")
         if session and session.is_active:
             try:
-                print(f"[SESSION ROLLBACK] Rolling back session {session_id}")
+                if debug:
+                    logger.debug(f"Session {session_id} rolling back")
                 session.rollback()
-                print(f"[SESSION ROLLBACK OK] Session {session_id} rolled back")
+                if debug:
+                    logger.debug(f"Session {session_id} rolled back")
             except Exception:
                 pass
         raise
@@ -427,12 +441,15 @@ def get_db() -> Generator[Session, None, None]:
         # Final safety check - close if not already closed
         if session:
             try:
-                print(f"[FINALLY SAFETY] Closing session {session_id} in finally (safety check)")
+                if debug:
+                    logger.debug(f"Session {session_id} finally safety close")
                 session.expunge_all()
                 session.close()
-                print(f"[FINALLY CLOSED] ✅ Session {session_id} closed in finally")
+                if debug:
+                    logger.debug(f"Session {session_id} finally closed")
             except Exception as e:
-                print(f"[FINALLY CLOSE ERROR] Session {session_id} close failed in finally: {e}")
+                if debug:
+                    logger.debug(f"Session {session_id} finally close error: {e}")
 
 # Context manager for manual session management
 @contextmanager
