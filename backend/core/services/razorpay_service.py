@@ -45,7 +45,8 @@ class RazorpayService:
         amount: int,
         currency: str = "INR",
         receipt: Optional[str] = None,
-        notes: Optional[Dict] = None
+        notes: Optional[Dict] = None,
+        max_retries: int = 1
     ) -> Dict:
         """
         Create a Razorpay order
@@ -55,6 +56,7 @@ class RazorpayService:
             currency: Currency code (default: INR)
             receipt: Receipt ID (optional)
             notes: Additional notes/metadata (optional)
+            max_retries: Maximum number of retry attempts (default: 1, no retries in sync context)
         
         Returns:
             Order response from Razorpay

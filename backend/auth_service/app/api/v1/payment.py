@@ -68,16 +68,23 @@ async def create_order(
         user_id_str = str(request.user_id)
         receipt = user_id_str[:40]  # Truncate to 40 chars max
         
-        order = razorpay_service.create_order(
-            amount=amount,
-            currency="INR",
-            receipt=receipt,
-            notes={
-                "user_id": user_id_str,
-                "email": user.email,
-                "username": user.username or "N/A"
-            }
-        )
+        try:
+            order = razorpay_service.create_order(
+                amount=amount,
+                currency="INR",
+                receipt=receipt,
+                notes={
+                    "user_id": user_id_str,
+                    "email": user.email,
+                    "username": user.username or "N/A"
+                }
+            )
+        except Exception as razorpay_error:
+            logger.error(f"❌ Razorpay API error: {str(razorpay_error)}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Payment gateway temporarily unavailable. Please try again."
+            )
         
         # Store order in database
         payment_record = Payment(
@@ -88,7 +95,7 @@ async def create_order(
             status="created"
         )
         db.add(payment_record)
-        # ✅ Don't commit here - get_db() dependency handles it
+        db.commit()  # ✅ Explicitly commit to ensure order is saved
         
         logger.info(f"✅ Order created for user {request.user_id}: {order['id']}")
         
@@ -155,7 +162,7 @@ async def verify_payment(
             if payment:
                 payment.status = "failed"
                 payment.error_message = "Invalid signature"
-                # ✅ Don't commit here - get_db() dependency handles it
+                db.commit()  # ✅ Explicitly commit
             
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -182,7 +189,8 @@ async def verify_payment(
         # Mark user as payment completed
         user.payment_completed = True
         
-        # ✅ Don't commit here - get_db() dependency handles it
+        # ✅ Explicitly commit to ensure changes are saved
+        db.commit()
         
         logger.info(f"✅ Payment verified for user {request.user_id}: {request.payment_id}")
         

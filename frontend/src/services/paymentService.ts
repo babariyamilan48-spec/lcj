@@ -74,45 +74,96 @@ class PaymentService {
   }
 
   /**
-   * Create a Razorpay order
+   * Create a Razorpay order with retry logic
    */
-  async createOrder(request: CreateOrderRequest): Promise<CreateOrderResponse> {
-    try {
-      const client = this.getApiClient();
-      console.log('📝 Creating order with request:', request);
-      console.log('📍 API Base URL:', getApiBaseUrl());
-      console.log('📍 Full URL:', `${getApiBaseUrl()}${this.baseUrl}/create-order`);
-      
-      const response = await client.post<CreateOrderResponse>(
-        `${this.baseUrl}/create-order`,
-        request
-      );
-      console.log('✅ Order created:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('❌ Error creating order:', error);
-      console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error status:', error.response?.status);
-      console.error('❌ Error message:', error.message);
-      throw new Error(error.response?.data?.detail || error.message || 'Failed to create order');
+  async createOrder(request: CreateOrderRequest, maxRetries: number = 3): Promise<CreateOrderResponse> {
+    let lastError: any = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const client = this.getApiClient();
+        console.log(`📝 Creating order (attempt ${attempt}/${maxRetries})...`);
+        console.log('📍 API Base URL:', getApiBaseUrl());
+        console.log('📍 Full URL:', `${getApiBaseUrl()}${this.baseUrl}/create-order`);
+        
+        const response = await client.post<CreateOrderResponse>(
+          `${this.baseUrl}/create-order`,
+          request,
+          { timeout: 15000 }  // 15 second timeout
+        );
+        console.log('✅ Order created:', response.data);
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`⚠️ Attempt ${attempt} failed:`, error.message);
+        
+        // Log detailed error info
+        console.error('❌ Error response:', error.response?.data);
+        console.error('❌ Error status:', error.response?.status);
+        console.error('❌ Error message:', error.message);
+        
+        // Don't retry on 404, 400, or 401 errors
+        if (error.response?.status === 404 || error.response?.status === 400 || error.response?.status === 401) {
+          throw new Error(error.response?.data?.detail || error.message || 'Failed to create order');
+        }
+        
+        // Retry on network errors or 5xx errors
+        if (attempt < maxRetries) {
+          const delay = 500 * attempt; // Exponential backoff
+          console.log(`⏳ Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+      }
     }
+    
+    // All retries failed
+    const errorMsg = lastError?.response?.data?.detail || lastError?.message || 'Failed to create order after multiple attempts';
+    console.error('❌ All retries failed:', errorMsg);
+    throw new Error(errorMsg);
   }
 
   /**
-   * Verify payment signature
+   * Verify payment signature with retry logic
    */
-  async verifyPayment(request: VerifyPaymentRequest): Promise<VerifyPaymentResponse> {
-    try {
-      const client = this.getApiClient();
-      const response = await client.post<VerifyPaymentResponse>(
-        `${this.baseUrl}/verify`,
-        request
-      );
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error verifying payment:', error);
-      throw error;
+  async verifyPayment(request: VerifyPaymentRequest, maxRetries: number = 3): Promise<VerifyPaymentResponse> {
+    let lastError: any = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const client = this.getApiClient();
+        console.log(`🔐 Verifying payment (attempt ${attempt}/${maxRetries})...`);
+        
+        const response = await client.post<VerifyPaymentResponse>(
+          `${this.baseUrl}/verify`,
+          request,
+          { timeout: 15000 }  // 15 second timeout
+        );
+        console.log('✅ Payment verified:', response.data);
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`⚠️ Verification attempt ${attempt} failed:`, error.message);
+        
+        // Don't retry on 400 or 401 errors (invalid signature or auth)
+        if (error.response?.status === 400 || error.response?.status === 401) {
+          throw new Error(error.response?.data?.detail || error.message || 'Payment verification failed');
+        }
+        
+        // Retry on network errors or 5xx errors
+        if (attempt < maxRetries) {
+          const delay = 500 * attempt;
+          console.log(`⏳ Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+      }
     }
+    
+    // All retries failed
+    const errorMsg = lastError?.response?.data?.detail || lastError?.message || 'Payment verification failed after multiple attempts';
+    console.error('❌ All verification retries failed:', errorMsg);
+    throw new Error(errorMsg);
   }
 
   /**
