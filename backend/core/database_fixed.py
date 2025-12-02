@@ -380,7 +380,8 @@ def get_db() -> Generator[Session, None, None]:
     FastAPI dependency for getting optimized database session
     CRITICAL: Use this in ALL endpoints
     
-    ✅ CRITICAL FIX: Close session IMMEDIATELY after endpoint, before response sent
+    ✅ CRITICAL FIX: Let FastAPI handle session cleanup in finally block
+    Do NOT close session before yielding back to FastAPI
     """
     session = None
     session_id = None
@@ -397,7 +398,7 @@ def get_db() -> Generator[Session, None, None]:
         if debug:
             logger.debug(f"Session {session_id} endpoint complete")
         
-        # Commit on success - BEFORE closing
+        # Commit on success ONLY if no exception occurred
         if session and session.is_active:
             try:
                 if debug:
@@ -414,15 +415,6 @@ def get_db() -> Generator[Session, None, None]:
                     pass
                 raise
         
-        # Close immediately after commit (don't wait for finally)
-        if debug:
-            logger.debug(f"Session {session_id} closing immediately")
-        session.expunge_all()
-        session.close()
-        if debug:
-            logger.debug(f"Session {session_id} closed - connection returned to pool")
-        session = None  # Prevent double-close in finally
-        
     except Exception as e:
         # Rollback on error
         if debug:
@@ -438,15 +430,16 @@ def get_db() -> Generator[Session, None, None]:
                 pass
         raise
     finally:
-        # Final safety check - close if not already closed
+        # ✅ CRITICAL: Always close the session in finally block
+        # This ensures connection is returned to pool after endpoint completes
         if session:
             try:
                 if debug:
-                    logger.debug(f"Session {session_id} finally safety close")
+                    logger.debug(f"Session {session_id} finally closing")
                 session.expunge_all()
                 session.close()
                 if debug:
-                    logger.debug(f"Session {session_id} finally closed")
+                    logger.debug(f"Session {session_id} finally closed - connection returned to pool")
             except Exception as e:
                 if debug:
                     logger.debug(f"Session {session_id} finally close error: {e}")

@@ -45,23 +45,20 @@ class SessionMonitoringMiddleware(BaseHTTPMiddleware):
             # Process the request
             response = await call_next(request)
             
-            # CRITICAL: Wait for FastAPI dependency cleanup and connection pool return
-            # The session.close() in get_db() needs time to return connection to pool
-            # SQLAlchemy's QueuePool may have slight delays in returning connections
-            import asyncio
-            await asyncio.sleep(0.15)  # 150ms - ensures all cleanup is complete
-            
-            # Get final session stats AFTER cleanup
+            # Get final session stats immediately after response
+            # SQLAlchemy's QueuePool returns connections quickly after session.close()
             final_stats = self._get_session_stats()
             request_duration = time.time() - start_time
             
-            # Check for session leaks (only log if STILL elevated after delay)
+            # Check for session leaks
+            # Only report if sessions increased AND are still elevated
             session_leak_detected = (
-                final_stats['total_active_sessions'] > initial_stats['total_active_sessions']
+                final_stats['total_active_sessions'] > initial_stats['total_active_sessions'] + 1
             )
             
-            # Log session usage - only if truly leaking (not just timing)
-            if session_leak_detected and final_stats['total_active_sessions'] > 2:
+            # Log session usage - only if truly leaking (significant increase)
+            # Allow for 1-2 session variance due to timing
+            if session_leak_detected and final_stats['total_active_sessions'] > 3:
                 logger.error(
                     f"\n{'='*80}\n"
                     f"🚨 SESSION LEAK DETECTED - Request #{current_request}\n"

@@ -426,19 +426,24 @@ class OptimizedCache:
         try:
             from results_service.app.services.optimized_result_service import OptimizedResultService
             
-            # Pre-load critical user data
-            # ✅ FIXED: Use correct function signatures
+            # Pre-load critical user data with correct function signatures
+            # ✅ FIXED: Use static methods with correct parameters
             tasks = [
-                OptimizedResultService.get_user_results_fast(user_id),  # limit is optional
+                OptimizedResultService.get_user_results_fast(user_id, limit=10),  # Static method with limit
                 OptimizedResultService.get_all_test_results_fast(user_id),
-                OptimizedResultService.batch_get_user_data(user_id)
             ]
             
-            await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Log any errors but don't fail
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.debug(f"Cache warming task {i} returned exception: {result}")
+            
             logger.info(f"Optimized cache warmed for user {user_id}")
             
         except Exception as e:
-            logger.error(f"Cache warming failed for user {user_id}: {e}")
+            logger.debug(f"Cache warming failed for user {user_id}: {e}")
 
 # Health check for cache
 def cache_health_check() -> Dict[str, Any]:

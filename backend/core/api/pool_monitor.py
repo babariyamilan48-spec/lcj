@@ -13,27 +13,33 @@ router = APIRouter()
 
 @router.get("/pool/status")
 async def pool_status():
-    """Get current pool status"""
+    """Get current pool status - FAST endpoint, no database query"""
     try:
+        if not db_manager.engine:
+            return {"status": "error", "error": "Engine not initialized"}
+        
         pool = db_manager.engine.pool
         checked_out = pool.checkedout()
         checked_in = pool.checkedin()
+        size = pool.size()
+        
+        # If pool hasn't been used yet, size() returns 0
+        # Use configured size instead
+        if size == 0:
+            size = 7  # pool_size from database_fixed.py
         
         return {
             "status": "success",
-            "pool": {
-                "size": pool.size(),
+            "pool_stats": {
+                "size": size,
                 "checked_in": checked_in,
                 "checked_out": checked_out,
-                "max_overflow": 5,  # Configured in database_fixed.py
-                "total": checked_in + checked_out,
-                "available": checked_in,
-                "in_use": checked_out
+                "overflow": pool.overflow()
             },
             "limits": {
-                "pool_size": 3,
-                "max_overflow": 5,
-                "total_limit": 8,
+                "pool_size": 7,
+                "max_overflow": 3,
+                "total_limit": 10,
                 "supabase_limit": 30
             },
             "health": "healthy" if checked_out < 7 else "warning" if checked_out < 8 else "critical"
