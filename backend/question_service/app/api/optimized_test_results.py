@@ -33,8 +33,14 @@ def _process_calculated_result_async(
 ):
     """Process calculated result asynchronously (doesn't block response)"""
     try:
+        import time
         from core.database_fixed import get_db_session
         from ..services.calculated_result_service import CalculatedResultService
+        
+        # ✅ CRITICAL: Wait for main transaction to commit
+        # The test_result_id must exist in test_results table before we can insert into calculated_test_results
+        # Small delay ensures the main endpoint's commit completes first
+        time.sleep(0.1)
         
         with get_db_session() as db:
             # ✅ OPTIMIZED: Skip trait extraction - just store the raw result
