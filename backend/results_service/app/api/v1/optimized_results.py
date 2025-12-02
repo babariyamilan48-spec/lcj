@@ -509,15 +509,16 @@ async def _warm_user_cache(user_id: str):
     Warm up cache for user data in background
     """
     try:
-        # Pre-load commonly accessed data
+        # Pre-load commonly accessed data with correct function signatures
+        # ✅ FIXED: Use static methods with correct parameters
         await asyncio.gather(
-            OptimizedResultService.get_user_results_fast(user_id),
+            OptimizedResultService.get_user_results_fast(user_id, limit=10),  # Static method with limit
             OptimizedResultService.get_all_test_results_fast(user_id),
             return_exceptions=True
         )
         logger.debug(f"Cache warmed for user {user_id}")
     except Exception as e:
-        logger.warning(f"Cache warming failed for user {user_id}: {e}")
+        logger.debug(f"Cache warming failed for user {user_id}: {e}")
 
 @router.post("/cache/warm/{user_id}")
 async def warm_user_cache(user_id: str, background_tasks: BackgroundTasks):

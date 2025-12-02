@@ -42,7 +42,7 @@ async def create_test_result(
         )
         return result
     except Exception as e:
-        db.rollback()
+        # ✅ CRITICAL: Let FastAPI dependency handle rollback
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/calculate-and-save", response_model=TestResultResponse)
@@ -64,7 +64,7 @@ async def calculate_and_save_test_result(
         
         return result
     except Exception as e:
-        db.rollback()
+        # ✅ CRITICAL: Let FastAPI dependency handle rollback
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/user/{user_id}", response_model=List[TestResultResponse])
@@ -118,8 +118,8 @@ async def update_test_result(
     if test_result_update.is_completed and not db_result.completed_at:
         db_result.completed_at = datetime.utcnow()
     
-    db.commit()
-    db.refresh(db_result)
+    # ✅ CRITICAL: Let FastAPI dependency handle commit
+    # Do NOT call db.commit() or db.refresh() manually
     
     return db_result
 
@@ -138,7 +138,8 @@ async def delete_test_result(
         )
     
     db.delete(db_result)
-    db.commit()
+    # ✅ CRITICAL: Let FastAPI dependency handle commit
+    # Do NOT call db.commit() manually
     
     return {"message": "Test result deleted successfully"}
 
@@ -182,13 +183,13 @@ async def create_test_configuration(
     try:
         db_config = TestResultConfiguration(**config_data)
         db.add(db_config)
-        db.commit()
-        db.refresh(db_config)
+        # ✅ CRITICAL: Let FastAPI dependency handle commit
+        # Do NOT call db.commit() or db.refresh() manually
         
         return db_config
         
     except Exception as e:
-        db.rollback()
+        # ✅ CRITICAL: Let FastAPI dependency handle rollback
         raise HTTPException(
             status_code=500,
             detail=f"Error creating configuration: {str(e)}"

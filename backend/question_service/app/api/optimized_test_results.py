@@ -116,7 +116,8 @@ class OptimizedTestResultService:
             print(f"❌ Error type: {type(e)}")
             import traceback
             print(f"❌ Traceback: {traceback.format_exc()}")
-            db.rollback()
+            # ✅ CRITICAL: Let FastAPI dependency handle rollback
+            # Do NOT call db.rollback() manually
             raise e
     
 
@@ -228,8 +229,8 @@ async def calculate_and_save_test_result_fast(
         
         result_id = result[0]
         
-        # ✅ OPTIMIZED: Single commit instead of multiple
-        db.commit()
+        # ✅ CRITICAL: Let FastAPI dependency handle commit/cleanup
+        # Do NOT call db.commit() manually - dependency's finally block will handle it
         
         # ✅ CRITICAL: Invalidate cache IMMEDIATELY (blocking) before returning response
         # This ensures the next API call gets fresh data
@@ -271,10 +272,8 @@ async def calculate_and_save_test_result_fast(
         
     except Exception as e:
         logger.error(f"Fast calculation failed: {str(e)}")
-        try:
-            db.rollback()
-        except:
-            pass
+        # ✅ CRITICAL: Let FastAPI dependency handle rollback
+        # Do NOT call db.rollback() manually - dependency's finally block will handle it
         raise HTTPException(status_code=400, detail=str(e))
 
 

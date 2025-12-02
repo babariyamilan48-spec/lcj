@@ -99,7 +99,8 @@ async def create_order(
             status="created"
         )
         db.add(payment_record)
-        db.commit()  # ✅ Explicitly commit to ensure order is saved
+        # ✅ CRITICAL: Let FastAPI dependency handle commit
+        # Do NOT call db.commit() manually - dependency's finally block will handle it
         
         logger.info(f"✅ Order created for user {user.id}: {order['id']}")
         
@@ -170,7 +171,7 @@ async def verify_payment(
             if payment:
                 payment.status = "failed"
                 payment.error_message = "Invalid signature"
-                db.commit()  # ✅ Explicitly commit
+                # ✅ CRITICAL: Let FastAPI dependency handle commit
             
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -197,8 +198,8 @@ async def verify_payment(
         # Mark user as payment completed
         user.payment_completed = True
         
-        # ✅ Explicitly commit to ensure changes are saved
-        db.commit()
+        # ✅ CRITICAL: Let FastAPI dependency handle commit
+        # Do NOT call db.commit() manually - dependency's finally block will handle it
         
         logger.info(f"✅ Payment verified for user {user.id}: {request.payment_id}")
         
