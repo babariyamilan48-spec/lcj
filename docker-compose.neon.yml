@@ -1,0 +1,149 @@
+version: '3.8'
+
+# ✅ Docker Compose for Neon Postgres Deployment
+# This configuration is optimized for production deployment with Neon Postgres
+# 
+# Usage:
+#   docker-compose -f docker-compose.neon.yml up -d
+#
+# Environment Variables Required:
+#   - DATABASE_URL: Neon Postgres connection string (pooled endpoint)
+#   - REDIS_URL: Redis connection string (optional, uses local Redis if not set)
+#   - SECRET_KEY: JWT secret key
+#   - JWT_SECRET_KEY: JWT secret key
+#   - GEMINI_API_KEY: Google Gemini API key
+
+services:
+  # Redis for Celery and Caching
+  redis:
+    image: redis:7-alpine
+    container_name: lcj_redis_neon
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - lcj_network
+
+  # Backend API (Unified)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lcj_backend_neon
+    environment:
+      - ENVIRONMENT=production
+      # ✅ Neon Postgres Configuration
+      - DATABASE_URL=${DATABASE_URL}
+      # Note: DATABASE_URL should use pooled endpoint:
+      # postgresql+psycopg2://user:password@ep-cool-morning-123456-pooler.region.neon.tech:5432/database
+      
+      # Redis Configuration
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CELERY_BROKER_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${REDIS_URL:-redis://redis:6379/0}
+      
+      # API Keys and Secrets
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/neon"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - lcj_network
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Celery Worker for Background Tasks
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    container_name: lcj_celery_worker_neon
+    environment:
+      - ENVIRONMENT=production
+      # ✅ Neon Postgres Configuration
+      - DATABASE_URL=${DATABASE_URL}
+      
+      # Redis Configuration
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CELERY_BROKER_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${REDIS_URL:-redis://redis:6379/0}
+      
+      # API Keys
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    command: python start_celery_production.py
+    networks:
+      - lcj_network
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lcj_frontend_neon
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXT_PUBLIC_APP_ENV=production
+      - NEXT_PUBLIC_APP_VERSION=1.0.0
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lcj_network
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  lcj_network:
+    driver: bridge

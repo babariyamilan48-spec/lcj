@@ -744,7 +744,7 @@ class ResultService:
                                     "insights": ai_result["insights"],
                                     "confidence_score": 85.5,
                                     "generated_at": ai_result.get("generated_at", datetime.now().isoformat()),
-                                    "model": ai_result.get("model", "gemini-2.0-flash")
+                                    "model": ai_result.get("model", "gemini-2.5-flash-live")
                                 }
                             else:
                                 # Fallback to mock insights
@@ -1227,7 +1227,7 @@ class ResultService:
                     # AI Metadata
                     ai_meta = [
                         ["🎯 Confidence Score:", f"{insight['confidence_score']:.1f}%"],
-                        ["🤖 AI Model:", insight.get('model', 'Gemini-2.0-Flash')],
+                        ["🤖 AI Model:", insight.get('model', 'gemini-2.5-flash-live')],
                         ["📅 Generated:", insight.get('generated_at', 'N/A')[:10] if insight.get('generated_at') else 'N/A']
                     ]
                     

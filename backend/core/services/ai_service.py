@@ -16,7 +16,7 @@ class AIInsightService:
             raise ValueError("GEMINI_API_KEY environment variable is required")
 
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.model = genai.GenerativeModel('gemini-2.5-flash-live')
 
     def generate_insights(self, test_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -71,7 +71,7 @@ class AIInsightService:
                     "success": True,
                     "insights": insights,
                     "generated_at": datetime.utcnow().isoformat(),
-                    "model": "gemini-2.0-flash",
+                    "model": "gemini-2.5-flash-live",
                     "attempt": attempt + 1
                 }
 
@@ -86,7 +86,7 @@ class AIInsightService:
             "success": False,
             "error": f"AI service failed after {max_retries} attempts. Last error: {last_error}",
             "generated_at": datetime.utcnow().isoformat(),
-            "model": "gemini-2.0-flash",
+            "model": "gemini-2.5-flash-live",
             "attempts_made": max_retries
         }
 
@@ -599,7 +599,7 @@ Return ONLY valid JSON with no additional text.
                 "success": False,
                 "error": "No test results provided. Please complete all tests first.",
                 "generated_at": datetime.utcnow().isoformat(),
-                "model": "gemini-2.0-flash"
+                "model": "gemini-2.5-flash-live"
             }
 
         # Create comprehensive prompt based on all test results
@@ -678,7 +678,7 @@ Return ONLY valid JSON with no additional text.
                     "success": True,
                     "insights": insights,
                     "generated_at": datetime.utcnow().isoformat(),
-                    "model": "gemini-2.0-flash",
+                    "model": "gemini-2.5-flash-live",
                     "attempt": attempt + 1
                 }
 
@@ -693,7 +693,7 @@ Return ONLY valid JSON with no additional text.
             "success": False,
             "error": f"AI service failed after {max_retries} attempts. Last error: {last_error}",
             "generated_at": datetime.utcnow().isoformat(),
-            "model": "gemini-2.0-flash",
+            "model": "gemini-2.5-flash-live",
             "attempts_made": max_retries
         }
 

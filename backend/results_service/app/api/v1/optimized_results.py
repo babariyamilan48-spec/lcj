@@ -539,51 +539,6 @@ async def clear_user_cache_fast(user_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/results/{user_id}/fast")
-@limiter.limit("100/minute")
-@cache_async_result(ttl=300, key_prefix="fast_user_results")
-async def get_user_results_fast(
-    request: Request,
-    user_id: str,
-    page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=100),
-    db: Session = Depends(get_db)
-):
-    """
-    Ultra-fast user results retrieval
-    Target response time: < 300ms
-    """
-    start_time = time.time()
-    
-    try:
-        logger.debug(f"Fast user results: user_id={user_id}, page={page}, size={size}")
-        
-        with OptimizedResultService(db) as service:
-            # Get paginated results for user
-            results, total = await service.get_user_results_fast(user_id, page, size)
-        
-        processing_time = (time.time() - start_time) * 1000
-        
-        result = {
-            "results": results,
-            "total": total,
-            "page": page,
-            "size": size,
-            "performance": {
-                "processing_time_ms": round(processing_time, 2),
-                "optimized": True,
-                "endpoint": "fast_user_results"
-            }
-        }
-        
-        logger.info(f"Fast user results completed in {processing_time:.2f}ms")
-        return resp(result, True, "User results retrieved successfully", "success")
-        
-    except Exception as e:
-        processing_time = (time.time() - start_time) * 1000
-        logger.error(f"Fast user results failed in {processing_time:.2f}ms: {str(e)}")
-        return resp(None, False, str(e), "Failed to retrieve user results", 500)
-
 @router.get("/batch-user-data/{user_id}")
 @limiter.limit("50/minute")
 @cache_async_result(ttl=600, key_prefix="fast_batch_user_data")

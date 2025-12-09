@@ -32,32 +32,34 @@ async def run_migrations():
         command.upgrade(alembic_cfg, "head")
         print("✅ Database migrations completed successfully!")
         
-        # Test Supabase connection
-        await test_supabase_connection()
+        # Test Neon connection
+        await test_neon_connection()
         
     except Exception as e:
         print(f"❌ Migration failed: {str(e)}")
         sys.exit(1)
 
-async def test_supabase_connection():
-    """Test Supabase connection and setup"""
-    print("🔍 Testing Supabase connection...")
+async def test_neon_connection():
+    """Test Neon Postgres connection and setup"""
+    print("🔍 Testing Neon Postgres connection...")
     
     try:
-        from core.database_fixed import get_db, db_manager
+        from core.database_fixed import db_manager, check_db_health
         
-        health = await db_health_check()
+        health = db_manager.health_check()
         
-        if health["supabase"]["status"] == "healthy":
-            print("✅ Supabase connection successful!")
-        elif health["sqlalchemy"]["status"] == "healthy":
-            print("✅ SQLAlchemy connection successful (Supabase fallback available)")
+        if health["status"] == "healthy":
+            print("✅ Neon Postgres connection successful!")
+            print(f"   Connection time: {health['connection_time_ms']}ms")
+            print(f"   Pool stats: {health['pool_stats']}")
         else:
-            print("⚠️ Database connections have issues - check configuration")
+            print(f"⚠️ Database connection status: {health['status']}")
+            if "error" in health:
+                print(f"   Error: {health['error']}")
             
     except Exception as e:
         print(f"⚠️ Connection test failed: {str(e)}")
-        print("   Application will use fallback mechanisms")
+        print("   Please check your DATABASE_URL environment variable")
 
 async def create_admin_user():
     """Create admin user if it doesn't exist"""

@@ -28,7 +28,8 @@ logger = logging.getLogger(__name__)
 app = create_app({
     "title": "LCJ Career Assessment System - Unified API",
     "description": "Unified API combining all LCJ services: Auth, Questions, Results, and Contact",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "include_root": False  # Disable factory root endpoint, we define our own below
 })
 
 # Include all service routers with their respective prefixes
@@ -72,10 +73,11 @@ async def database_health():
             "timestamp": datetime.now().isoformat()
         }
 
-@app.get("/health/supabase")
-async def supabase_health():
-    from core.supabase_client import supabase_health
-    return supabase_health()
+@app.get("/health/neon")
+async def neon_health():
+    """Neon Postgres database health check"""
+    from core.database_fixed import check_db_health
+    return check_db_health()
 
 @app.get("/health/auth")
 async def auth_health():

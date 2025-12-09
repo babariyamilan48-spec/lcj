@@ -13,21 +13,16 @@ class Settings(BaseSettings):
     # CORS
     allowed_hosts: List[str] = ["*"]
 
-    # Database - Optimized for Supabase (30 connection limit)
+    # Database - Optimized for Neon Postgres
     DATABASE_URL: str = "postgresql+psycopg2://lcj_user:lcj_password@localhost:5432/lcj"
-    DATABASE_POOL_SIZE: int = 5  # Conservative pool size for Supabase
-    DATABASE_MAX_OVERFLOW: int = 3  # Limited overflow to prevent exhaustion
+    DATABASE_POOL_SIZE: int = 10  # Base pool size for Neon
+    DATABASE_MAX_OVERFLOW: int = 20  # Additional overflow connections
     
     # Redis Cache Configuration
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_TTL_DEFAULT: int = 300  # 5 minutes default TTL
     REDIS_TTL_LONG: int = 3600   # 1 hour for stable data
     REDIS_TTL_SHORT: int = 60    # 1 minute for frequently changing data
-
-    # Supabase Configuration
-    SUPABASE_URL: Optional[str] = None
-    SUPABASE_ANON_KEY: Optional[str] = None
-    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
 
     # Environment
     ENVIRONMENT: str = "development"
