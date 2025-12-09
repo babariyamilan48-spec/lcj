@@ -23,8 +23,8 @@
       "description": "Assessment of different types of intelligence",
       "icon": "Lightbulb",
       "color": "#f39c12",
-      "questions": 45,
-      "duration": "12-15 મિનિટ",
+      "questions": 27,
+      "duration": "10-12 મિનિટ",
       "sections": [
         { "id": "musical", "name": "સંગીત બુદ્ધિ", "gujarati": "Musical Intelligence" },
         { "id": "logical", "name": "તાર્કિક-ગાણિતિક બુદ્ધિ", "gujarati": "Logical-Mathematical Intelligence" },
@@ -96,8 +96,8 @@
       "description": "Assessment of learning preferences and styles",
       "icon": "BookOpen",
       "color": "#673ab7",
-      "questions": 20,
-      "duration": "5-7 મિનિટ",
+      "questions": 12,
+      "duration": "3-5 મિનિટ",
       "sections": [
         { "id": "visual", "name": "દૃષ્ટિ", "gujarati": "Visual" },
         { "id": "aural", "name": "શ્રવણ", "gujarati": "Aural" },
@@ -112,8 +112,8 @@
       "description": "Assessment of current life circumstances and challenges",
       "icon": "Home",
       "color": "#795548",
-      "questions": 15,
-      "duration": "5-7 મિનિટ",
+      "questions": 10,
+      "duration": "2-3 મિનિટ",
       "sections": [
         { "id": "family", "name": "સામાજિક પરિસ્થિતિ", "gujarati": "Social Situation" },
         { "id": "financial", "name": "આર્થિક પરિસ્થિતિ", "gujarati": "Economic Situation" },
