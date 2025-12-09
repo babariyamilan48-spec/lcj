@@ -552,7 +552,7 @@ async def ai_insights_health_check():
     try:
         # Test AI service initialization
         ai_service = AIInsightService()
-        return {"status": "healthy", "service": "ai-insights", "model": "gemini-2.5-flash-live"}
+        return {"status": "healthy", "service": "ai-insights", "model": "gemini-2.5-flash-lite"}
     except Exception as e:
         logger.error(f"AI service health check failed: {str(e)}")
         return {"status": "unhealthy", "error": str(e)}

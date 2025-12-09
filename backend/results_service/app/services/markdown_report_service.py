@@ -188,7 +188,7 @@ class MarkdownReportService:
                     md_content.append("| Field | Value |")
                     md_content.append("|-------|-------|")
                     md_content.append(f"| 🎯 Confidence Score | {insight['confidence_score']:.1f}% |")
-                    md_content.append(f"| 🤖 AI Model | {insight.get('model', 'gemini-2.5-flash-live')} |")
+                    md_content.append(f"| 🤖 AI Model | {insight.get('model', 'gemini-2.5-flash-lite')} |")
                     generated_date = insight.get('generated_at', 'N/A')[:10] if insight.get('generated_at') else 'N/A'
                     md_content.append(f"| 📅 Generated | {generated_date} |")
                     md_content.append("")
