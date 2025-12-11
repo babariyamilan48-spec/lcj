@@ -136,11 +136,12 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       
       // Check if it's a 401 Unauthorized error (session expired)
       if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
-        console.warn('⚠️ Session expired, redirecting to login...');
+        console.warn('⚠️ Session expired, redirecting to login immediately...');
         setError('Your session has expired. Please log in again.');
-        setTimeout(() => {
-          router.push('/auth/login');
-        }, 2000);
+        setLoading(false);
+        // Redirect immediately without delay
+        router.push('/auth/login');
+        return;
       } else {
         setError(errorMessage);
       }
@@ -176,11 +177,12 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       
       // Check if it's a 401 Unauthorized error (session expired)
       if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
-        console.warn('⚠️ Session expired during verification, redirecting to login...');
+        console.warn('⚠️ Session expired during verification, redirecting to login immediately...');
         setError('Your session has expired. Please log in again.');
-        setTimeout(() => {
-          router.push('/auth/login');
-        }, 2000);
+        setVerifying(false);
+        // Redirect immediately without delay
+        router.push('/auth/login');
+        return;
       } else {
         setError(errorMessage);
       }

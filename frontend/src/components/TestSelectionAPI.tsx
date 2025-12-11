@@ -264,7 +264,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
                     style={{ width: `${tests?.length > 0 ? ((completedTests?.length || 0) / tests.length) * 100 : 0}%` }}
                   ></div>
                 </div>
-                {(completedTests?.length || 0) === (tests?.length || 0) && tests && tests.length > 0 && (
+                {/* {(completedTests?.length || 0) === (tests?.length || 0) && tests && tests.length > 0 && (
                   <div className="mt-3 text-center space-y-3">
                     <span className="text-xs text-green-600 font-medium">
                       🎉 બધા પરીક્ષણો પૂર્ણ! તમે હવે વ્યાપક AI રિપોર્ટ મેળવી શકો છો.
@@ -281,7 +281,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
                       </motion.button>
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
             )}
           </motion.div>
