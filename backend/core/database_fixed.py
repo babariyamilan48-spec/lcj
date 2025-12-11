@@ -65,10 +65,10 @@ class DatabaseManager:
                 database_url,
                 
                 poolclass=QueuePool,
-                pool_size=15,             # Base connections
-                max_overflow=20,          # Additional connections when needed
+                pool_size=15,              # Reduced from 15 - Neon pooler handles overflow
+                max_overflow=10,           # Reduced from 20 - keep total at 10
                 pool_timeout=30,          # 30 second timeout for acquiring connection
-                pool_recycle=3600,        # Recycle connections every 1 hour
+                pool_recycle=300,         # Recycle connections every 5 minutes (was 3600)
                 pool_pre_ping=True,       # Validate connections before use
                 
                 # CONNECTION SETTINGS - OPTIMIZED FOR NEON
@@ -136,10 +136,16 @@ class DatabaseManager:
         
         @event.listens_for(self.engine, "reset")
         def reset_connection_handler(dbapi_connection, connection_record):
-            """Handle connection reset - suppress errors when server closes connection"""
+            """Handle connection reset - clear idle COMMIT state"""
             try:
-                # Try to rollback any pending transaction
-                dbapi_connection.rollback()
+                # ✅ CRITICAL FIX: Clear any pending transaction state
+                # This prevents idle COMMIT connections from accumulating
+                if not dbapi_connection.closed:
+                    # Rollback any pending transaction
+                    dbapi_connection.rollback()
+                    # Reset connection to clean state
+                    with dbapi_connection.cursor() as cursor:
+                        cursor.execute("RESET ALL")
             except Exception as e:
                 # Suppress errors during reset - connection may already be closed by server
                 # This is normal when Neon closes idle connections
@@ -163,22 +169,26 @@ class DatabaseManager:
             """Log connection checkout with timestamp"""
             connection_record.info['checkout_time'] = time.time()
             connection_record.info['checkout_id'] = id(connection_record)
-            pass
+            debug = os.getenv("DEBUG_CONNECTIONS") == "true"
+            if debug:
+                logger.debug(f"[CHECKOUT] Connection {connection_record.info['checkout_id']} checked out")
         
         @event.listens_for(self.engine, "checkin")
         def log_checkin(dbapi_connection, connection_record):
             """Log connection checkin and usage time"""
+            debug = os.getenv("DEBUG_CONNECTIONS") == "true"
             if 'checkout_time' in connection_record.info:
                 checkout_time = connection_record.info.pop('checkout_time')
                 usage_time = time.time() - checkout_time
                 checkout_id = connection_record.info.pop('checkout_id', 'unknown')
                 
+                if debug:
+                    logger.debug(f"[CHECKIN] Connection {checkout_id} returned after {usage_time:.3f}s")
+                
                 if usage_time > 10.0:  # Log long-running connections
-                    pass
+                    logger.warning(f"[SLOW CONNECTION] {usage_time:.2f}s (ID: {checkout_id})")
                 elif usage_time > 5.0:
-                    pass
-                else:
-                    pass
+                    logger.info(f"[MEDIUM CONNECTION] {usage_time:.2f}s (ID: {checkout_id})")
     
     def _test_connection(self):
         """Test database connection"""
