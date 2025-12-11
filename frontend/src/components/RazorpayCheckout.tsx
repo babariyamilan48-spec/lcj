@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, CheckCircle, Loader, Lock, CreditCard } from 'lucide-react';
 import { getCurrentUserId } from '@/utils/userUtils';
@@ -38,6 +39,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
   onPaymentCancel,
   amount
 }) => {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -131,7 +133,17 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Payment failed';
       console.error('❌ Payment error:', errorMessage);
-      setError(errorMessage);
+      
+      // Check if it's a 401 Unauthorized error (session expired)
+      if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
+        console.warn('⚠️ Session expired, redirecting to login...');
+        setError('Your session has expired. Please log in again.');
+        setTimeout(() => {
+          router.push('/auth/login');
+        }, 2000);
+      } else {
+        setError(errorMessage);
+      }
       setLoading(false);
     }
   };
@@ -161,7 +173,17 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Verification failed';
       console.error('❌ Verification error:', errorMessage);
-      setError(errorMessage);
+      
+      // Check if it's a 401 Unauthorized error (session expired)
+      if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
+        console.warn('⚠️ Session expired during verification, redirecting to login...');
+        setError('Your session has expired. Please log in again.');
+        setTimeout(() => {
+          router.push('/auth/login');
+        }, 2000);
+      } else {
+        setError(errorMessage);
+      }
       setVerifying(false);
     }
   };

@@ -65,12 +65,11 @@ class CompletionStatusService:
             raise ValueError(f"Invalid user_id format: {user_id}")
     
     @staticmethod
-    def _get_db_session() -> Optional[Session]:
-        """Get database session safely"""
+    def _get_db_session():
+        """Get database session - returns context manager, not session directly"""
         try:
             from core.database_fixed import get_db_session
-            with get_db_session() as db:
-                return db
+            return get_db_session()
         except Exception as e:
             logger.error(f"Failed to get database session: {e}")
             import traceback
@@ -106,13 +105,13 @@ class CompletionStatusService:
             except Exception as cache_error:
                 logger.warning(f"Cache retrieval failed for user {user_id}: {cache_error}")
             
-            # Get database session
-            db = CompletionStatusService._get_db_session()
-            if not db or not DBTestResult:
+            # ✅ FIXED: Use context manager properly to ensure session is closed
+            db_context = CompletionStatusService._get_db_session()
+            if not db_context or not DBTestResult:
                 logger.warning("Database not available, returning empty list")
                 return []
             
-            try:
+            with db_context as db:
                 # ✅ OPTIMIZED: Get unique test IDs directly from database (no data transfer overhead)
                 completed_tests = [
                     row[0] for row in db.query(DBTestResult.test_id).filter(
@@ -133,9 +132,6 @@ class CompletionStatusService:
                 
                 logger.info(f"Found {len(completed_tests)} completed tests for user {user_id}: {completed_tests}")
                 return completed_tests
-                
-            finally:
-                db.close()
                 
         except ValueError:
             raise

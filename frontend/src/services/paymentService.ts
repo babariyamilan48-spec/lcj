@@ -104,7 +104,12 @@ class PaymentService {
         
         // Don't retry on 404, 400, or 401 errors
         if (error.response?.status === 404 || error.response?.status === 400 || error.response?.status === 401) {
-          throw new Error(error.response?.data?.detail || error.message || 'Failed to create order');
+          const errorMsg = error.response?.data?.detail || error.message || 'Failed to create order';
+          // Include status code in error message for 401 handling
+          if (error.response?.status === 401) {
+            throw new Error(`401 - ${errorMsg}`);
+          }
+          throw new Error(errorMsg);
         }
         
         // Retry on network errors or 5xx errors
@@ -147,7 +152,12 @@ class PaymentService {
         
         // Don't retry on 400 or 401 errors (invalid signature or auth)
         if (error.response?.status === 400 || error.response?.status === 401) {
-          throw new Error(error.response?.data?.detail || error.message || 'Payment verification failed');
+          const errorMsg = error.response?.data?.detail || error.message || 'Payment verification failed';
+          // Include status code in error message for 401 handling
+          if (error.response?.status === 401) {
+            throw new Error(`401 - ${errorMsg}`);
+          }
+          throw new Error(errorMsg);
         }
         
         // Retry on network errors or 5xx errors
@@ -194,6 +204,12 @@ class PaymentService {
       console.error('❌ Error checking payment status:', error);
       console.error('❌ Error response:', error.response?.data);
       console.error('❌ Error status:', error.response?.status);
+      
+      // Check for 401 Unauthorized
+      if (error.response?.status === 401) {
+        const errorMsg = error.response?.data?.detail || error.message || 'Session expired';
+        throw new Error(`401 - ${errorMsg}`);
+      }
       throw error;
     }
   }

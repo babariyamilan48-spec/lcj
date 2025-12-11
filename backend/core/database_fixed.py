@@ -65,7 +65,7 @@ class DatabaseManager:
                 database_url,
                 
                 poolclass=QueuePool,
-                pool_size=10,             # Base connections
+                pool_size=15,             # Base connections
                 max_overflow=20,          # Additional connections when needed
                 pool_timeout=30,          # 30 second timeout for acquiring connection
                 pool_recycle=3600,        # Recycle connections every 1 hour
