@@ -26,45 +26,13 @@ const ModernFooter: React.FC = () => {
 
   const footerSections = [
     {
-      title: 'પ્લેટફોર્મ',
-      links: [
-        { name: 'કારકિર્દી મૂલ્યાંકન', href: '/home' },
-        { name: 'વ્યક્તિત્વ પરીક્ષણો', href: '/tests/personality' },
-        { name: 'બુદ્ધિ પરીક્ષણો', href: '/tests/iq' },
-        { name: 'યોગ્યતા પરીક્ષણો', href: '/tests/aptitude' },
-        { name: 'કારકિર્દી માર્ગદર્શન', href: '/guidance' },
-      ]
-    },
-    {
-      title: 'સંસાધનો',
-      links: [
-        { name: 'અમારા વિશે', href: '/about' },
-        { name: 'કેવી રીતે કામ કરે છે', href: '/how-it-works' },
-        { name: 'સંશોધન', href: '/research' },
-        { name: 'બ્લોગ', href: '/blog' },
-        { name: 'મદદ કેન્દ્ર', href: '/help' },
-      ]
-    },
-    {
       title: 'સહાય',
       links: [
         { name: 'અમારો સંપર્ક કરો', href: '/contact' },
         { name: 'ગોપનીયતા નીતિ', href: '/privacy' },
         { name: 'શરતો અને શરતો', href: '/terms-conditions' },
         { name: 'સેવા વિતરણ નીતિ', href: '/shipping-policy' },
-        { name: 'ખાતો અને ડેટા નીતિ', href: '/cancellation-refund' },
-        { name: 'કૂકી નીતિ', href: '/cookies' },
-        { name: 'વારંવાર પૂછાતા પ્રશ્નો', href: '/faq' },
-      ]
-    },
-    {
-      title: 'કંપની',
-      links: [
-        { name: 'અમારી ટીમ', href: '/team' },
-        { name: 'કારકિર્દી', href: '/careers' },
-        { name: 'પાર્ટનર્સ', href: '/partners' },
-        { name: 'પ્રેસ', href: '/press' },
-        { name: 'નિવેશકો', href: '/investors' },
+        { name: 'ખાતો અને ડેટા નીતિ', href: '/cancellation-refund' }
       ]
     }
   ];
@@ -129,8 +97,8 @@ const ModernFooter: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Footer Links Grid - 2 columns on mobile, 2 on tablet, 4 on desktop */}
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mt-8 md:mt-0">
+        {/* Footer Links Grid - Better spacing for desktop */}
+        <div className="mt-8 md:mt-0">
           {/* Footer Links */}
           {footerSections.map((section, sectionIndex) => (
             <motion.div
@@ -138,10 +106,10 @@ const ModernFooter: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: sectionIndex * 0.1 }}
-              className="space-y-4"
+              className="space-y-8"
             >
-              <h4 className="text-base md:text-lg font-semibold text-white">{section.title}</h4>
-              <ul className="space-y-2 md:space-y-3">
+              <h4 className="text-xl md:text-2xl lg:text-3xl font-semibold text-white">{section.title}</h4>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-8 gap-y-6">
                 {section.links.map((link, linkIndex) => (
                   <motion.li
                     key={link.name}
@@ -151,7 +119,7 @@ const ModernFooter: React.FC = () => {
                   >
                     <Link
                       href={link.href}
-                      className="text-gray-300 hover:text-white text-xs md:text-sm transition-colors duration-200 hover:translate-x-1 inline-block"
+                      className="text-gray-300 hover:text-orange-400 text-base md:text-lg transition-colors duration-200 hover:translate-x-1 inline-block"
                     >
                       {link.name}
                     </Link>

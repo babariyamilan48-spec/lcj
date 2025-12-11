@@ -39,6 +39,12 @@ export default function BackButton({
       return;
     }
 
+    // Always use fallbackPath if explicitly set to /home (for profile page)
+    if (fallbackPath === '/home') {
+      router.push(fallbackPath);
+      return;
+    }
+
     // Try to use navigation history first
     if (navigationHistory.canGoBack()) {
       const backPath = navigationHistory.getBackPath(fallbackPath);

@@ -520,7 +520,7 @@ export default function ProfilePage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-8">
         <div className="mb-6">
-          <BackButton />
+          <BackButton fallbackPath="/home" />
         </div>
         {/* Profile Header */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6 sm:mb-8">

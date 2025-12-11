@@ -64,29 +64,6 @@ const ModernHomePage: React.FC<ModernHomePageProps> = ({ onStart }) => {
     }
   ];
 
-  const testimonials = [
-    {
-      name: 'સારા જોહનસન',
-      role: 'સોફ્ટવેર એન્જિનિયર',
-      content: 'કારકિર્દી મૂલ્યાંકને મને મારી સાચી ક્ષમતા શોધવામાં મદદ કરી અને મને સાચા કારકિર્દી માર્ગ તરફ માર્ગદર્શન આપ્યું.',
-      rating: 5,
-      avatar: 'SJ'
-    },
-    {
-      name: 'માઇકલ ચેન',
-      role: 'માર્કેટિંગ મેનેજર',
-      content: 'ક્રિયાત્મક સૂચનો સાથે વ્યાપક અહેવાલો. કારકિર્દી આયોજન માટે ખૂબ ભલામણ.',
-      rating: 5,
-      avatar: 'MC'
-    },
-    {
-      name: 'એમિલી રોડ્રિગેઝ',
-      role: 'ડેટા સાયન્ટિસ્ટ',
-      content: 'મનોવૈજ્ઞાનિક મૂલ્યાંકન વૈજ્ઞાનિક રીતે માન્ય છે અને અત્યંત ચોક્કસ છે.',
-      rating: 5,
-      avatar: 'ER'
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-white">
@@ -259,54 +236,6 @@ const ModernHomePage: React.FC<ModernHomePageProps> = ({ onStart }) => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4 font-gujarati break-words">
-              અમારા વપરાશકર્તાઓ શું કહે છે
-            </h2>
-            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto font-gujarati leading-relaxed px-4">
-              હજારો સંતુષ્ટ વપરાશકર્તાઓ સાથે જોડાઓ જેમણે તેમની સાચી ક્ષમતા શોધી છે
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-gray-100 h-full flex flex-col"
-              >
-                <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-sm sm:text-base text-gray-600 mb-6 leading-relaxed font-gujarati break-words flex-grow">
-                  "{testimonial.content}"
-                </p>
-                <div className="flex items-center mt-auto">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-semibold mr-3 sm:mr-4 text-sm sm:text-base">
-                    {testimonial.avatar}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-gray-900 text-sm sm:text-base font-gujarati break-words">{testimonial.name}</div>
-                    <div className="text-gray-600 text-xs sm:text-sm font-gujarati break-words">{testimonial.role}</div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-orange-500 to-orange-600">

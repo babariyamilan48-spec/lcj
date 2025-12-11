@@ -264,24 +264,24 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
                     style={{ width: `${tests?.length > 0 ? ((completedTests?.length || 0) / tests.length) * 100 : 0}%` }}
                   ></div>
                 </div>
-                {/* {(completedTests?.length || 0) === (tests?.length || 0) && tests && tests.length > 0 && (
+                {(completedTests?.length || 0) === (tests?.length || 0) && tests && tests.length > 0 && (
                   <div className="mt-3 text-center space-y-3">
                     <span className="text-xs text-green-600 font-medium">
-                      🎉 બધા પરીક્ષણો પૂર્ણ! તમે હવે વ્યાપક AI રિપોર્ટ મેળવી શકો છો.
+                      🎉 બધા પરીક્ષણો પૂર્ણ! તમારા પરિણામો જુઓ.
                     </span>
                     <div>
                       <motion.button
-                        onClick={() => window.location.href = '/comprehensive-report'}
+                        onClick={() => window.location.href = '/profile?tab=history'}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                       >
-                        <span className="mr-2">⚡</span>
-                        AI અંતર્દૃષ્ટિ મેળવો
+                        {/* <span className="mr-2">⬇️</span> */}
+                        Download All Reports
                       </motion.button>
                     </div>
                   </div>
-                )} */}
+                )}
               </div>
             )}
           </motion.div>
