@@ -79,7 +79,7 @@ const IntelligenceResults: React.FC<IntelligenceResultsProps> = ({ calculatedRes
             </div>
             
             <div className="space-y-3">
-              {allIntelligences.slice(0, 8).map((intel: any, idx: number) => (
+              {allIntelligences.map((intel: any, idx: number) => (
                 <div key={idx} className="bg-orange-50 rounded-lg p-3 border border-orange-100">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
@@ -193,7 +193,7 @@ const IntelligenceResults: React.FC<IntelligenceResultsProps> = ({ calculatedRes
               <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
                 <h4 className="font-semibold text-gray-800 text-sm mb-1">Assessment Summary</h4>
                 <p className="text-xs text-gray-600 gujarati-text">
-                  Multiple Intelligence પરીક્ષણ તમારી આઠ મુખ્ય બુદ્ધિ પ્રકારોને માપે છે અને તમારા શીખવા અને કારકિર્દીના વિકાસ માટે માર્ગદર્શન આપે છે.
+                  Multiple Intelligence પરીક્ષણ તમારી નવ મુખ્ય બુદ્ધિ પ્રકારોને માપે છે અને તમારા શીખવા અને કારકિર્દીના વિકાસ માટે માર્ગદર્શન આપે છે.
                 </p>
               </div>
             </div>
