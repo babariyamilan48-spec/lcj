@@ -290,34 +290,34 @@ class SimpleTestCalculators:
                 question_num = int(question_id)
 
                 # Map questions to Multiple Intelligence types based on question number
-                # Based on actual test structure:
-                # Questions 0-4: Musical, 5-9: Logical, 10-14: Spatial, 15-19: Bodily-Kinesthetic
-                # Questions 20-24: Interpersonal, 25-29: Intrapersonal, 30-34: Naturalistic, 35-39: Linguistic, 40-44: Existential
-                if 0 <= question_num <= 4:
+                # Updated to match current test structure (3 questions per type):
+                # Questions 0-2: Musical, 3-5: Logical, 6-8: Spatial, 9-11: Bodily-Kinesthetic
+                # Questions 12-14: Interpersonal, 15-17: Intrapersonal, 18-20: Naturalistic, 21-23: Linguistic, 24-26: Existential
+                if 0 <= question_num <= 2:
                     intelligence_counts['musical'] += 1
                     
-                elif 5 <= question_num <= 9:
+                elif 3 <= question_num <= 5:
                     intelligence_counts['logical'] += 1
                     
-                elif 10 <= question_num <= 14:
+                elif 6 <= question_num <= 8:
                     intelligence_counts['spatial'] += 1
                     
-                elif 15 <= question_num <= 19:
+                elif 9 <= question_num <= 11:
                     intelligence_counts['bodily-kinesthetic'] += 1
                     
-                elif 20 <= question_num <= 24:
+                elif 12 <= question_num <= 14:
                     intelligence_counts['interpersonal'] += 1
                     
-                elif 25 <= question_num <= 29:
+                elif 15 <= question_num <= 17:
                     intelligence_counts['intrapersonal'] += 1
                     
-                elif 30 <= question_num <= 34:
+                elif 18 <= question_num <= 20:
                     intelligence_counts['naturalistic'] += 1
                     
-                elif 35 <= question_num <= 39:
+                elif 21 <= question_num <= 23:
                     intelligence_counts['linguistic'] += 1
                     
-                elif 40 <= question_num <= 44:
+                elif 24 <= question_num <= 26:
                     intelligence_counts['existential'] += 1
 
         # Find dominant intelligence type
@@ -348,7 +348,20 @@ class SimpleTestCalculators:
 
         for intel_type, count in intelligence_counts.items():
             # Calculate percentage based on A selections out of total questions for this intelligence
-            percentage = int((count / questions_per_intelligence) * 100)
+            # Map intelligence type to actual question count (updated to match current question file)
+            intel_question_counts = {
+                'musical': 3,
+                'logical': 3,
+                'spatial': 3,
+                'bodily-kinesthetic': 3,
+                'interpersonal': 3,
+                'intrapersonal': 3,
+                'naturalistic': 3,
+                'linguistic': 3,
+                'existential': 3
+            }
+            actual_count = intel_question_counts.get(intel_type, 3)
+            percentage = int((count / actual_count) * 100)
 
             if percentage >= 80:
                 level = 'Very High'
@@ -367,11 +380,11 @@ class SimpleTestCalculators:
             all_intelligences.append({
                 'type': intel_type,
                 'count': count,
-                'total_questions': questions_per_intelligence,
+                'total_questions': actual_count,
                 'percentage': percentage,
                 'level': level,
                 'score': count,  # For compatibility
-                'description': intel_details.get('description', f"{intel_type.replace('-', ' ').title()} Intelligence - {level} level ({count}/{questions_per_intelligence} A selections, {percentage}%)"),
+                'description': intel_details.get('description', f"{intel_type.replace('-', ' ').title()} Intelligence - {level} level ({count}/{actual_count} A selections, {percentage}%)"),
                 'characteristics': intel_details.get('characteristics', []),
                 'careerSuggestions': intel_details.get('careerSuggestions', []),
                 'strengths': intel_details.get('strengths', [])
@@ -805,14 +818,15 @@ class SimpleTestCalculators:
                 question_num = int(question_id)
 
                 # Map questions to VARK styles based on question number
-                # Questions 0-4: Visual, 5-9: Auditory, 10-14: Reading, 15-19: Kinesthetic
-                if 0 <= question_num <= 4:
+                # Updated to match current test structure (3 questions per style):
+                # Questions 0-2: Visual, 3-5: Auditory, 6-8: Reading, 9-11: Kinesthetic
+                if 0 <= question_num <= 2:
                     style_counts['visual'] += 1
-                elif 5 <= question_num <= 9:
+                elif 3 <= question_num <= 5:
                     style_counts['auditory'] += 1
-                elif 10 <= question_num <= 14:
+                elif 6 <= question_num <= 8:
                     style_counts['reading'] += 1
-                elif 15 <= question_num <= 19:
+                elif 9 <= question_num <= 11:
                     style_counts['kinesthetic'] += 1
 
         # Find primary learning style
@@ -843,7 +857,15 @@ class SimpleTestCalculators:
 
         for style_type, count in style_counts.items():
             # Calculate percentage based on A selections out of total questions for this style
-            percentage = int((count / questions_per_style) * 100)
+            # Map style type to actual question count (updated to match current question file)
+            style_question_counts = {
+                'visual': 3,
+                'auditory': 3,
+                'reading': 3,
+                'kinesthetic': 3
+            }
+            actual_count = style_question_counts.get(style_type, 3)
+            percentage = int((count / actual_count) * 100)
 
             if percentage >= 80:
                 level = 'Very High'
@@ -862,11 +884,11 @@ class SimpleTestCalculators:
             all_styles.append({
                 'type': style_type,
                 'count': count,
-                'total_questions': questions_per_style,
+                'total_questions': actual_count,
                 'percentage': percentage,
                 'level': level,
                 'score': count,  # For compatibility
-                'description': style_details.get('description', f"{style_type.title()} Learning - {level} level ({count}/{questions_per_style} A selections, {percentage}%)"),
+                'description': style_details.get('description', f"{style_type.title()} Learning - {level} level ({count}/{actual_count} A selections, {percentage}%)"),
                 'characteristics': style_details.get('characteristics', []),
                 'learningStrategies': style_details.get('learningStrategies', []),
                 'studyTips': style_details.get('studyTips', []),
@@ -1154,17 +1176,17 @@ class SimpleTestCalculators:
             'family': {
                 'name_gujarati': 'કુટુંબ અને સમાજ',
                 'name_english': 'Family & Society',
-                'questions_range': (1, 5)  # Questions 1-5
+                'questions_range': [0, 0]  # Question 0 only
             },
             'financial': {
                 'name_gujarati': 'આર્થિક પરિસ્થિતિ', 
                 'name_english': 'Financial Situation',
-                'questions_range': (6, 10)  # Questions 6-10
+                'questions_range': [1, 5]  # Questions 1-5
             },
             'career': {
                 'name_gujarati': 'ભૌગોલિક અને કારકિર્દી',
                 'name_english': 'Geographic & Career',
-                'questions_range': (11, 15)  # Questions 11-15
+                'questions_range': [6, 9]  # Questions 6-9
             }
         }
         
@@ -1181,10 +1203,11 @@ class SimpleTestCalculators:
             
             if question_key in answers:
                 # Determine category based on question number (0-indexed)
+                # Q0: family, Q1-Q5: financial, Q6-Q9: career
                 category = 'family'
-                if 5 <= i < 10:
+                if 1 <= i <= 5:
                     category = 'financial'
-                elif i >= 10:
+                elif 6 <= i <= 9:
                     category = 'career'
                 
                 answer_data = answers[question_key]
