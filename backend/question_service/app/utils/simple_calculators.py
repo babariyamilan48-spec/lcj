@@ -425,8 +425,8 @@ class SimpleTestCalculators:
             'conventional': 0
         }
 
-        # Total questions per interest (5 questions each = 30 total)
-        questions_per_interest = 5
+        # Total questions per interest (3 questions each = 18 total)
+        questions_per_interest = 3
 
         # Process each answer to count A selections for each interest
         for question_id, answer in answers.items():
@@ -489,18 +489,18 @@ class SimpleTestCalculators:
                 question_num = int(question_id)
 
                 # Map questions to RIASEC interests based on question number
-                # Questions 0-4: Realistic, 5-9: Investigative, 10-14: Artistic, 15-19: Social, 20-24: Enterprising, 25-29: Conventional
-                if 0 <= question_num <= 4:
+                # Questions 0-2: Realistic, 3-5: Investigative, 6-8: Artistic, 9-11: Social, 12-14: Enterprising, 15-17: Conventional
+                if 0 <= question_num <= 2:
                     interest_counts['realistic'] += 1
-                elif 5 <= question_num <= 9:
+                elif 3 <= question_num <= 5:
                     interest_counts['investigative'] += 1
-                elif 10 <= question_num <= 14:
+                elif 6 <= question_num <= 8:
                     interest_counts['artistic'] += 1
-                elif 15 <= question_num <= 19:
+                elif 9 <= question_num <= 11:
                     interest_counts['social'] += 1
-                elif 20 <= question_num <= 24:
+                elif 12 <= question_num <= 14:
                     interest_counts['enterprising'] += 1
-                elif 25 <= question_num <= 29:
+                elif 15 <= question_num <= 17:
                     interest_counts['conventional'] += 1
 
         # Find dominant interest type
@@ -597,8 +597,8 @@ class SimpleTestCalculators:
             'neuroticism': 0
         }
 
-        # Total questions per trait (5 questions each = 25 total)
-        questions_per_trait = 5
+        # Total questions per trait (3 questions each = 15 total)
+        questions_per_trait = 3
 
         # Process each answer to count A selections for each trait
         for question_id, answer in answers.items():
@@ -668,16 +668,16 @@ class SimpleTestCalculators:
                 question_num = int(question_id)
 
                 # Map questions to Big Five traits based on question number
-                # Questions 0-4: Openness, 5-9: Conscientiousness, 10-14: Extraversion, 15-19: Agreeableness, 20-24: Neuroticism
-                if 0 <= question_num <= 4:
+                # Questions 0-2: Openness, 3-5: Conscientiousness, 6-8: Extraversion, 9-11: Agreeableness, 12-14: Neuroticism
+                if 0 <= question_num <= 2:
                     trait_counts['openness'] += 1
-                elif 5 <= question_num <= 9:
+                elif 3 <= question_num <= 5:
                     trait_counts['conscientiousness'] += 1
-                elif 10 <= question_num <= 14:
+                elif 6 <= question_num <= 8:
                     trait_counts['extraversion'] += 1
-                elif 15 <= question_num <= 19:
+                elif 9 <= question_num <= 11:
                     trait_counts['agreeableness'] += 1
-                elif 20 <= question_num <= 24:
+                elif 12 <= question_num <= 14:
                     trait_counts['neuroticism'] += 1
 
         # Load detailed data from JSON file
@@ -987,8 +987,8 @@ class SimpleTestCalculators:
             'spontaneous': 0
         }
 
-        # Total questions per style (5 questions each = 25 total)
-        questions_per_style = 5
+        # Total questions per style (3 questions each = 15 total)
+        questions_per_style = 3
 
         # Process each answer to count A selections for each style
         for question_id, answer in answers.items():
@@ -1051,16 +1051,16 @@ class SimpleTestCalculators:
                 question_num = int(question_id)
 
                 # Map questions to Decision Making styles based on question number
-                # Questions 0-4: Rational, 5-9: Intuitive, 10-14: Dependent, 15-19: Avoidant, 20-24: Spontaneous
-                if 0 <= question_num <= 4:
+                # Questions 0-2: Rational, 3-5: Intuitive, 6-8: Dependent, 9-11: Avoidant, 12-14: Spontaneous
+                if 0 <= question_num <= 2:
                     style_counts['rational'] += 1
-                elif 5 <= question_num <= 9:
+                elif 3 <= question_num <= 5:
                     style_counts['intuitive'] += 1
-                elif 10 <= question_num <= 14:
+                elif 6 <= question_num <= 8:
                     style_counts['dependent'] += 1
-                elif 15 <= question_num <= 19:
+                elif 9 <= question_num <= 11:
                     style_counts['avoidant'] += 1
-                elif 20 <= question_num <= 24:
+                elif 12 <= question_num <= 14:
                     style_counts['spontaneous'] += 1
 
         # Find primary decision style

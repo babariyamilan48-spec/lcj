@@ -45,7 +45,7 @@ app.include_router(pool_monitor_router, prefix="/api/v1/core", tags=["Pool Monit
 app.include_router(connection_diagnostics_router, prefix="/api/v1/core", tags=["Connection Diagnostics"])
 
 # Health check endpoints for individual services
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     """⚡ ULTRA-FAST health check - no database queries"""
     # This endpoint is called by load balancers every second
