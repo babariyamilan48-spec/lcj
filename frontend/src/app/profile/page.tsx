@@ -1093,7 +1093,7 @@ export default function ProfilePage() {
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No tests completed yet</h3>
                 <p className="text-gray-500 mb-4">Start your journey by taking your first assessment</p>
                 <button
-                  onClick={() => window.location.href = '/test'}
+                  onClick={() => window.location.href = '/home'}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Take Your First Test
