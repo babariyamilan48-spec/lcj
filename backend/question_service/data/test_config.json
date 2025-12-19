@@ -44,8 +44,8 @@
       "description": "Assessment of five core personality dimensions",
       "icon": "Users",
       "color": "#e74c3c",
-      "questions": 25,
-      "duration": "7-8 મિનિટ",
+      "questions": 15,
+      "duration": "5-7 મિનિટ",
       "sections": [
         { "id": "openness", "name": "ખૂલ્લુંપન", "gujarati": "Openness" },
         { "id": "conscientiousness", "name": "જવાબદારી", "gujarati": "Conscientiousness" },
@@ -61,8 +61,8 @@
       "description": "Assessment of career interests and work preferences",
       "icon": "Heart",
       "color": "#f39c12",
-      "questions": 30,
-      "duration": "10-12 મિનિટ",
+      "questions": 18,
+      "duration": "7-8 મિનિટ",
       "sections": [
         { "id": "realistic", "name": "વાસ્તવિક", "gujarati": "Realistic" },
         { "id": "investigative", "name": "સંશોધનાત્મક", "gujarati": "Investigative" },
@@ -79,8 +79,8 @@
       "description": "Assessment of decision-making preferences and styles",
       "icon": "Target",
       "color": "#9c27b0",
-      "questions": 25,
-      "duration": "7-8 મિનિટ",
+      "questions": 15,
+      "duration": "5-7 મિનિટ",
       "sections": [
         { "id": "rational", "name": "તાર્કિક", "gujarati": "Rational" },
         { "id": "intuitive", "name": "અંતઃપ્રેરણાત્મક", "gujarati": "Intuitive" },
