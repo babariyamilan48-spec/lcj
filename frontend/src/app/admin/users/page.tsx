@@ -31,7 +31,13 @@ export default function UsersPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const getAuthHeaders = () => {
-    const token = tokenStore.getAccessToken();
+    const raw =
+      tokenStore.getAccessToken() ||
+      localStorage.getItem('at') ||
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('token') ||
+      '';
+    const token = !raw || raw === 'null' || raw === 'undefined' ? '' : raw;
     return {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Bearer ${token}` })
@@ -150,6 +156,18 @@ export default function UsersPage() {
     if (!editingUser) return;
     
     try {
+      const rawToken =
+        tokenStore.getAccessToken() ||
+        localStorage.getItem('at') ||
+        localStorage.getItem('access_token') ||
+        localStorage.getItem('token') ||
+        '';
+      const token = !rawToken || rawToken === 'null' || rawToken === 'undefined' ? '' : rawToken;
+      if (!token) {
+        setError('Unauthorized - missing token. Please log in again.');
+        return;
+      }
+
       const updateData: any = {
         role: userForm.role,
         is_active: userForm.is_active
@@ -159,9 +177,16 @@ export default function UsersPage() {
         updateData.password = userForm.password;
       }
 
+      const headers = {
+        ...getAuthHeaders(),
+      } as Record<string, string>;
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users/${editingUser.id}`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
+        method: 'PUT', // use PUT to avoid PATCH preflight/CORS issues
+        headers,
         body: JSON.stringify(updateData),
       });
       

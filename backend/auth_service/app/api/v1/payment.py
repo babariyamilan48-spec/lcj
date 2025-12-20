@@ -178,6 +178,14 @@ async def verify_payment(
                 detail="Payment signature verification failed"
             )
         
+        # Fetch payment details to capture contact/mobile
+        contact_number = None
+        try:
+            payment_details = razorpay_service.fetch_payment(request.payment_id)
+            contact_number = payment_details.get("contact") or payment_details.get("phone")
+        except Exception as fetch_err:
+            logger.warning(f"⚠️ Could not fetch payment details for contact: {fetch_err}")
+
         # Find payment record
         payment = db.query(Payment).filter(
             Payment.order_id == request.order_id
@@ -194,9 +202,13 @@ async def verify_payment(
         payment.payment_id = request.payment_id
         payment.status = "paid"
         payment.signature = request.signature
+        if contact_number:
+            payment.contact = contact_number
         
-        # Mark user as payment completed
+        # Mark user as payment completed and persist mobile to user
         user.payment_completed = True
+        if contact_number:
+            user.phone_number = contact_number
         
         # ✅ CRITICAL: Let FastAPI dependency handle commit
         # Do NOT call db.commit() manually - dependency's finally block will handle it

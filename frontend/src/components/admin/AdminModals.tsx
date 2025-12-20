@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getApiBaseUrl } from '@/config/api';
+import { tokenStore } from '@/services/token';
 
 interface AdminModalsProps {
   type: string;
@@ -19,6 +20,17 @@ export default function AdminModals({ type, data, onClose, onSuccess }: AdminMod
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState(data || {});
 
+  const getAuthToken = () => {
+    const raw =
+      tokenStore.getAccessToken() ||
+      localStorage.getItem('at') ||
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('token') ||
+      '';
+    if (!raw || raw === 'null' || raw === 'undefined') return '';
+    return raw;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type: inputType } = e.target as any;
     setFormData({
@@ -31,11 +43,14 @@ export default function AdminModals({ type, data, onClose, onSuccess }: AdminMod
     setLoading(true);
     setError(null);
     try {
+      const token = getAuthToken();
+      if (!token) throw new Error('Unauthorized - missing token. Please log in again.');
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       });
@@ -57,11 +72,14 @@ export default function AdminModals({ type, data, onClose, onSuccess }: AdminMod
     setLoading(true);
     setError(null);
     try {
+      const token = getAuthToken();
+      if (!token) throw new Error('Unauthorized - missing token. Please log in again.');
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users/${data.id}`, {
-        method: 'PATCH',
+        method: 'PUT', // use PUT to avoid PATCH preflight/CORS issues
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       });

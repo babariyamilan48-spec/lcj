@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { getApiBaseUrl } from '@/config/api';
+import { tokenStore } from '@/services/token';
 
 interface User {
   id: string;
@@ -63,12 +64,29 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
         ...(roleFilter !== 'all' && { role: roleFilter }),
         ...(activeFilter !== 'all' && { is_active: activeFilter === 'active' ? 'true' : 'false' }),
         ...(verifiedFilter !== 'all' && { is_verified: verifiedFilter === 'verified' ? 'true' : 'false' }),
+        ts: Date.now().toString(),
       });
+
+      const token =
+        tokenStore.getAccessToken() ||
+        localStorage.getItem('at') ||
+        localStorage.getItem('access_token') ||
+        localStorage.getItem('token') ||
+        '';
+      if (!token || token === 'null' || token === 'undefined') {
+        setError('Unauthorized - missing token. Please log in again.');
+        setLoading(false);
+        return;
+      }
 
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users?${params}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+          Authorization: `Bearer ${token}`,
         },
+        cache: 'no-store',
       });
 
       if (!response.ok) throw new Error('Failed to fetch users');
@@ -90,10 +108,17 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
     if (!confirm('Are you sure you want to delete this user?')) return;
 
     try {
+      const token =
+        tokenStore.getAccessToken() ||
+        localStorage.getItem('at') ||
+        localStorage.getItem('access_token') ||
+        localStorage.getItem('token') ||
+        '';
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users/${userId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 

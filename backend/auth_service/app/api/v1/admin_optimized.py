@@ -129,6 +129,7 @@ async def create_user(
 
 
 @router.patch("/users/{user_id}", response_model=dict)
+@router.put("/users/{user_id}", response_model=dict)
 async def update_user(
     user_id: str,
     user_data: dict,

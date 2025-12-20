@@ -379,7 +379,7 @@ const ComprehensiveReportPage = () => {
               font-weight: 500;
             }
             @bottom-right {
-              content: "+91 6354671342";
+              content: "+91 6354571342";
               font-size: 11pt;
               color: #4b5563;
               font-weight: 500;
@@ -458,7 +458,7 @@ const ComprehensiveReportPage = () => {
             {/* Course Maker Info - Right Side */}
             <div className="print:absolute print:right-8 print:bottom-16 print:text-right">
               <p className="print:text-2xl print:font-bold print:text-gray-900 print:mb-2">Milan Babariya</p>
-              <p className="print:text-lg print:text-gray-600">+91 6354671342</p>
+              <p className="print:text-lg print:text-gray-600">+91 6354571342</p>
             </div>
           </div>
 

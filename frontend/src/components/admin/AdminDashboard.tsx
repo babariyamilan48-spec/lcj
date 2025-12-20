@@ -17,6 +17,7 @@ import AdminPayments from './AdminPayments';
 import AdminQuestions from './AdminQuestions';
 import AdminContacts from './AdminContacts';
 import { getApiBaseUrl } from '@/config/api';
+import { tokenStore } from '@/services/token';
 
 // Dynamic import for AdminModals to avoid circular dependency
 const AdminModals = dynamic(() => import('./AdminModals'), { ssr: false });
@@ -37,11 +38,18 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchDashboardStats = async () => {
+    const token = tokenStore.getAccessToken() || localStorage.getItem('at') || localStorage.getItem('access_token') || '';
+    if (!token) return;
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/analytics/users`, {
+      const ts = Date.now();
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/analytics/users?ts=${ts}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
         },
+        cache: 'no-store',
       });
 
       if (response.ok) {

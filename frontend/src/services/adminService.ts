@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getApiBaseUrl } from '../config/api';
+import { tokenStore } from './token';
 
 // Use dynamic API base URL
 const getApiUrl = () => getApiBaseUrl();
@@ -17,10 +18,22 @@ const createApiInstance = () => {
 // Create initial instance
 const api = createApiInstance();
 
+// Helper to get a clean token (avoid "null"/"undefined" strings)
+const getAuthToken = () => {
+  const raw =
+    tokenStore.getAccessToken() ||
+    localStorage.getItem('at') ||
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('token') ||
+    '';
+  if (!raw || raw === 'null' || raw === 'undefined') return '';
+  return raw;
+};
+
 // Add request interceptor to include auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -283,7 +296,8 @@ export const adminApi = {
       password?: string;
     }) => {
       try {
-        const response = await api.patch(`/api/v1/auth_service/users/${userId}`, userData);
+        // Use PUT to avoid PATCH-related preflight issues
+        const response = await api.put(`/api/v1/auth_service/users/${userId}`, userData);
         return response.data;
       } catch (error) {
         console.error(`Error updating user ${userId}:`, error);

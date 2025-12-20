@@ -13,8 +13,8 @@ import {
   LogOut
 } from 'lucide-react';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
-import { authService } from '@/services/authService';
 import { clearAllUserData, forceSessionClear } from '@/utils/clearUserData';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -32,25 +32,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { forceLogout } = useAuth();
 
   const handleSignOut = async () => {
     if (isSigningOut) return; // Prevent multiple clicks
     
     setIsSigningOut(true);
     try {
-      // Call logout endpoint
-      await authService.logout();
+      // Best effort: clear client state immediately to prevent further authed fetches
+      forceLogout();
+      // Optional: also clear any persisted data/cookies defensively
+      clearAllUserData();
+      forceSessionClear();
     } catch (error) {
       console.error('Sign out error:', error);
     } finally {
-      // CRITICAL FIX: Always clear all user data and redirect
-      try {
-        clearAllUserData();
-        forceSessionClear();
-      } catch (error) {
-        console.warn('Error clearing user data:', error);
-      }
-      
       // Add a small delay to ensure cleanup completes
       await new Promise(resolve => setTimeout(resolve, 100));
       
