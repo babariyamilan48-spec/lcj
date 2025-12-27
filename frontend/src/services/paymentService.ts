@@ -10,6 +10,7 @@ import { tokenStore } from './token';
 export interface CreateOrderRequest {
   user_id: string;
   amount?: number;
+  plan_type: string;
 }
 
 export interface CreateOrderResponse {
@@ -18,6 +19,7 @@ export interface CreateOrderResponse {
   currency: string;
   razorpay_key_id: string;
   environment: 'test' | 'live';
+  plan_type: string;
 }
 
 export interface VerifyPaymentRequest {
@@ -36,6 +38,7 @@ export interface VerifyPaymentResponse {
 
 export interface PaymentStatusResponse {
   payment_completed: boolean;
+  plan_type?: string;
   last_payment_date?: string;
   payment_id?: string;
 }
@@ -78,14 +81,14 @@ class PaymentService {
    */
   async createOrder(request: CreateOrderRequest, maxRetries: number = 3): Promise<CreateOrderResponse> {
     let lastError: any = null;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const client = this.getApiClient();
         console.log(`📝 Creating order (attempt ${attempt}/${maxRetries})...`);
         console.log('📍 API Base URL:', getApiBaseUrl());
         console.log('📍 Full URL:', `${getApiBaseUrl()}${this.baseUrl}/create-order`);
-        
+
         const response = await client.post<CreateOrderResponse>(
           `${this.baseUrl}/create-order`,
           request,
@@ -96,12 +99,12 @@ class PaymentService {
       } catch (error: any) {
         lastError = error;
         console.warn(`⚠️ Attempt ${attempt} failed:`, error.message);
-        
+
         // Log detailed error info
         console.error('❌ Error response:', error.response?.data);
         console.error('❌ Error status:', error.response?.status);
         console.error('❌ Error message:', error.message);
-        
+
         // Don't retry on 404, 400, or 401 errors
         if (error.response?.status === 404 || error.response?.status === 400 || error.response?.status === 401) {
           const errorMsg = error.response?.data?.detail || error.message || 'Failed to create order';
@@ -111,7 +114,7 @@ class PaymentService {
           }
           throw new Error(errorMsg);
         }
-        
+
         // Retry on network errors or 5xx errors
         if (attempt < maxRetries) {
           const delay = 500 * attempt; // Exponential backoff
@@ -121,7 +124,7 @@ class PaymentService {
         }
       }
     }
-    
+
     // All retries failed
     const errorMsg = lastError?.response?.data?.detail || lastError?.message || 'Failed to create order after multiple attempts';
     console.error('❌ All retries failed:', errorMsg);
@@ -133,12 +136,12 @@ class PaymentService {
    */
   async verifyPayment(request: VerifyPaymentRequest, maxRetries: number = 3): Promise<VerifyPaymentResponse> {
     let lastError: any = null;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const client = this.getApiClient();
         console.log(`🔐 Verifying payment (attempt ${attempt}/${maxRetries})...`);
-        
+
         const response = await client.post<VerifyPaymentResponse>(
           `${this.baseUrl}/verify`,
           request,
@@ -149,7 +152,7 @@ class PaymentService {
       } catch (error: any) {
         lastError = error;
         console.warn(`⚠️ Verification attempt ${attempt} failed:`, error.message);
-        
+
         // Don't retry on 400 or 401 errors (invalid signature or auth)
         if (error.response?.status === 400 || error.response?.status === 401) {
           const errorMsg = error.response?.data?.detail || error.message || 'Payment verification failed';
@@ -159,7 +162,7 @@ class PaymentService {
           }
           throw new Error(errorMsg);
         }
-        
+
         // Retry on network errors or 5xx errors
         if (attempt < maxRetries) {
           const delay = 500 * attempt;
@@ -169,7 +172,7 @@ class PaymentService {
         }
       }
     }
-    
+
     // All retries failed
     const errorMsg = lastError?.response?.data?.detail || lastError?.message || 'Payment verification failed after multiple attempts';
     console.error('❌ All verification retries failed:', errorMsg);
@@ -185,13 +188,13 @@ class PaymentService {
       console.log('📍 Checking payment status for user:', userId);
       console.log('📍 API Base URL:', getApiBaseUrl());
       console.log('📍 Full URL:', `${getApiBaseUrl()}${this.baseUrl}/status?user_id=${userId}`);
-      
+
       // Add cache-busting parameter to ensure fresh data
       const timestamp = new Date().getTime();
       const response = await client.get<PaymentStatusResponse>(
         `${this.baseUrl}/status`,
         {
-          params: { 
+          params: {
             user_id: userId,
             _t: timestamp  // Cache buster
           }
@@ -204,7 +207,7 @@ class PaymentService {
       console.error('❌ Error checking payment status:', error);
       console.error('❌ Error response:', error.response?.data);
       console.error('❌ Error status:', error.response?.status);
-      
+
       // Check for 401 Unauthorized
       if (error.response?.status === 401) {
         const errorMsg = error.response?.data?.detail || error.message || 'Session expired';

@@ -36,6 +36,7 @@ class User(Base):
     device = Column(VARCHAR(255), nullable=True)  # ✅ OPTIMIZED: VARCHAR
     flag = Column(VARCHAR(255), nullable=True)  # ✅ OPTIMIZED: VARCHAR
     payment_completed = Column(Boolean, nullable=False, default=False, index=True)  # ✅ Added index
+    plan_type = Column(VARCHAR(32), nullable=True, index=True)  # ✅ test or counseling
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)  # ✅ Added index
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -107,6 +108,7 @@ class Payment(Base):
     status = Column(VARCHAR(32), nullable=False, default="created", index=True)  # ✅ Added index
     signature = Column(VARCHAR(255), nullable=True)
     contact = Column(VARCHAR(32), nullable=True)  # ✅ Store Razorpay provided mobile/contact
+    plan_type = Column(VARCHAR(32), nullable=True, index=True)  # ✅ test or counseling
     error_message = Column(VARCHAR(512), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)  # ✅ Added index
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

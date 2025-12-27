@@ -64,8 +64,18 @@ async def create_order(
         # Get Razorpay service
         razorpay_service = get_razorpay_service()
         
-        # Use provided amount or default
-        amount = request.amount or razorpay_service.payment_amount
+        # Determine amount based on plan type
+        # test: ₹249 (24900 paise)
+        # counseling: ₹449 (44900 paise)
+        plan_type = request.plan_type
+        if plan_type == "test":
+            amount = 24900
+        elif plan_type == "counseling":
+            amount = 44900
+        else:
+            # Fallback to provided amount or default
+            amount = request.amount or razorpay_service.payment_amount
+            plan_type = "counseling" if amount >= 44900 else "test"
         
         # Create order
         # Receipt must be <= 40 characters for Razorpay
@@ -96,7 +106,8 @@ async def create_order(
             order_id=order["id"],
             amount=amount,
             currency="INR",
-            status="created"
+            status="created",
+            plan_type=plan_type
         )
         db.add(payment_record)
         # ✅ CRITICAL: Let FastAPI dependency handle commit
@@ -109,7 +120,8 @@ async def create_order(
             amount=amount,
             currency="INR",
             razorpay_key_id=razorpay_service.get_key_id(),
-            environment=razorpay_service.get_environment()
+            environment=razorpay_service.get_environment(),
+            plan_type=plan_type
         )
     
     except HTTPException:
@@ -207,6 +219,7 @@ async def verify_payment(
         
         # Mark user as payment completed and persist mobile to user
         user.payment_completed = True
+        user.plan_type = payment.plan_type
         if contact_number:
             user.phone_number = contact_number
         
@@ -262,6 +275,7 @@ async def check_payment_status(
         # Build response with minimal data
         response = PaymentStatusResponse(
             payment_completed=user.payment_completed,
+            plan_type=user.plan_type,
             last_payment_date=last_payment.updated_at if last_payment else None,
             payment_id=last_payment.payment_id if last_payment else None
         )

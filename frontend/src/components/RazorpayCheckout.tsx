@@ -11,6 +11,7 @@ interface RazorpayCheckoutProps {
   onPaymentSuccess: () => void;
   onPaymentCancel?: () => void;
   amount?: number;
+  planType: string;
 }
 
 interface OrderResponse {
@@ -37,7 +38,8 @@ declare global {
 const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
   onPaymentSuccess,
   onPaymentCancel,
-  amount
+  amount,
+  planType
 }) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -81,6 +83,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       const orderData = await paymentService.createOrder({
         user_id: userId,
         amount: amount || undefined,
+        plan_type: planType
       });
 
       console.log('✅ Order created:', orderData.order_id);
@@ -133,7 +136,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Payment failed';
       console.error('❌ Payment error:', errorMessage);
-      
+
       // Check if it's a 401 Unauthorized error (session expired)
       if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
         console.warn('⚠️ Session expired, redirecting to login immediately...');
@@ -174,7 +177,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Verification failed';
       console.error('❌ Verification error:', errorMessage);
-      
+
       // Check if it's a 401 Unauthorized error (session expired)
       if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
         console.warn('⚠️ Session expired during verification, redirecting to login immediately...');
@@ -289,17 +292,16 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
                 >
                   <CreditCard className="w-6 md:w-7 h-6 md:h-7" />
                 </motion.div>
-                <span className="font-extrabold">₹449 પેમેન્ટ કરો</span>
+                <span className="font-extrabold">₹{amount || (planType === 'test' ? 249 : 449)} પેમેન્ટ કરો</span>
               </div>
             </motion.button>
 
             {/* Environment Badge */}
             <div className="flex justify-center mt-3">
-              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                environment === 'live'
+              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${environment === 'live'
                   ? 'bg-red-100 text-red-700'
                   : 'bg-yellow-100 text-yellow-700'
-              }`}>
+                }`}>
                 {environment === 'live' ? '🔴 લૈવ મોડ' : '🟡 પરીક્ષણ મોડ'}
               </span>
             </div>

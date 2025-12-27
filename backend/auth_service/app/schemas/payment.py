@@ -12,12 +12,14 @@ class CreateOrderRequest(BaseModel):
     """Request to create a Razorpay order"""
     user_id: UUID = Field(..., description="User ID")
     amount: Optional[int] = Field(None, description="Amount in paise (optional, uses default if not provided)")
+    plan_type: str = Field(..., description="Type of plan (test or counseling)")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
-                "amount": 50000
+                "amount": 50000,
+                "plan_type": "counseling"
             }
         }
 
@@ -29,6 +31,7 @@ class CreateOrderResponse(BaseModel):
     currency: str = Field(..., description="Currency code")
     razorpay_key_id: str = Field(..., description="Razorpay Key ID for frontend")
     environment: str = Field(..., description="Environment (test/live)")
+    plan_type: str = Field(..., description="Type of plan")
     
     class Config:
         json_schema_extra = {
@@ -81,6 +84,7 @@ class VerifyPaymentResponse(BaseModel):
 class PaymentStatusResponse(BaseModel):
     """Response for payment status check"""
     payment_completed: bool = Field(..., description="Whether user has completed payment")
+    plan_type: Optional[str] = Field(None, description="User's current plan type")
     last_payment_date: Optional[datetime] = Field(None, description="Date of last successful payment")
     payment_id: Optional[str] = Field(None, description="Last successful payment ID")
     
