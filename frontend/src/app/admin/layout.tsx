@@ -3,15 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
-  Users, 
-  CreditCard, 
-  HelpCircle, 
-  Mail,
-  Menu,
-  X,
-  LogOut
-} from 'lucide-react';
+import { BarChart3, BarChart2, Users, CreditCard, HelpCircle, Mail, Menu, X, LogOut } from 'lucide-react';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
 import { clearAllUserData, forceSessionClear } from '@/utils/clearUserData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +13,7 @@ interface AdminLayoutProps {
 }
 
 const navigation = [
+  { name: 'Dashboard', href: '/admin', icon: BarChart3 },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
   { name: 'Questions', href: '/admin/questions', icon: HelpCircle },
@@ -36,7 +29,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleSignOut = async () => {
     if (isSigningOut) return; // Prevent multiple clicks
-    
+
     setIsSigningOut(true);
     try {
       // Best effort: clear client state immediately to prevent further authed fetches
@@ -49,7 +42,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     } finally {
       // Add a small delay to ensure cleanup completes
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Redirect to login
       router.push('/auth/login');
       setIsSigningOut(false);
@@ -93,12 +86,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             })}
           </nav>
           <div className="border-t border-gray-200 p-4">
-            <button 
+            <button
               onClick={handleSignOut}
               disabled={isSigningOut}
               className={`flex w-full items-center px-2 py-2 text-sm font-medium rounded-md ${
-                isSigningOut 
-                  ? 'text-gray-400 cursor-not-allowed' 
+                isSigningOut
+                  ? 'text-gray-400 cursor-not-allowed'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
@@ -135,12 +128,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             })}
           </nav>
           <div className="border-t border-gray-200 p-4">
-            <button 
+            <button
               onClick={handleSignOut}
               disabled={isSigningOut}
               className={`flex w-full items-center px-2 py-2 text-sm font-medium rounded-md ${
-                isSigningOut 
-                  ? 'text-gray-400 cursor-not-allowed' 
+                isSigningOut
+                  ? 'text-gray-400 cursor-not-allowed'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >

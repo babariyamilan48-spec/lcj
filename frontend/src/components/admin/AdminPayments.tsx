@@ -21,6 +21,9 @@ import { getApiBaseUrl } from '@/config/api';
 interface PaymentRecord {
   id: string;
   user_id: string;
+  user_name?: string | null;
+  user_email?: string | null;
+  contact?: string | null;
   order_id: string;
   payment_id?: string;
   amount: number;
@@ -53,7 +56,7 @@ export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
   const [timeRange, setTimeRange] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'failed' | 'pending'>('all');
   const [page, setPage] = useState(1);
-  const perPage = 10;
+  const perPage = 5; // show 5 recent payments
 
   const fetchPaymentData = async () => {
     setLoading(true);
@@ -91,7 +94,7 @@ export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
 
       // Fetch payment history
       const historyResponse = await fetch(
-        `${getApiBaseUrl()}/api/v1/auth_service/payment/history?page=${page}&per_page=${perPage}${
+        `${getApiBaseUrl()}/api/v1/auth_service/payment/history-admin?page=${page}&per_page=${perPage}${
           statusFilter !== 'all' ? `&status_filter=${statusFilter}` : ''
         }`,
         {
@@ -114,7 +117,14 @@ export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
         }
       } else {
         const historyData = await historyResponse.json();
-        setPayments(historyData.data || historyData.payments || []);
+        // Try common shapes: resp({ data: { data: [...] }}), resp({ data: [...] }), plain array fallback
+        const historyArray =
+          (Array.isArray(historyData?.data?.data) && historyData.data.data) ||
+          (Array.isArray(historyData?.data) && historyData.data) ||
+          (Array.isArray(historyData?.payments) && historyData.payments) ||
+          (Array.isArray(historyData) && historyData) ||
+          [];
+        setPayments(historyArray);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch payment data');
@@ -306,6 +316,8 @@ export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">User</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Contact</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-900">Order ID</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-900">Payment ID</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-900">Amount</th>
@@ -314,8 +326,17 @@ export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {payments.map((payment) => (
+                  {(Array.isArray(payments) ? payments.slice(0, 5) : []).map((payment) => (
                     <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-sm text-gray-900">
+                        <div className="flex flex-col">
+                          <span className="font-semibold">{payment.user_name || '—'}</span>
+                          <span className="text-xs text-gray-600">{payment.user_email || '—'}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-700">
+                        {payment.contact || '—'}
+                      </td>
                       <td className="py-3 px-4 text-sm font-mono text-gray-900">
                         {payment.order_id.substring(0, 12)}...
                       </td>

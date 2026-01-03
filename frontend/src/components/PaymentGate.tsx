@@ -103,7 +103,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
         'આજીવન ઍક્સેસ'
       ],
       notIncluded: [
-        'નિષ્ણાત પરામર્શ (Counseling)',
+        'નિષ્ણાત પરામર્શ (Counselling)',
         'કેરિયર રોડમેપ સત્ર'
       ],
       color: 'blue',
@@ -112,13 +112,13 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
     {
       id: 'counseling' as const,
       name: 'પરીક્ષણ + પરામર્શ',
-      englishName: 'Test + Counseling',
+      englishName: 'Test + Counselling',
       price: '449',
       popular: true,
       features: [
         '૭ વ્યાપક કેરિયર પરીક્ષણો',
         'વિગતવાર ઓનલાઇન અહેવાલ',
-        'નિષ્ણાત પરામર્શ (Counseling)',
+        'નિષ્ણાત પરામર્શ (Counselling)',
         'વ્યક્તિગત કેરિયર રોડમેપ',
         '૧-ઓન-૧ માર્ગદર્શન',
         'આજીવન ઍક્સેસ'
@@ -226,7 +226,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
 
               <div className={`w-full py-4 rounded-2xl font-bold text-center transition-all ${selectedPlan === plan.id
                 ? plan.id === 'counseling' ? 'bg-orange-500 text-white shadow-lg' : 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-100 text-gray-600'
+                : 'bg-orange-50 text-orange-700 border border-orange-200'
                 }`}>
                 {selectedPlan === plan.id ? 'આ પ્લાન પસંદ કરેલ છે' : 'પસંદ કરો'}
               </div>

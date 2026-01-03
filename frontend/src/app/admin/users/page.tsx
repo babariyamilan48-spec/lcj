@@ -43,7 +43,7 @@ export default function UsersPage() {
       ...(token && { 'Authorization': `Bearer ${token}` })
     };
   };
-  
+
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userForm, setUserForm] = useState({
@@ -131,7 +131,7 @@ export default function UsersPage() {
           is_verified: userForm.is_verified
         }),
       });
-      
+
       if (response.ok) {
         setSuccess('User created successfully!');
         setShowUserModal(false);
@@ -154,7 +154,7 @@ export default function UsersPage() {
 
   const updateUser = async () => {
     if (!editingUser) return;
-    
+
     try {
       const rawToken =
         tokenStore.getAccessToken() ||
@@ -189,7 +189,7 @@ export default function UsersPage() {
         headers,
         body: JSON.stringify(updateData),
       });
-      
+
       if (response.ok) {
         setSuccess('User updated successfully!');
         setShowUserModal(false);
@@ -212,13 +212,13 @@ export default function UsersPage() {
 
   const deleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
-    
+
     try {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users/${userId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
-      
+
       if (response.ok) {
         setSuccess('User deleted successfully');
         fetchUsers();
@@ -276,15 +276,15 @@ export default function UsersPage() {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = !filters.search || 
+    const matchesSearch = !filters.search ||
       user.email.toLowerCase().includes(filters.search.toLowerCase()) ||
       user.full_name.toLowerCase().includes(filters.search.toLowerCase()) ||
       (user.username && user.username.toLowerCase().includes(filters.search.toLowerCase()));
-    
+
     const matchesRole = !filters.role || user.role === filters.role;
     const matchesActive = !filters.is_active || user.is_active.toString() === filters.is_active;
     const matchesVerified = !filters.is_verified || user.is_verified.toString() === filters.is_verified;
-    
+
     return matchesSearch && matchesRole && matchesActive && matchesVerified;
   });
 
@@ -331,7 +331,7 @@ export default function UsersPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -343,7 +343,7 @@ export default function UsersPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -355,7 +355,7 @@ export default function UsersPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -387,7 +387,7 @@ export default function UsersPage() {
                 className="pl-10"
               />
             </div>
-            
+
             <select
               value={filters.role}
               onChange={(e) => setFilters({...filters, role: e.target.value})}
@@ -397,7 +397,7 @@ export default function UsersPage() {
               <option value="admin">Admin</option>
               <option value="user">User</option>
             </select>
-            
+
             <select
               value={filters.is_active}
               onChange={(e) => setFilters({...filters, is_active: e.target.value})}
@@ -407,7 +407,7 @@ export default function UsersPage() {
               <option value="true">Active</option>
               <option value="false">Inactive</option>
             </select>
-            
+
             <select
               value={filters.is_verified}
               onChange={(e) => setFilters({...filters, is_verified: e.target.value})}
@@ -417,7 +417,7 @@ export default function UsersPage() {
               <option value="true">Verified</option>
               <option value="false">Unverified</option>
             </select>
-            
+
             <Button onClick={clearFilters} variant="outline">
               Clear Filters
             </Button>
@@ -458,7 +458,7 @@ export default function UsersPage() {
                           </Badge>
                         )}
                       </div>
-                      
+
                       <div className="text-sm text-gray-600 space-y-1">
                         <p><strong>Email:</strong> {user.email}</p>
                         {user.username && <p><strong>Username:</strong> {user.username}</p>}
@@ -466,20 +466,20 @@ export default function UsersPage() {
                         <p><strong>Providers:</strong> {user.providers.join(', ')}</p>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-2 ml-4">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => openEditUserModal(user)}
                         className="hover:bg-blue-50 text-blue-600 border-blue-200"
                         title="Edit User"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => deleteUser(user.id)}
                         className="hover:bg-red-50 text-red-600 border-red-200"
                         title="Delete User"

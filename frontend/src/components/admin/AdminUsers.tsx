@@ -32,6 +32,8 @@ interface User {
   role: 'admin' | 'user';
   is_active: boolean;
   is_verified: boolean;
+  plan_type?: 'test' | 'counseling' | null;
+  payment_completed?: boolean;
   created_at: string;
   updated_at: string;
   avatar?: string;
@@ -49,6 +51,7 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [verifiedFilter, setVerifiedFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [planFilter, setPlanFilter] = useState<'all' | 'test' | 'counseling' | 'none'>('all');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const perPage = 10;
@@ -64,6 +67,7 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
         ...(roleFilter !== 'all' && { role: roleFilter }),
         ...(activeFilter !== 'all' && { is_active: activeFilter === 'active' ? 'true' : 'false' }),
         ...(verifiedFilter !== 'all' && { is_verified: verifiedFilter === 'verified' ? 'true' : 'false' }),
+        ...(planFilter !== 'all' && { plan_type: planFilter }),
         ts: Date.now().toString(),
       });
 
@@ -91,8 +95,12 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
 
       if (!response.ok) throw new Error('Failed to fetch users');
       const data = await response.json();
-      setUsers(data.data || data);
-      setTotalCount(data.total || users.length);
+      const usersArray = data.data || data;
+      setUsers(usersArray);
+      setTotalCount(
+        data.total ??
+        (Array.isArray(usersArray) ? usersArray.length : 0)
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch users');
     } finally {
@@ -102,7 +110,7 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, searchTerm, roleFilter, activeFilter, verifiedFilter]);
+  }, [page, searchTerm, roleFilter, activeFilter, verifiedFilter, planFilter]);
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
@@ -131,6 +139,12 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
 
   const totalPages = Math.ceil(totalCount / perPage);
 
+  const getPlanLabel = (user: User) => {
+    if (user.plan_type === 'test') return 'Test Only (₹249)';
+    if (user.plan_type === 'counseling') return 'Test + Counselling (₹449)';
+    return 'No plan';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -151,7 +165,7 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-700">Search</label>
               <Input
@@ -209,6 +223,22 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
                 <option value="unverified">Unverified</option>
               </select>
             </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">Plan</label>
+              <select
+                value={planFilter}
+                onChange={(e) => {
+                  setPlanFilter(e.target.value as any);
+                  setPage(1);
+                }}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                <option value="all">All Plans</option>
+                <option value="test">Test Only (₹249)</option>
+                <option value="counseling">Test + Counselling (₹449)</option>
+                <option value="none">No Plan</option>
+              </select>
+            </div>
             <div className="flex items-end">
               <Button
                 variant="outline"
@@ -217,6 +247,7 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
                   setRoleFilter('all');
                   setActiveFilter('all');
                   setVerifiedFilter('all');
+                  setPlanFilter('all');
                   setPage(1);
                 }}
                 className="w-full"
@@ -257,6 +288,7 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Role</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Verified</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Plan</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Joined</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
                     </tr>
@@ -294,6 +326,25 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
                           ) : (
                             <AlertCircle className="w-5 h-5 text-yellow-600" />
                           )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className="flex items-center gap-1 w-fit"
+                            >
+                              {getPlanLabel(user)}
+                            </Badge>
+                            {user.payment_completed ? (
+                              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                Paid
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                                Unpaid
+                              </Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           <div className="flex items-center gap-1">

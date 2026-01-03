@@ -26,11 +26,12 @@ async def get_all_users(
     search: Optional[str] = Query(None, description="Search by email or username"),
     role: Optional[str] = Query(None, description="Filter by role"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
-    is_verified: Optional[bool] = Query(None, description="Filter by verified status")
+    is_verified: Optional[bool] = Query(None, description="Filter by verified status"),
+    plan_type: Optional[str] = Query(None, description="Filter by plan type: test, counseling, none"),
 ):
     """
     Get all users with pagination and filtering (Admin only)
-    
+
     Query Parameters:
     - page: Page number (default: 1)
     - per_page: Items per page (default: 50, max: 100)
@@ -47,11 +48,12 @@ async def get_all_users(
             search=search,
             role=role,
             is_active=is_active,
-            is_verified=is_verified
+            is_verified=is_verified,
+            plan_type=plan_type,
         )
-        
+
         return users_data
-        
+
     except Exception as e:
         logger.error(f"Error fetching users: {e}")
         raise HTTPException(
@@ -68,7 +70,7 @@ async def create_user(
 ):
     """
     Create a new user (Admin only)
-    
+
     Request Body:
     {
         "email": "user@example.com",
@@ -87,20 +89,20 @@ async def create_user(
         role = user_data.get('role', 'user')
         is_active = user_data.get('is_active', True)
         is_verified = user_data.get('is_verified', False)
-        
+
         # Validate required fields
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is required"
             )
-        
+
         if not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Password is required"
             )
-        
+
         # Create user
         new_user = AdminService.create_user(
             db=db,
@@ -111,9 +113,9 @@ async def create_user(
             is_active=is_active,
             is_verified=is_verified
         )
-        
+
         return resp(new_user, message="User created successfully")
-        
+
     except ValueError as e:
         logger.warning(f"Validation error creating user: {e}")
         raise HTTPException(
@@ -138,10 +140,10 @@ async def update_user(
 ):
     """
     Update user status or role (Admin only)
-    
+
     Path Parameters:
     - user_id: UUID of the user to update
-    
+
     Request Body (all optional):
     {
         "is_active": true,
@@ -154,7 +156,7 @@ async def update_user(
         is_active = user_data.get('is_active')
         role = user_data.get('role')
         password = user_data.get('password')
-        
+
         # Update user
         updated_user = AdminService.update_user(
             db=db,
@@ -163,9 +165,9 @@ async def update_user(
             role=role,
             password=password
         )
-        
+
         return resp(updated_user, message="User updated successfully")
-        
+
     except ValueError as e:
         logger.warning(f"Validation error updating user: {e}")
         raise HTTPException(
@@ -188,14 +190,14 @@ async def delete_user(
 ):
     """
     Delete a user (Admin only)
-    
+
     Path Parameters:
     - user_id: UUID of the user to delete
     """
     try:
         AdminService.delete_user(db=db, user_id=user_id)
         return resp(message="User deleted successfully")
-        
+
     except ValueError as e:
         logger.warning(f"Validation error deleting user: {e}")
         raise HTTPException(
@@ -217,7 +219,7 @@ async def get_user_analytics(
 ):
     """
     Get user analytics (Admin only)
-    
+
     Returns:
     {
         "total_users": 100,
@@ -234,7 +236,7 @@ async def get_user_analytics(
     try:
         analytics = AdminService.get_user_analytics(db=db)
         return resp(analytics, message="Analytics retrieved successfully")
-        
+
     except Exception as e:
         logger.error(f"Error computing analytics: {e}")
         raise HTTPException(
@@ -255,14 +257,14 @@ async def admin_health_check(
     try:
         # Simple query to verify database is working
         user_count = db.query(User).count()
-        
+
         return resp({
             "status": "healthy",
             "service": "admin",
             "database": "connected",
             "user_count": user_count
         }, message="Admin service is healthy")
-        
+
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(
