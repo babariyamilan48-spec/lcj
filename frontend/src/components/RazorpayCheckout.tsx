@@ -292,7 +292,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
                 >
                   <CreditCard className="w-6 md:w-7 h-6 md:h-7" />
                 </motion.div>
-                <span className="font-extrabold">₹{amount || (planType === 'test' ? 249 : 449)} પેમેન્ટ કરો</span>
+                <span className="font-extrabold">₹{amount || 299} પેમેન્ટ કરો</span>
               </div>
             </motion.button>
 

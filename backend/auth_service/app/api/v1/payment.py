@@ -34,11 +34,11 @@ async def create_order(
 ):
     """
     Create a Razorpay order for payment
-    
+
     - **amount**: Optional amount in paise (uses default if not provided)
-    
+
     Returns order details for frontend checkout
-    
+
     Requires: Authentication token (user must be logged in)
     """
     try:
@@ -49,10 +49,10 @@ async def create_order(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not authenticated. Please log in first."
             )
-        
+
         user = current_user
         logger.info(f"Payment request from authenticated user: {user.id}")
-        
+
         # Check if user already completed payment
         if user.payment_completed:
             logger.info(f"User {user.id} already completed payment")
@@ -60,28 +60,28 @@ async def create_order(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Payment already completed for this user"
             )
-        
+
         # Get Razorpay service
         razorpay_service = get_razorpay_service()
-        
+
         # Determine amount based on plan type
-        # test: ₹249 (24900 paise)
-        # counseling: ₹449 (44900 paise)
+        # test: ₹249 (24900 paise) -- currently not shown in UI
+        # counseling: ₹299 (29900 paise)
         plan_type = request.plan_type
         if plan_type == "test":
             amount = 24900
         elif plan_type == "counseling":
-            amount = 44900
+            amount = 29900
         else:
             # Fallback to provided amount or default
             amount = request.amount or razorpay_service.payment_amount
             plan_type = "counseling" if amount >= 44900 else "test"
-        
+
         # Create order
         # Receipt must be <= 40 characters for Razorpay
         user_id_str = str(user.id)
         receipt = user_id_str[:40]  # Truncate to 40 chars max
-        
+
         try:
             order = razorpay_service.create_order(
                 amount=amount,
@@ -99,7 +99,7 @@ async def create_order(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Payment gateway temporarily unavailable. Please try again."
             )
-        
+
         # Store order in database
         payment_record = Payment(
             user_id=user.id,
@@ -112,9 +112,9 @@ async def create_order(
         db.add(payment_record)
         # ✅ CRITICAL: Let FastAPI dependency handle commit
         # Do NOT call db.commit() manually - dependency's finally block will handle it
-        
+
         logger.info(f"✅ Order created for user {user.id}: {order['id']}")
-        
+
         return CreateOrderResponse(
             order_id=order["id"],
             amount=amount,
@@ -123,7 +123,7 @@ async def create_order(
             environment=razorpay_service.get_environment(),
             plan_type=plan_type
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -142,13 +142,13 @@ async def verify_payment(
 ):
     """
     Verify payment signature and mark user as payment completed
-    
+
     - **order_id**: Razorpay Order ID
     - **payment_id**: Razorpay Payment ID
     - **signature**: Payment signature from Razorpay
-    
+
     Returns verification result and updates user payment status
-    
+
     Requires: Authentication token (user must be logged in)
     """
     try:
@@ -159,23 +159,23 @@ async def verify_payment(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not authenticated. Please log in first."
             )
-        
+
         user = current_user
         logger.info(f"Payment verification from authenticated user: {user.id}")
-        
+
         # Get Razorpay service
         razorpay_service = get_razorpay_service()
-        
+
         # Verify signature
         is_valid = razorpay_service.verify_signature(
             request.order_id,
             request.payment_id,
             request.signature
         )
-        
+
         if not is_valid:
             logger.warning(f"⚠️ Invalid signature for payment {request.payment_id}")
-            
+
             # Update payment record with failed status
             payment = db.query(Payment).filter(
                 Payment.order_id == request.order_id
@@ -184,12 +184,12 @@ async def verify_payment(
                 payment.status = "failed"
                 payment.error_message = "Invalid signature"
                 # ✅ CRITICAL: Let FastAPI dependency handle commit
-            
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Payment signature verification failed"
             )
-        
+
         # Fetch payment details to capture contact/mobile
         contact_number = None
         try:
@@ -202,39 +202,39 @@ async def verify_payment(
         payment = db.query(Payment).filter(
             Payment.order_id == request.order_id
         ).first()
-        
+
         if not payment:
             logger.warning(f"⚠️ Payment record not found for order {request.order_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Payment record not found"
             )
-        
+
         # Update payment record
         payment.payment_id = request.payment_id
         payment.status = "paid"
         payment.signature = request.signature
         if contact_number:
             payment.contact = contact_number
-        
+
         # Mark user as payment completed and persist mobile to user
         user.payment_completed = True
         user.plan_type = payment.plan_type
         if contact_number:
             user.phone_number = contact_number
-        
+
         # ✅ CRITICAL: Let FastAPI dependency handle commit
         # Do NOT call db.commit() manually - dependency's finally block will handle it
-        
+
         logger.info(f"✅ Payment verified for user {user.id}: {request.payment_id}")
-        
+
         return VerifyPaymentResponse(
             success=True,
             message="Payment verified successfully",
             payment_completed=True,
             payment_id=request.payment_id
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -252,9 +252,9 @@ async def check_payment_status(
 ):
     """
     ⚡ OPTIMIZED: Check if user has completed payment - Target: <100ms
-    
+
     - **user_id**: UUID of the user (query parameter)
-    
+
     Returns payment completion status
     """
     try:
@@ -265,13 +265,13 @@ async def check_payment_status(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
-        
+
         # ✅ OPTIMIZED: Get last successful payment with single targeted query
         last_payment = db.query(Payment).filter(
             Payment.user_id == user_id,
             Payment.status == "paid"
         ).order_by(desc(Payment.created_at)).first()
-        
+
         # Build response with minimal data
         response = PaymentStatusResponse(
             payment_completed=user.payment_completed,
@@ -279,9 +279,9 @@ async def check_payment_status(
             last_payment_date=last_payment.updated_at if last_payment else None,
             payment_id=last_payment.payment_id if last_payment else None
         )
-        
+
         return response
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -301,16 +301,16 @@ async def get_payment_history(
 ):
     """
     Get payment history for a user
-    
+
     - **user_id**: UUID of the user (optional, defaults to current user)
     - **limit**: Maximum number of records to return (default: 10)
-    
+
     Returns list of payment transactions
     """
     try:
         # Use provided user_id or default to current user
         target_user_id = user_id or current_user.id
-        
+
         # Verify user exists
         user = db.query(User).filter(User.id == target_user_id).first()
         if not user:
@@ -319,12 +319,12 @@ async def get_payment_history(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
-        
+
         # Get payment history
         payments = db.query(Payment).filter(
             Payment.user_id == target_user_id
         ).order_by(desc(Payment.created_at)).limit(limit).all()
-        
+
         return {
             "user_id": str(target_user_id),
             "total_payments": len(payments),
@@ -342,7 +342,7 @@ async def get_payment_history(
                 for p in payments
             ]
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:

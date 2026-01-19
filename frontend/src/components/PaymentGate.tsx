@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, CheckCircle, Zap, Award, TrendingUp, Shield, Brain, BarChart3, MessageSquare, Star, Lock } from 'lucide-react';
+import { AlertCircle, CheckCircle, Zap, Award, TrendingUp, Shield, BarChart3, MessageSquare, Star, Lock } from 'lucide-react';
 import RazorpayCheckout from './RazorpayCheckout';
 import { getCurrentUserId } from '@/utils/userUtils';
 import { paymentService } from '@/services/paymentService';
@@ -16,7 +16,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
   const [paymentCompleted, setPaymentCompleted] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<'test' | 'counseling'>('counseling');
+  const [selectedPlan, setSelectedPlan] = useState<'counseling'>('counseling');
   const paymentSectionRef = useRef<HTMLDivElement>(null);
 
   // Check payment status on mount
@@ -67,7 +67,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
     onPaymentComplete();
   };
 
-  const handlePlanSelect = (planId: 'test' | 'counseling') => {
+  const handlePlanSelect = (planId: 'counseling') => {
     setSelectedPlan(planId);
     setTimeout(() => {
       paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -92,28 +92,10 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
 
   const plans = [
     {
-      id: 'test' as const,
-      name: 'માત્ર પરીક્ષણ',
-      englishName: 'Test Only',
-      price: '249',
-      features: [
-        '૭ વ્યાપક કેરિયર પરીક્ષણો',
-        'વિગતવાર ઓનલાઇન અહેવાલ',
-        'વ્યક્તિગત વિશ્લેષણ',
-        'આજીવન ઍક્સેસ'
-      ],
-      notIncluded: [
-        'નિષ્ણાત પરામર્શ (Counselling)',
-        'કેરિયર રોડમેપ સત્ર'
-      ],
-      color: 'blue',
-      icon: Brain
-    },
-    {
       id: 'counseling' as const,
       name: 'પરીક્ષણ + પરામર્શ',
       englishName: 'Test + Counselling',
-      price: '449',
+      price: '299',
       popular: true,
       features: [
         '૭ વ્યાપક કેરિયર પરીક્ષણો',
@@ -171,7 +153,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
         </div>
 
         {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
+        <div className="grid grid-cols-1 gap-8 max-w-4xl mx-auto mb-12">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.id}
@@ -181,7 +163,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
               whileHover={{ y: -10 }}
               onClick={() => handlePlanSelect(plan.id)}
               className={`relative bg-white rounded-3xl p-8 border-2 transition-all cursor-pointer ${selectedPlan === plan.id
-                ? selectedPlan === 'test' ? 'border-blue-500 shadow-2xl scale-105 z-20' : 'border-orange-500 shadow-2xl scale-105 z-20'
+                ? 'border-orange-500 shadow-2xl scale-105 z-20'
                 : 'border-gray-100 shadow-md hover:border-gray-300 z-10'
                 }`}
             >
@@ -197,7 +179,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
                   <h3 className="text-2xl font-bold text-gray-900">{plan.name}</h3>
                   <p className="text-sm text-gray-500 font-medium">{plan.englishName}</p>
                 </div>
-                <div className={`p-3 rounded-2xl ${plan.color === 'blue' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
+                <div className={`p-3 rounded-2xl bg-orange-50 text-orange-600`}>
                   <plan.icon size={28} />
                 </div>
               </div>
@@ -216,16 +198,10 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
                     <span className="text-gray-700 font-medium">{feature}</span>
                   </div>
                 ))}
-                {plan.notIncluded?.map((feature, i) => (
-                  <div key={i} className="flex items-start gap-3 opacity-40">
-                    <AlertCircle className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-500 line-through">{feature}</span>
-                  </div>
-                ))}
               </div>
 
               <div className={`w-full py-4 rounded-2xl font-bold text-center transition-all ${selectedPlan === plan.id
-                ? plan.id === 'counseling' ? 'bg-orange-500 text-white shadow-lg' : 'bg-blue-600 text-white shadow-lg'
+                ? 'bg-orange-500 text-white shadow-lg'
                 : 'bg-orange-50 text-orange-700 border border-orange-200'
                 }`}>
                 {selectedPlan === plan.id ? 'આ પ્લાન પસંદ કરેલ છે' : 'પસંદ કરો'}
@@ -251,8 +227,8 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
 
           <div className="bg-white rounded-3xl p-6 md:p-10 shadow-xl border border-gray-100 text-center">
             <p className="text-gray-500 font-medium mb-2 uppercase tracking-wider text-sm">કુલ ચુકવણી</p>
-            <h2 className={`text-5xl md:text-6xl font-black mb-8 ${selectedPlan === 'test' ? 'text-blue-600' : 'text-orange-500'}`}>
-              ₹{selectedPlan === 'test' ? '249' : '449'}
+            <h2 className={`text-5xl md:text-6xl font-black mb-8 text-orange-500`}>
+              ₹299
             </h2>
 
             <RazorpayCheckout
