@@ -2,12 +2,12 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Clock, 
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  MapPin,
+  Clock,
   Send,
   MessageCircle,
   HelpCircle,
@@ -42,11 +42,11 @@ const ModernContactPage: React.FC<ModernContactPageProps> = ({ onBack }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Import the contact service
       const { contactService } = await import('@/services/contactService');
-      
+
       // Submit the form data
       const response = await contactService.submitContact({
         name: formData.name,
@@ -55,7 +55,7 @@ const ModernContactPage: React.FC<ModernContactPageProps> = ({ onBack }) => {
         message: formData.message,
         inquiry_type: formData.inquiryType as any
       });
-      
+
       if (response.success) {
         modernToast.contact.submitSuccess();
         setFormData({
@@ -118,7 +118,7 @@ const ModernContactPage: React.FC<ModernContactPageProps> = ({ onBack }) => {
     },
     {
       question: 'શું હું મૂલ્યાંકન ફરીથી લઈ શકું છું?',
-      answer: 'હા, ચોક્કસ પરિણામોની ખાતરી માટે 30-દિવસની રાહ જોવાના સમય પછી તમે મોટાભાગના મૂલ્યાંકનો ફરીથી લઈ શકો છો.'
+      answer: 'ના, હાલમાં અમે મૂલ્યાંકન ફરીથી લેવાની મંજૂરી આપતા નથી.'
     },
     {
       question: 'શું તમે કારકિર્દી સલાહ આપો છો?',
@@ -137,7 +137,7 @@ const ModernContactPage: React.FC<ModernContactPageProps> = ({ onBack }) => {
   return (
     <div className="min-h-screen bg-white">
       <ModernNavbar currentScreen="contact" />
-      
+
       {/* Hero Section */}
       <section className="pt-32 pb-16 bg-gradient-to-br from-orange-50 via-white to-orange-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -151,7 +151,7 @@ const ModernContactPage: React.FC<ModernContactPageProps> = ({ onBack }) => {
               સંપર્ક કરો
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              અમારા મૂલ્યાંકનો વિશે પ્રશ્નો છે? તમારા પરિણામો સાથે મદદની જરૂર છે? 
+              અમારા મૂલ્યાંકનો વિશે પ્રશ્નો છે? તમારા પરિણામો સાથે મદદની જરૂર છે?
               તમારા કારકિર્દી વિકાસ સફરમાં અમે તમારી મદદ કરવા માટે અહીં છીએ.
             </p>
           </motion.div>
@@ -357,44 +357,6 @@ const ModernContactPage: React.FC<ModernContactPageProps> = ({ onBack }) => {
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-orange-500 to-orange-600">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="space-y-8"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              હજુ પણ પ્રશ્નો છે?
-            </h2>
-            <p className="text-xl text-orange-100 max-w-2xl mx-auto">
-              અમારી સહાય ટીમ તમારા મૂલ્યાંકન અનુભવમાંથી મહત્તમ લાભ મેળવવામાં તમારી મદદ કરવા માટે અહીં છે.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <motion.button
-                className="px-8 py-4 bg-white text-orange-600 font-semibold rounded-xl text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <MessageCircle className="w-5 h-5 inline mr-2" />
-                લાઇવ ચેટ સહાય
-              </motion.button>
-              <motion.button
-                onClick={onBack}
-                className="px-8 py-4 border-2 border-white text-white font-semibold rounded-xl text-lg hover:bg-white hover:text-orange-600 transition-all duration-300"
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <ArrowLeft className="w-5 h-5 inline mr-2" />
-                ઘરે પાછા જાઓ
-              </motion.button>
-            </div>
-          </motion.div>
         </div>
       </section>
 

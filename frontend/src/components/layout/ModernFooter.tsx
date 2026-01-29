@@ -2,13 +2,13 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Facebook, 
-  Twitter, 
-  Linkedin, 
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Facebook,
+  Twitter,
+  Linkedin,
   Instagram,
   Github,
   Heart,
@@ -65,15 +65,15 @@ const ModernFooter: React.FC = () => {
           className="col-span-2 space-y-4 mb-8 lg:mb-16 pb-8 border-b border-gray-800 md:border-b-0 md:pb-0"
         >
           <div className="mb-6">
-            <Logo 
+            <Logo
               size="lg"
               variant="full"
               className="[&_h1]:text-white [&_p]:text-gray-400"
             />
           </div>
-          
+
           <p className="text-gray-300 text-sm leading-relaxed max-w-md">
-            અમારા વ્યાપક મનોવૈજ્ઞાનિક મૂલ્યાંકન પ્લેટફોર્મ સાથે તમારી સાચી ક્ષમતા શોધો. 
+            અમારા વ્યાપક મનોવૈજ્ઞાનિક મૂલ્યાંકન પ્લેટફોર્મ સાથે તમારી સાચી ક્ષમતા શોધો.
             તમારા કારકિર્દી વિકાસ અને વ્યક્તિગત વિકાસ માટે વ્યક્તિગત સૂચનો મેળવો.
           </p>
 
@@ -147,7 +147,7 @@ const ModernFooter: React.FC = () => {
                 <p className="text-sm text-gray-400">lifetransformjourney@gmail.com</p>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                 <Phone className="w-5 h-5" />
@@ -157,7 +157,7 @@ const ModernFooter: React.FC = () => {
                 <p className="text-sm text-gray-400">+91 6354571342</p>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
                 <MapPin className="w-5 h-5" />
@@ -174,7 +174,7 @@ const ModernFooter: React.FC = () => {
       {/* Bottom Bar */}
       <div className="border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0">
             {/* Copyright */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -185,35 +185,6 @@ const ModernFooter: React.FC = () => {
               <span>© {currentYear} LCJ કારકિર્દી મૂલ્યાંકન. બધા અધિકારો સુરક્ષિત.</span>
               <Heart className="w-4 h-4 text-red-500" />
               <span>તમારા કારકિર્દી વિકાસ માટે પ્રેમથી બનાવેલું</span>
-            </motion.div>
-
-            {/* Social Links */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              className="flex items-center space-x-4"
-            >
-              <span className="text-sm text-gray-400">અમને ફોલો કરો:</span>
-              {socialLinks.map((social, index) => {
-                const Icon = social.icon;
-                return (
-                  <motion.a
-                    key={social.name}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`text-gray-400 ${social.color} transition-colors duration-200`}
-                    whileHover={{ scale: 1.1, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.1 }}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </motion.a>
-                );
-              })}
             </motion.div>
           </div>
         </div>

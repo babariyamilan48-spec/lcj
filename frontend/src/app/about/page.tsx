@@ -2,10 +2,10 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Target, 
-  Users, 
-  Award, 
+import {
+  Target,
+  Users,
+  Award,
   Heart,
   CheckCircle,
   ArrowRight,
@@ -68,7 +68,7 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
       <ModernNavbar currentScreen="about" />
-      
+
       {/* Hero Section */}
       <section className="pt-20 pb-16 bg-gradient-to-br from-orange-50 via-white to-orange-50 overflow-hidden">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full">
@@ -83,7 +83,7 @@ export default function AboutPage() {
               <span className="text-gray-700"> પરિવર્તન સફર વિશે</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed px-2">
-              અમે વૈજ્ઞાનિક રીતે સાબિત મનોવૈજ્ઞાનિક મૂલ્યાંકનો અને વ્યક્તિગત કારકિર્દી માર્ગદર્શન 
+              અમે વૈજ્ઞાનિક રીતે સાબિત મનોવૈજ્ઞાનિક મૂલ્યાંકનો અને વ્યક્તિગત કારકિર્દી માર્ગદર્શન
               દ્વારા વ્યક્તિઓને તેમની સાચી ક્ષમતા શોધવામાં મદદ કરવા માટે સમર્પિત છીએ.
             </p>
           </motion.div>
@@ -101,8 +101,8 @@ export default function AboutPage() {
             >
               <h2 className="text-3xl font-bold text-gray-900 mb-6">અમારું મિશન</h2>
               <p className="text-lg text-gray-600 mb-6">
-                LCJ પર, અમે માનીએ છીએ કે દરેકને તેમનો આદર્શ કારકિર્દી માર્ગ શોધવાનો અધિકાર છે. અમારું મિશન 
-                સુલભ, ચોક્કસ અને ક્રિયાત્મક મનોવૈજ્ઞાનિક મૂલ્યાંકનો પ્રદાન કરવાનું છે જે 
+                જીવન પરિવર્તન સફર પર, અમે માનીએ છીએ કે દરેકને તેમનો આદર્શ કારકિર્દી માર્ગ શોધવાનો અધિકાર છે. અમારું મિશન
+                સુલભ, ચોક્કસ અને ક્રિયાત્મક મનોવૈજ્ઞાનિક મૂલ્યાંકનો પ્રદાન કરવાનું છે જે
                 વ્યક્તિઓને તેમના વ્યાવસાયિક ભવિષ્ય વિશે માહિતીપૂર્ણ નિર્ણયો લેવા માટે સશક્ત બનાવે છે.
               </p>
               <div className="space-y-4">
@@ -119,7 +119,7 @@ export default function AboutPage() {
                 ))}
               </div>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -130,8 +130,8 @@ export default function AboutPage() {
                 <Target className="w-12 h-12 mb-4" />
                 <h3 className="text-2xl font-bold mb-4">અમારી દ્રષ્ટિ</h3>
                 <p className="text-orange-100">
-                  કારકિર્દી શોધ માટે વિશ્વનો સૌથી વિશ્વસનીય પ્લેટફોર્મ બનવા માટે, 
-                  લાખો લોકોને તેમની અનન્ય તાકાતો અને ઉત્સાહો સાથે સંરેખિત 
+                  કારકિર્દી શોધ માટે વિશ્વનો સૌથી વિશ્વસનીય પ્લેટફોર્મ બનવા માટે,
+                  લાખો લોકોને તેમની અનન્ય તાકાતો અને ઉત્સાહો સાથે સંરેખિત
                   સંતુષ્ટ કારકિર્દી શોધવામાં મદદ કરવા માટે.
                 </p>
               </div>
@@ -151,7 +151,7 @@ export default function AboutPage() {
           >
             <h2 className="text-3xl font-bold text-gray-900 mb-4">LCJને કેમ પસંદ કરો?</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              અમારું પ્લેટફોર્મ અદ્યતન ટેકનોલોજીને સાબિત મનોવૈજ્ઞાનિક સિદ્ધાંતો સાથે જોડે છે 
+              અમારું પ્લેટફોર્મ અદ્યતન ટેકનોલોજીને સાબિત મનોવૈજ્ઞાનિક સિદ્ધાંતો સાથે જોડે છે
               ચોક્કસ અને અર્થપૂર્ણ કારકિર્દી સૂચનો પ્રદાન કરવા માટે.
             </p>
           </motion.div>
@@ -211,41 +211,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Team Section */}
-      <section className="py-20 bg-gray-50 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">અમારી ટીમને મળો</h2>
-            <p className="text-xl text-gray-600">
-              મનોવિજ્ઞાન, ટેકનોલોજી અને કારકિર્દી વિકાસમાં નિષ્ણાતો
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-            {team.map((member, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="bg-white p-6 rounded-2xl shadow-lg text-center"
-              >
-                <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-10 h-10 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{member.name}</h3>
-                <p className="text-orange-600 font-medium mb-3">{member.role}</p>
-                <p className="text-gray-600 text-sm">{member.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Team Section removed per request */}
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-orange-500 to-orange-600 overflow-hidden">
