@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg2://lcj_user:lcj_password@localhost:5432/lcj"
     DATABASE_POOL_SIZE: int = 10  # Base pool size for Neon
     DATABASE_MAX_OVERFLOW: int = 20  # Additional overflow connections
-    
+
     # Redis Cache Configuration
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_TTL_DEFAULT: int = 300  # 5 minutes default TTL
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     ENABLE_QUERY_OPTIMIZATION: bool = True
     ENABLE_RESPONSE_COMPRESSION: bool = True
     MAX_RESPONSE_SIZE_MB: int = 50  # Maximum response size before truncation
-    
+
     # Additional production settings
     @property
     def environment(self) -> str:
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     # Sendinblue Email Configuration
     SENDINBLUE_API_KEY: Optional[str] = None
     MAIL_FROM: str = "Life Journey <hetbabariyabali09@gmail.com>"
-    
+
     # Legacy SMTP / Email (optional; if unset, email sending is skipped)
     SMTP_HOST: str = "smtp-relay.brevo.com"
     SMTP_PORT: int = 587
@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     RAZORPAY_LIVE_KEY_ID: Optional[str] = None
     RAZORPAY_LIVE_KEY_SECRET: Optional[str] = None
     RAZORPAY_PAYMENT_AMOUNT: int = 44900  # Amount in paise (₹500 = 50000 paise)
+    RAZORPAY_COUPON_CODE: Optional[str] = None  # Optional coupon to override amount
+    RAZORPAY_COUPON_AMOUNT: int = 100  # Amount in paise for coupon (₹1 = 100 paise)
 
     # Google / Firebase (uses backend/credential.json)
 

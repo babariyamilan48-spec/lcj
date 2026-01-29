@@ -13,13 +13,15 @@ class CreateOrderRequest(BaseModel):
     user_id: UUID = Field(..., description="User ID")
     amount: Optional[int] = Field(None, description="Amount in paise (optional, uses default if not provided)")
     plan_type: str = Field(..., description="Type of plan (test or counseling)")
-    
+    coupon_code: Optional[str] = Field(None, description="Optional coupon code to override amount")
+
     class Config:
         json_schema_extra = {
             "example": {
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
                 "amount": 50000,
-                "plan_type": "counseling"
+                "plan_type": "counseling",
+                "coupon_code": "LCJ1"
             }
         }
 
@@ -32,7 +34,9 @@ class CreateOrderResponse(BaseModel):
     razorpay_key_id: str = Field(..., description="Razorpay Key ID for frontend")
     environment: str = Field(..., description="Environment (test/live)")
     plan_type: str = Field(..., description="Type of plan")
-    
+    coupon_applied: bool = Field(False, description="Whether a coupon was applied")
+    applied_coupon_code: Optional[str] = Field(None, description="Coupon code applied (if any)")
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -40,7 +44,10 @@ class CreateOrderResponse(BaseModel):
                 "amount": 50000,
                 "currency": "INR",
                 "razorpay_key_id": "rzp_test_1234567890",
-                "environment": "test"
+                "environment": "test",
+                "plan_type": "counseling",
+                "coupon_applied": True,
+                "applied_coupon_code": "LCJ1"
             }
         }
 
@@ -51,7 +58,7 @@ class VerifyPaymentRequest(BaseModel):
     order_id: str = Field(..., description="Razorpay Order ID")
     payment_id: str = Field(..., description="Razorpay Payment ID")
     signature: str = Field(..., description="Payment signature from Razorpay")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -69,7 +76,7 @@ class VerifyPaymentResponse(BaseModel):
     message: str = Field(..., description="Status message")
     payment_completed: bool = Field(..., description="User payment completion status")
     payment_id: Optional[str] = Field(None, description="Razorpay Payment ID")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -87,7 +94,7 @@ class PaymentStatusResponse(BaseModel):
     plan_type: Optional[str] = Field(None, description="User's current plan type")
     last_payment_date: Optional[datetime] = Field(None, description="Date of last successful payment")
     payment_id: Optional[str] = Field(None, description="Last successful payment ID")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -109,7 +116,7 @@ class PaymentRecord(BaseModel):
     status: str = Field(..., description="Payment status (created/paid/failed)")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
-    
+
     class Config:
         from_attributes = True
         json_schema_extra = {

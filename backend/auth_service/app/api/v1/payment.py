@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
+from core.config.settings import settings
 from core.database_fixed import get_db, get_db_session
 from core.services.razorpay_service import get_razorpay_service
 from auth_service.app.models.user import User, Payment
@@ -64,18 +65,37 @@ async def create_order(
         # Get Razorpay service
         razorpay_service = get_razorpay_service()
 
-        # Determine amount based on plan type
-        # test: ₹249 (24900 paise) -- currently not shown in UI
-        # counseling: ₹299 (29900 paise)
-        plan_type = request.plan_type
-        if plan_type == "test":
-            amount = 24900
-        elif plan_type == "counseling":
-            amount = 29900
+        # Determine amount with optional coupon override
+        coupon_applied = False
+        applied_coupon_code = None
+
+        if request.coupon_code:
+            if not settings.RAZORPAY_COUPON_CODE:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Coupon not configured"
+                )
+
+            if request.coupon_code.strip().lower() != settings.RAZORPAY_COUPON_CODE.strip().lower():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid coupon code"
+                )
+
+            if settings.RAZORPAY_COUPON_AMOUNT <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Coupon amount is not configured correctly"
+                )
+
+            amount = settings.RAZORPAY_COUPON_AMOUNT
+            coupon_applied = True
+            applied_coupon_code = request.coupon_code.strip()
+            plan_type = request.plan_type or "default"
         else:
-            # Fallback to provided amount or default
+            # Priority: explicit request amount → environment default (RAZORPAY_PAYMENT_AMOUNT)
             amount = request.amount or razorpay_service.payment_amount
-            plan_type = "counseling" if amount >= 44900 else "test"
+            plan_type = request.plan_type or "default"
 
         # Create order
         # Receipt must be <= 40 characters for Razorpay
@@ -121,7 +141,9 @@ async def create_order(
             currency="INR",
             razorpay_key_id=razorpay_service.get_key_id(),
             environment=razorpay_service.get_environment(),
-            plan_type=plan_type
+            plan_type=plan_type,
+            coupon_applied=coupon_applied,
+            applied_coupon_code=applied_coupon_code
         )
 
     except HTTPException:

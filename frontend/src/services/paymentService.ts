@@ -11,6 +11,7 @@ export interface CreateOrderRequest {
   user_id: string;
   amount?: number;
   plan_type: string;
+  coupon_code?: string;
 }
 
 export interface CreateOrderResponse {
@@ -20,6 +21,8 @@ export interface CreateOrderResponse {
   razorpay_key_id: string;
   environment: 'test' | 'live';
   plan_type: string;
+  coupon_applied?: boolean;
+  applied_coupon_code?: string | null;
 }
 
 export interface VerifyPaymentRequest {

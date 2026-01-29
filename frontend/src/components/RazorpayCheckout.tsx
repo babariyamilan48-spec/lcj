@@ -42,11 +42,35 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
   planType
 }) => {
   const router = useRouter();
+  const baseAmountPaise = amount ?? 29900; // expect paise
+  const couponCodePublic = process.env.NEXT_PUBLIC_RAZORPAY_COUPON_CODE?.toLowerCase();
+  const couponAmountPublic = process.env.NEXT_PUBLIC_RAZORPAY_COUPON_AMOUNT
+    ? Number(process.env.NEXT_PUBLIC_RAZORPAY_COUPON_AMOUNT)
+    : undefined;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [success, setSuccess] = useState(false);
   const [environment, setEnvironment] = useState<'test' | 'live'>('test');
+  const [couponCode, setCouponCode] = useState('');
+  const [effectiveAmount, setEffectiveAmount] = useState<number | undefined>(baseAmountPaise);
+  const [couponApplied, setCouponApplied] = useState(false);
+
+  // Update displayed amount when user types coupon (using public env for preview)
+  useEffect(() => {
+    if (
+      couponCodePublic &&
+      couponAmountPublic &&
+      couponCode.trim().toLowerCase() === couponCodePublic
+    ) {
+      setEffectiveAmount(couponAmountPublic);
+      setCouponApplied(true);
+    } else {
+      setEffectiveAmount(baseAmountPaise);
+      setCouponApplied(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [couponCode]);
 
   // Load Razorpay script
   useEffect(() => {
@@ -83,11 +107,14 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       const orderData = await paymentService.createOrder({
         user_id: userId,
         amount: amount || undefined,
-        plan_type: planType
+        plan_type: planType,
+        coupon_code: couponCode?.trim() || undefined
       });
 
       console.log('✅ Order created:', orderData.order_id);
       setEnvironment(orderData.environment as 'test' | 'live');
+      setEffectiveAmount(orderData.amount);
+      setCouponApplied(Boolean(orderData.coupon_applied));
 
       // Step 2: Open Razorpay checkout
       if (!window.Razorpay) {
@@ -270,8 +297,26 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="space-y-0"
+            className="space-y-3"
           >
+            {/* Coupon input */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <label className="text-sm font-semibold text-gray-700">કૂપન કોડ</label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+                {couponApplied && (
+                  <span className="text-xs font-semibold text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    કૂપન લાગુ થયું
+                  </span>
+                )}
+              </div>
+            </div>
+
             <motion.button
               onClick={handlePayment}
               disabled={loading || verifying}
@@ -292,7 +337,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
                 >
                   <CreditCard className="w-6 md:w-7 h-6 md:h-7" />
                 </motion.div>
-                <span className="font-extrabold">₹{amount || 299} પેમેન્ટ કરો</span>
+                <span className="font-extrabold">₹{(((effectiveAmount ?? baseAmountPaise)) / 100).toFixed(0)} પેમેન્ટ કરો</span>
               </div>
             </motion.button>
 
