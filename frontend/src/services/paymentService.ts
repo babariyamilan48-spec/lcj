@@ -37,6 +37,7 @@ export interface VerifyPaymentResponse {
   message: string;
   payment_completed: boolean;
   payment_id?: string;
+  paid?: boolean;
 }
 
 export interface PaymentStatusResponse {

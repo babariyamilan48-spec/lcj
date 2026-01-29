@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, CheckCircle, Loader, Lock, CreditCard } from 'lucide-react';
 import { getCurrentUserId } from '@/utils/userUtils';
 import { paymentService } from '@/services/paymentService';
+import { tokenStore } from '@/services/token';
 
 interface RazorpayCheckoutProps {
   onPaymentSuccess: () => void;
@@ -56,6 +57,8 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
   const [effectiveAmount, setEffectiveAmount] = useState<number | undefined>(baseAmountPaise);
   const [couponApplied, setCouponApplied] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [statusChecked, setStatusChecked] = useState(false);
 
   // Update displayed amount when user types coupon (using public env for preview)
   useEffect(() => {
@@ -92,6 +95,29 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     };
   }, []);
 
+  // On mount: check payment status and short-circuit if already paid
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const userId = getCurrentUserId();
+        if (!userId) return;
+        const status = await paymentService.checkPaymentStatus(userId);
+        if (status.payment_completed) {
+          setSuccess(true);
+          setStatusChecked(true);
+          // redirect to home since already paid
+          router.push('/home');
+          return;
+        }
+      } catch (err) {
+        console.warn('⚠️ Payment status check failed', err);
+      } finally {
+        setStatusChecked(true);
+      }
+    };
+    checkStatus();
+  }, []);
+
   const normalizeError = (err: any, defaultMsg: string) => {
     const msg = err instanceof Error ? err.message : (err?.response?.data?.detail || defaultMsg);
     if (typeof msg === 'string') {
@@ -113,6 +139,8 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     try {
       setLoading(true);
       setError(null);
+      // prevent duplicate clicks
+      if (loading || verifying) return;
 
       const userId = getCurrentUserId();
       if (!userId) {
@@ -135,6 +163,9 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
         plan_type: planType,
         coupon_code: couponCode?.trim() || undefined
       });
+
+      // Store order id to avoid re-creating on rerender
+      setOrderId(orderData.order_id);
 
       console.log('✅ Order created:', orderData.order_id);
       setEnvironment(orderData.environment as 'test' | 'live');
@@ -209,22 +240,25 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       // Step 3: Verify payment signature using paymentService
       const verifyData = await paymentService.verifyPayment({
         user_id: userId,
-        order_id: response.razorpay_order_id,
+        order_id: response.razorpay_order_id || orderId || '',
         payment_id: response.razorpay_payment_id,
         signature: response.razorpay_signature,
       });
 
       console.log('✅ Payment verified:', verifyData.payment_id);
 
-      setSuccess(true);
-      setVerifying(false);
-
-      // Call success callback after showing success message
-      setTimeout(() => {
-        onPaymentSuccess();
-        // Fallback: ensure navigation to home even if parent state is stale
-        router.push('/home');
-      }, 2000);
+      // Only proceed if backend says paid
+      if (verifyData.payment_completed || verifyData.paid) {
+        setSuccess(true);
+        setVerifying(false);
+        setTimeout(() => {
+          onPaymentSuccess();
+          router.push('/home');
+        }, 500);
+      } else {
+        setError('Payment verification incomplete. Please contact support.');
+        setVerifying(false);
+      }
     } catch (err) {
       const errorMessage = normalizeError(err, 'Verification failed');
       console.error('❌ Verification error:', errorMessage);
@@ -243,6 +277,9 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
 
   return (
     <div className="w-full max-w-md mx-auto">
+      {!statusChecked && (
+        <div className="text-sm text-gray-500 mb-3">Checking payment status...</div>
+      )}
       <AnimatePresence mode="wait">
         {/* Success State */}
         {success && (

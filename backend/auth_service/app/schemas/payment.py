@@ -36,6 +36,7 @@ class CreateOrderResponse(BaseModel):
     plan_type: str = Field(..., description="Type of plan")
     coupon_applied: bool = Field(False, description="Whether a coupon was applied")
     applied_coupon_code: Optional[str] = Field(None, description="Coupon code applied (if any)")
+    paid: bool = Field(False, description="Whether user is already paid; short-circuit")
 
     class Config:
         json_schema_extra = {
@@ -76,6 +77,7 @@ class VerifyPaymentResponse(BaseModel):
     message: str = Field(..., description="Status message")
     payment_completed: bool = Field(..., description="User payment completion status")
     payment_id: Optional[str] = Field(None, description="Razorpay Payment ID")
+    paid: bool = Field(True, description="Whether payment is marked paid")
 
     class Config:
         json_schema_extra = {

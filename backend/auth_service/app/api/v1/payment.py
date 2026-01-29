@@ -54,12 +54,28 @@ async def create_order(
         user = current_user
         logger.info(f"Payment request from authenticated user: {user.id}")
 
-        # Check if user already completed payment
+        # Idempotency: if already paid, short-circuit
         if user.payment_completed:
-            logger.info(f"User {user.id} already completed payment")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Payment already completed for this user"
+            logger.info(f"✅ User {user.id} already paid. Returning paid response without creating order")
+            last_paid = db.query(Payment).filter(
+                Payment.user_id == user.id,
+                Payment.status == "paid",
+            ).order_by(desc(Payment.created_at)).first()
+
+            razorpay_service = get_razorpay_service()
+            amount = request.amount or razorpay_service.payment_amount
+            plan_type = request.plan_type or "default"
+
+            return CreateOrderResponse(
+                order_id=last_paid.order_id if last_paid else "paid",
+                amount=last_paid.amount if last_paid else amount,
+                currency=last_paid.currency if last_paid else "INR",
+                razorpay_key_id=razorpay_service.get_key_id(),
+                environment=razorpay_service.get_environment(),
+                plan_type=plan_type,
+                coupon_applied=False,
+                applied_coupon_code=None,
+                paid=True,
             )
 
         # Get Razorpay service
@@ -97,58 +113,66 @@ async def create_order(
             amount = request.amount or razorpay_service.payment_amount
             plan_type = request.plan_type or "default"
 
-        # Create order
-        # Receipt must be <= 40 characters for Razorpay
-        user_id_str = str(user.id)
-        receipt = user_id_str[:40]  # Truncate to 40 chars max
+        # Idempotency: if an active order exists, reuse it; otherwise create new
+        existing_order = db.query(Payment).filter(
+            Payment.user_id == user.id,
+            Payment.status == "created",
+        ).order_by(desc(Payment.created_at)).first()
 
-        try:
-            order = razorpay_service.create_order(
-                amount=amount,
-                currency="INR",
-                receipt=receipt,
-                notes={
-                    "user_id": user_id_str,
-                    "email": user.email,
-                    "username": user.username or "N/A"
-                }
-            )
-        except Exception as razorpay_error:
-            logger.error(f"❌ Razorpay API error: {str(razorpay_error)}")
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Payment gateway temporarily unavailable. Please try again."
-            )
+        if existing_order:
+            logger.info(f" Reusing existing Razorpay order {existing_order.order_id} for user {user.id}")
+            order_id = existing_order.order_id
+        else:
+            # Create order
+            # Receipt must be <= 40 characters for Razorpay
+            user_id_str = str(user.id)
+            receipt = user_id_str[:40]  # Truncate to 40 chars max
 
-        # Store order in database
-        payment_record = Payment(
-            user_id=user.id,
-            order_id=order["id"],
-            amount=amount,
-            currency="INR",
-            status="created",
-            plan_type=plan_type
-        )
-        db.add(payment_record)
-        # ✅ CRITICAL: Let FastAPI dependency handle commit
-        # Do NOT call db.commit() manually - dependency's finally block will handle it
-
-        logger.info(f"✅ Order created for user {user.id}: {order['id']}")
+            try:
+                order = razorpay_service.create_order(
+                    amount=amount,
+                    currency="INR",
+                    receipt=receipt,
+                    notes={
+                        "user_id": user_id_str,
+                        "email": user.email,
+                        "username": user.username or "N/A"
+                    }
+                )
+                order_id = order["id"]
+                payment_record = Payment(
+                    user_id=user.id,
+                    order_id=order_id,
+                    amount=amount,
+                    currency="INR",
+                    status="created",
+                    plan_type=plan_type
+                )
+                db.add(payment_record)
+                logger.info(f" Order created for user {user.id}: {order_id}")
+            except Exception as razorpay_error:
+                logger.error(f" Razorpay API error: {str(razorpay_error)}")
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Payment gateway temporarily unavailable. Please try again."
+                )
 
         return CreateOrderResponse(
-            order_id=order["id"],
+            order_id=order_id,
             amount=amount,
             currency="INR",
             razorpay_key_id=razorpay_service.get_key_id(),
             environment=razorpay_service.get_environment(),
             plan_type=plan_type,
             coupon_applied=coupon_applied,
-            applied_coupon_code=applied_coupon_code
+            applied_coupon_code=applied_coupon_code,
+            paid=False,
         )
 
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f" Error creating order: {str(e)}")
         logger.error(f"❌ Error creating order: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -222,14 +246,26 @@ async def verify_payment(
 
         # Find payment record
         payment = db.query(Payment).filter(
-            Payment.order_id == request.order_id
-        ).first()
+            Payment.order_id == request.order_id,
+            Payment.user_id == user.id,
+        ).order_by(desc(Payment.created_at)).first()
 
         if not payment:
             logger.warning(f"⚠️ Payment record not found for order {request.order_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Payment record not found"
+            )
+
+        # Idempotent verify: if already paid with same payment_id, return success
+        if payment.status == "paid" and payment.payment_id == request.payment_id:
+            logger.info(f"Payment already verified for order {request.order_id}, payment {request.payment_id}")
+            return VerifyPaymentResponse(
+                success=True,
+                message="Payment already verified",
+                payment_completed=True,
+                payment_id=payment.payment_id,
+                paid=True,
             )
 
         # Update payment record
@@ -245,16 +281,14 @@ async def verify_payment(
         if contact_number:
             user.phone_number = contact_number
 
-        # ✅ CRITICAL: Let FastAPI dependency handle commit
-        # Do NOT call db.commit() manually - dependency's finally block will handle it
-
         logger.info(f"✅ Payment verified for user {user.id}: {request.payment_id}")
 
         return VerifyPaymentResponse(
             success=True,
             message="Payment verified successfully",
             payment_completed=True,
-            payment_id=request.payment_id
+            payment_id=request.payment_id,
+            paid=True,
         )
 
     except HTTPException:
