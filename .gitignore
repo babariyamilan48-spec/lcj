@@ -168,4 +168,4 @@ settings.local.js
 backend/credential.json
 
 emergency.txt
-create_admin_user.py
+backend/create_admin_user.py

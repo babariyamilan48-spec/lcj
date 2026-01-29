@@ -61,6 +61,7 @@ def create_admin_user():
             raise
 
 
+
 def create_special_user():
     """Create admin user with credentials admin@admin.com / admin@123"""
 
