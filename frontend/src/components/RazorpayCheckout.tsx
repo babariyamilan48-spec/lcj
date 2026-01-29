@@ -55,6 +55,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
   const [couponCode, setCouponCode] = useState('');
   const [effectiveAmount, setEffectiveAmount] = useState<number | undefined>(baseAmountPaise);
   const [couponApplied, setCouponApplied] = useState(false);
+  const [scriptReady, setScriptReady] = useState(false);
 
   // Update displayed amount when user types coupon (using public env for preview)
   useEffect(() => {
@@ -79,6 +80,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     script.async = true;
     script.onload = () => {
       console.log('✅ Razorpay script loaded');
+      setScriptReady(true);
     };
     script.onerror = () => {
       setError('Failed to load Razorpay. Please refresh the page.');
@@ -90,6 +92,23 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     };
   }, []);
 
+  const normalizeError = (err: any, defaultMsg: string) => {
+    const msg = err instanceof Error ? err.message : (err?.response?.data?.detail || defaultMsg);
+    if (typeof msg === 'string') {
+      if (msg.toLowerCase().includes('connection aborted') || msg.toLowerCase().includes('remote end closed')) {
+        return 'Payment gateway is temporarily unreachable. Please try again.';
+      }
+      if (msg.toLowerCase().includes('network error')) {
+        return 'Network issue. Please check connectivity and retry.';
+      }
+      if (msg.toLowerCase().includes('401') || msg.toLowerCase().includes('unauthorized')) {
+        return 'Your session has expired. Please log in again.';
+      }
+      return msg;
+    }
+    return defaultMsg;
+  };
+
   const handlePayment = async () => {
     try {
       setLoading(true);
@@ -98,6 +117,12 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       const userId = getCurrentUserId();
       if (!userId) {
         setError('User ID not found. Please log in again.');
+        setLoading(false);
+        return;
+      }
+
+      if (!scriptReady || !window.Razorpay) {
+        setError('Payment is still loading. Please wait a moment and try again.');
         setLoading(false);
         return;
       }
@@ -161,20 +186,17 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Payment failed';
+      const errorMessage = normalizeError(err, 'Payment failed');
       console.error('❌ Payment error:', errorMessage);
 
-      // Check if it's a 401 Unauthorized error (session expired)
-      if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
-        console.warn('⚠️ Session expired, redirecting to login immediately...');
-        setError('Your session has expired. Please log in again.');
+      if (errorMessage.toLowerCase().includes('session has expired')) {
+        setError(errorMessage);
         setLoading(false);
-        // Redirect immediately without delay
         router.push('/auth/login');
         return;
-      } else {
-        setError(errorMessage);
       }
+
+      setError(errorMessage);
       setLoading(false);
     }
   };
@@ -200,22 +222,21 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       // Call success callback after showing success message
       setTimeout(() => {
         onPaymentSuccess();
+        // Fallback: ensure navigation to home even if parent state is stale
+        router.push('/home');
       }, 2000);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Verification failed';
+      const errorMessage = normalizeError(err, 'Verification failed');
       console.error('❌ Verification error:', errorMessage);
 
-      // Check if it's a 401 Unauthorized error (session expired)
-      if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
-        console.warn('⚠️ Session expired during verification, redirecting to login immediately...');
-        setError('Your session has expired. Please log in again.');
+      if (errorMessage.toLowerCase().includes('session has expired')) {
+        setError(errorMessage);
         setVerifying(false);
-        // Redirect immediately without delay
         router.push('/auth/login');
         return;
-      } else {
-        setError(errorMessage);
       }
+
+      setError(errorMessage);
       setVerifying(false);
     }
   };
@@ -262,6 +283,12 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
               <div>
                 <h4 className="font-semibold text-red-800">પેમેન્ટ ભૂલ</h4>
                 <p className="text-red-700 text-sm mt-1">{error}</p>
+                <button
+                  onClick={handlePayment}
+                  className="mt-3 text-sm font-semibold text-orange-700 hover:text-orange-800 underline"
+                >
+                  ફરી પ્રયાસ કરો
+                </button>
               </div>
             </div>
           </motion.div>

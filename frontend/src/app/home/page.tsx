@@ -14,10 +14,10 @@ import ModernNavbar from '@/components/layout/ModernNavbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 export default function HomeRoot() {
-  const { 
-    currentScreen, 
-    selectedTest, 
-    setCurrentScreen, 
+  const {
+    currentScreen,
+    selectedTest,
+    setCurrentScreen,
     setSelectedTest,
     setTestResults,
     setUserAnswers,
@@ -95,13 +95,18 @@ export default function HomeRoot() {
     setCurrentScreen('selection');
   };
 
+  const handlePaymentComplete = () => {
+    // After successful payment, send user back to home
+    setCurrentScreen('home');
+  };
+
   const renderCurrentScreen = () => {
     switch (currentScreen) {
       case 'home':
         return <ModernHomePage onStart={handleStart} />;
       case 'selection':
         return (
-          <PaymentGate onPaymentComplete={() => {}}>
+          <PaymentGate onPaymentComplete={handlePaymentComplete}>
             <TestSelection onTestSelect={handleTestSelect} onBack={handleBack} />
           </PaymentGate>
         );
@@ -121,8 +126,8 @@ export default function HomeRoot() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-white">
-        <ModernNavbar 
-          currentScreen={currentScreen} 
+        <ModernNavbar
+          currentScreen={currentScreen}
           onNavigate={handleNavigate}
           testName={selectedTest?.name}
           showProgress={currentScreen === 'quiz'}
@@ -135,4 +140,3 @@ export default function HomeRoot() {
     </ProtectedRoute>
   );
 }
-
