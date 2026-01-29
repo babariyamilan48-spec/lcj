@@ -30,7 +30,7 @@ async def create_test_result(
         if test_result.test_id == 'mbti' and test_result.calculated_result:
             print(f"MBTI Code: {test_result.calculated_result.get('code', 'NOT_FOUND')}")
             print(f"MBTI Traits: {test_result.calculated_result.get('traits', 'NOT_FOUND')}")
-        
+
         service = TestResultService(db)
         result = service.save_test_result(
             user_id=test_result.user_id,
@@ -61,7 +61,7 @@ async def calculate_and_save_test_result(
             session_id=test_result_data.get('session_id'),
             time_taken_seconds=test_result_data.get('time_taken_seconds')
         )
-        
+
         return result
     except Exception as e:
         # ✅ CRITICAL: Let FastAPI dependency handle rollback
@@ -85,13 +85,13 @@ async def get_test_result(
 ):
     """Get a specific test result by ID"""
     result = db.query(TestResult).filter(TestResult.id == result_id).first()
-    
+
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Test result not found"
         )
-    
+
     return result
 
 @router.put("/{result_id}", response_model=TestResultResponse)
@@ -102,25 +102,25 @@ async def update_test_result(
 ):
     """Update an existing test result"""
     db_result = db.query(TestResult).filter(TestResult.id == result_id).first()
-    
+
     if not db_result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Test result not found"
         )
-    
+
     # Update fields
     update_data = test_result_update.dict(exclude_unset=True)
     for field, value in update_data.items():
         if field != "details":  # Handle details separately
             setattr(db_result, field, value)
-    
+
     if test_result_update.is_completed and not db_result.completed_at:
         db_result.completed_at = datetime.utcnow()
-    
+
     # ✅ CRITICAL: Let FastAPI dependency handle commit
     # Do NOT call db.commit() or db.refresh() manually
-    
+
     return db_result
 
 @router.delete("/{result_id}")
@@ -130,17 +130,17 @@ async def delete_test_result(
 ):
     """Delete a test result"""
     db_result = db.query(TestResult).filter(TestResult.id == result_id).first()
-    
+
     if not db_result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Test result not found"
         )
-    
+
     db.delete(db_result)
     # ✅ CRITICAL: Let FastAPI dependency handle commit
     # Do NOT call db.commit() manually
-    
+
     return {"message": "Test result deleted successfully"}
 
 @router.get("/user/{user_id}/latest/{test_id}", response_model=TestResultResponse)
@@ -152,13 +152,13 @@ async def get_latest_test_result(
     """Get the latest test result for a user and test type"""
     service = TestResultService(db)
     result = service.get_latest_result(user_id, test_id)
-    
+
     if not result:
         raise HTTPException(
             status_code=404,
             detail="No completed test result found for this user and test type"
         )
-    
+
     return result
 
 @router.get("/configurations/{test_id}", response_model=List[TestResultConfigurationResponse])
@@ -171,7 +171,7 @@ async def get_test_configurations(
         TestResultConfiguration.test_id == test_id,
         TestResultConfiguration.is_active == True
     ).all()
-    
+
     return configurations
 
 @router.post("/configurations/", response_model=TestResultConfigurationResponse)
@@ -185,9 +185,9 @@ async def create_test_configuration(
         db.add(db_config)
         # ✅ CRITICAL: Let FastAPI dependency handle commit
         # Do NOT call db.commit() or db.refresh() manually
-        
+
         return db_config
-        
+
     except Exception as e:
         # ✅ CRITICAL: Let FastAPI dependency handle rollback
         raise HTTPException(
@@ -216,10 +216,10 @@ async def get_user_latest_summary(
     """
     try:
         from question_service.app.services.calculated_result_service import CalculatedResultService
-        
+
         # Get pre-calculated results by test (latest for each test type)
         latest_results_by_test = CalculatedResultService.get_latest_results_by_test(db, user_id)
-        
+
         if not latest_results_by_test:
             return {
                 "user_id": user_id,
@@ -231,16 +231,16 @@ async def get_user_latest_summary(
                 "development_areas": [],
                 "last_activity": None
             }
-        
+
         # Already have latest results by test from pre-calculated data
         latest_results = latest_results_by_test
-        
+
         # Build summary response with proper data extraction
         summary_data = []
         all_careers = []
         all_strengths = []
         all_recommendations = []
-        
+
         # Test name mappings
         test_names_gujarati = {
             'mbti': 'MBTI વ્યક્તિત્વ પરીક્ષા',
@@ -251,7 +251,7 @@ async def get_user_latest_summary(
             'vark': 'શીખવાની શૈલી પરીક્ષા',
             'svs': 'મૂલ્ય પ્રણાલી પરીક્ષા'
         }
-        
+
         test_names_english = {
             'mbti': 'MBTI Personality Test',
             'intelligence': 'Multiple Intelligence Test',
@@ -261,17 +261,17 @@ async def get_user_latest_summary(
             'vark': 'Learning Style Test',
             'svs': 'Schwartz Values Survey'
         }
-        
+
         for result in latest_results.values():
             # Get calculated result data
             calculated_result = result.calculated_result or {}
-            
+
             # Extract dynamic data based on test type and calculated result structure
             dynamic_traits = []
             dynamic_careers = []
             dynamic_strengths = []
             dynamic_recommendations = []
-            
+
             # Process different test types
             if result.test_id == 'bigfive':
                 if 'dimensions' in calculated_result:
@@ -283,7 +283,7 @@ async def get_user_latest_summary(
                             dynamic_traits.append(f"{trait_name}: {level} ({percentage}%)")
                         if dim.get('description'):
                             dynamic_strengths.append(dim.get('description'))
-                            
+
             elif result.test_id == 'intelligence':
                 if 'topIntelligences' in calculated_result:
                     for intel in calculated_result.get('topIntelligences', []):
@@ -305,18 +305,18 @@ async def get_user_latest_summary(
                         percentage = intel.get('percentage', 0)
                         if intel_type:
                             dynamic_traits.append(f"{intel_type} ({percentage}%)")
-                            
+
             elif result.test_id == 'mbti':
                 print(f"DEBUG MBTI - Calculated Result Keys: {list(calculated_result.keys()) if calculated_result else 'None'}")
                 print(f"DEBUG MBTI - Traits in calculated_result: {calculated_result.get('traits', 'NOT_FOUND')}")
                 print(f"DEBUG MBTI - Careers in calculated_result: {calculated_result.get('careers', 'NOT_FOUND')}")
                 print(f"DEBUG MBTI - Strengths in calculated_result: {calculated_result.get('strengths', 'NOT_FOUND')}")
                 print(f"DEBUG MBTI - Code in calculated_result: {calculated_result.get('code', 'NOT_FOUND')}")
-                
+
                 dynamic_traits = calculated_result.get('traits', [])
                 dynamic_careers = calculated_result.get('careers', [])
                 dynamic_strengths = calculated_result.get('strengths', [])
-                
+
             elif result.test_id == 'riasec':
                 if 'topInterests' in calculated_result:
                     for interest in calculated_result.get('topInterests', []):
@@ -324,14 +324,14 @@ async def get_user_latest_summary(
                         percentage = interest.get('percentage', 0)
                         if interest_type:
                             dynamic_traits.append(f"{interest_type} ({percentage}%)")
-                            
+
             elif result.test_id == 'decision':
                 # Extract traits, careers, strengths from calculated result
                 dynamic_traits = calculated_result.get('traits', [])
                 dynamic_careers = calculated_result.get('careers', [])
                 dynamic_strengths = calculated_result.get('strengths', [])
                 dynamic_recommendations = calculated_result.get('recommendations', [])
-                
+
                 # Also add top styles as traits if available
                 if 'topStyles' in calculated_result:
                     for style in calculated_result.get('topStyles', [])[:3]:  # Top 3 styles
@@ -347,14 +347,14 @@ async def get_user_latest_summary(
                         percentage = primary_style.get('percentage', 0)
                         if style_name:
                             dynamic_traits.append(f"{style_name} Decision Making ({percentage}%)")
-                        
+
             elif result.test_id == 'vark':
                 # Extract traits, careers, strengths from calculated result
                 dynamic_traits = calculated_result.get('traits', [])
                 dynamic_careers = calculated_result.get('careers', [])
                 dynamic_strengths = calculated_result.get('strengths', [])
                 dynamic_recommendations = calculated_result.get('recommendations', [])
-                
+
                 # Also add top styles as traits if available
                 if 'topStyles' in calculated_result:
                     for style in calculated_result.get('topStyles', [])[:3]:  # Top 3 styles
@@ -370,7 +370,7 @@ async def get_user_latest_summary(
                         percentage = primary_style.get('percentage', 0)
                         if style_name:
                             dynamic_traits.append(f"{style_name} Learning ({percentage}%)")
-                        
+
             elif result.test_id == 'svs':
                 if 'coreValues' in calculated_result:
                     for value in calculated_result.get('coreValues', [])[:3]:  # Top 3 values
@@ -378,25 +378,25 @@ async def get_user_latest_summary(
                         score = value.get('score', 0)
                         if value_name:
                             dynamic_traits.append(f"{value_name} (Score: {score})")
-            
+
             # Get configuration data as fallback
             config = db.query(TestResultConfiguration).filter(
                 TestResultConfiguration.test_id == result.test_id,
                 TestResultConfiguration.result_code == result.primary_result,
                 TestResultConfiguration.is_active == True
             ).first()
-            
+
             # Determine final data (prefer calculated, fallback to config)
             final_traits = dynamic_traits if dynamic_traits else (config.traits if config else [])
             final_careers = dynamic_careers if dynamic_careers else (config.careers if config else [])
             final_strengths = dynamic_strengths if dynamic_strengths else (config.strengths if config else [])
             final_recommendations = dynamic_recommendations if dynamic_recommendations else (config.recommendations if config else [])
-            
+
             # MBTI-specific fields from config (only for MBTI tests)
             final_characteristics = config.characteristics if config and result.test_id == 'mbti' else []
             final_challenges = config.challenges if config and result.test_id == 'mbti' else []
             final_career_suggestions = config.career_suggestions if config and result.test_id == 'mbti' else []
-            
+
             # Build test summary
             test_summary = {
                 "test_id": result.test_id,
@@ -419,26 +419,26 @@ async def get_user_latest_summary(
                 "score_details": calculated_result.get('dimensions', calculated_result.get('topIntelligences', [])),
                 "data_source": "calculated" if dynamic_traits else "configuration"
             }
-            
+
             summary_data.append(test_summary)
-            
+
             # Collect aggregated data
             all_careers.extend(final_careers)
             all_strengths.extend(final_strengths)
             all_recommendations.extend(final_recommendations)
-        
+
         # Calculate aggregated statistics
         from collections import Counter
         career_counts = Counter(all_careers)
         strength_counts = Counter(all_strengths)
         recommendation_counts = Counter(all_recommendations)
-        
+
         # Get last activity date
         last_activity = None
         completed_dates = [r.completed_at for r in latest_results.values() if r.completed_at]
         if completed_dates:
             last_activity = max(completed_dates).isoformat()
-        
+
         return {
             "user_id": user_id,
             "total_unique_tests": len(latest_results),
@@ -451,7 +451,7 @@ async def get_user_latest_summary(
             "api_version": "2.0",
             "generated_at": datetime.utcnow().isoformat()
         }
-        
+
     except Exception as e:
         print(f"Error in get_user_latest_summary: {str(e)}")
         raise HTTPException(

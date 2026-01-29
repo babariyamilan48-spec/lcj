@@ -4,8 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, CheckCircle, Zap, Award, TrendingUp, Shield, BarChart3, MessageSquare, Star, Lock } from 'lucide-react';
 import RazorpayCheckout from './RazorpayCheckout';
-import { getCurrentUserId } from '@/utils/userUtils';
+import { getCurrentUserId, getCurrentUserEmail } from '@/utils/userUtils';
 import { paymentService } from '@/services/paymentService';
+import { getApiBaseUrl } from '@/config/api';
+import { tokenStore } from '@/services/token';
 
 interface PaymentGateProps {
   onPaymentComplete: () => void;
@@ -18,6 +20,9 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
   const [error, setError] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'counseling'>('counseling');
   const paymentSectionRef = useRef<HTMLDivElement>(null);
+  const [isBypass, setIsBypass] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   // Check payment status on mount
   useEffect(() => {
@@ -28,6 +33,19 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
           console.error('❌ User ID not found');
           setError('User not found. Please log in.');
           setPaymentCompleted(false);
+          setLoading(false);
+          return;
+        }
+
+        // Bypass if email is in whitelist
+        const email = getCurrentUserEmail()?.toLowerCase();
+        const bypassList = (process.env.NEXT_PUBLIC_BYPASS_PAYMENT_EMAILS || '')
+          .split(',')
+          .map(e => e.trim().toLowerCase())
+          .filter(Boolean);
+        if (email && bypassList.includes(email)) {
+          setIsBypass(true);
+          setPaymentCompleted(true);
           setLoading(false);
           return;
         }
@@ -67,6 +85,34 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
     onPaymentComplete();
   };
 
+  const handleResetTests = async () => {
+    setResetMessage(null);
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setError('User ID not found. Please log in.');
+      return;
+    }
+    if (!confirm('Reset all test attempts for this account? This cannot be undone.')) return;
+    try {
+      setResetting(true);
+      const token = tokenStore.getAccessToken() || localStorage.getItem('at') || localStorage.getItem('access_token');
+      const resp = await fetch(`${getApiBaseUrl()}/api/v1/question_service/test-results/reset-user/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.detail || 'Failed to reset tests');
+      setResetMessage('All tests reset successfully.');
+    } catch (e: any) {
+      setResetMessage(e.message || 'Reset failed');
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const handlePlanSelect = (planId: 'counseling') => {
     setSelectedPlan(planId);
     setTimeout(() => {
@@ -87,7 +133,28 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
   }
 
   if (paymentCompleted) {
-    return <>{children}</>;
+    return (
+      <>
+        {isBypass && (
+          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-4">
+            <span>Bypass account active. Payment skipped.</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleResetTests}
+                disabled={resetting}
+                className="text-sm font-semibold px-3 py-2 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 disabled:opacity-60"
+              >
+                {resetting ? 'Resetting...' : 'Reset all tests'}
+              </button>
+            </div>
+          </div>
+        )}
+        {resetMessage && (
+          <div className="mb-4 text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{resetMessage}</div>
+        )}
+        {children}
+      </>
+    );
   }
 
   const plans = [

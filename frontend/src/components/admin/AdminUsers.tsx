@@ -140,8 +140,9 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
   const totalPages = Math.ceil(totalCount / perPage);
 
   const getPlanLabel = (user: User) => {
-    if (user.plan_type === 'test') return 'Test Only (₹249)';
-    if (user.plan_type === 'counseling') return 'Test + Counselling (₹449)';
+    if (user.plan_type === 'test') return 'Test plan';
+    if (user.plan_type === 'counseling') return 'Counselling plan';
+    if (user.plan_type) return user.plan_type;
     return 'No plan';
   };
 
@@ -234,8 +235,8 @@ export default function AdminUsers({ onOpenModal }: AdminUsersProps) {
                 className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
               >
                 <option value="all">All Plans</option>
-                <option value="test">Test Only (₹249)</option>
-                <option value="counseling">Test + Counselling (₹449)</option>
+                <option value="test">Test plan</option>
+                <option value="counseling">Counselling plan</option>
                 <option value="none">No Plan</option>
               </select>
             </div>

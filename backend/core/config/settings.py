@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     RAZORPAY_COUPON_CODE: Optional[str] = None  # Optional coupon to override amount
     RAZORPAY_COUPON_AMOUNT: int = 100  # Amount in paise for coupon (₹1 = 100 paise)
 
+    # Special tester/bypass accounts (CSV of emails)
+    BYPASS_PAYMENT_EMAILS: List[str] = []
+
     # Google / Firebase (uses backend/credential.json)
 
     # Pydantic v2 settings config

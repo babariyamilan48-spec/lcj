@@ -166,3 +166,6 @@ config.local.js
 settings.local.js
 
 backend/credential.json
+
+emergency.txt
+create_admin_user.py

@@ -11,7 +11,7 @@
 export function getCurrentUserId(): string {
   // First priority: direct userId in localStorage
   let userId = localStorage.getItem('userId');
-  
+
   // Second priority: extract from user_data
   if (!userId) {
     const userData = localStorage.getItem('user_data');
@@ -28,7 +28,7 @@ export function getCurrentUserId(): string {
       }
     }
   }
-  
+
   // CRITICAL FIX: Don't use hardcoded fallback - force authentication
   if (!userId) {
     console.error('🚨 No user ID found! User is not authenticated.');
@@ -38,8 +38,23 @@ export function getCurrentUserId(): string {
     }
     return ''; // Return empty string instead of demo user ID
   }
-  
+
   return userId;
+}
+
+/**
+ * Get current user email from localStorage user_data
+ */
+export function getCurrentUserEmail(): string | null {
+  const userData = localStorage.getItem('user_data');
+  if (!userData) return null;
+  try {
+    const parsedUserData = JSON.parse(userData);
+    return parsedUserData.email || null;
+  } catch (e) {
+    console.warn('Failed to parse user_data from localStorage');
+    return null;
+  }
 }
 
 /**

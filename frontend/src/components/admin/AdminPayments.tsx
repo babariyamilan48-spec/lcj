@@ -51,6 +51,8 @@ interface AdminPaymentsProps {
 export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
   const [analytics, setAnalytics] = useState<PaymentAnalytics | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
@@ -117,14 +119,15 @@ export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
         }
       } else {
         const historyData = await historyResponse.json();
-        // Try common shapes: resp({ data: { data: [...] }}), resp({ data: [...] }), plain array fallback
+        const dataNode = historyData?.data || historyData;
         const historyArray =
-          (Array.isArray(historyData?.data?.data) && historyData.data.data) ||
-          (Array.isArray(historyData?.data) && historyData.data) ||
-          (Array.isArray(historyData?.payments) && historyData.payments) ||
-          (Array.isArray(historyData) && historyData) ||
+          (Array.isArray(dataNode?.data) && dataNode.data) ||
+          (Array.isArray(dataNode?.payments) && dataNode.payments) ||
+          (Array.isArray(dataNode) && dataNode) ||
           [];
         setPayments(historyArray);
+        if (dataNode?.total_pages) setTotalPages(dataNode.total_pages);
+        if (dataNode?.total) setTotalCount(dataNode.total);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch payment data');
@@ -326,7 +329,7 @@ export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {(Array.isArray(payments) ? payments.slice(0, 5) : []).map((payment) => (
+                  {(Array.isArray(payments) ? payments : []).map((payment) => (
                     <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4 text-sm text-gray-900">
                         <div className="flex flex-col">
@@ -373,6 +376,30 @@ export default function AdminPayments({ onOpenModal }: AdminPaymentsProps) {
                   ))}
                 </tbody>
               </table>
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-4 text-sm text-gray-700">
+                <div>
+                  Page {page} of {totalPages} ({totalCount} records)
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
