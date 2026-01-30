@@ -5,7 +5,7 @@ Handles order creation, payment verification, and status checks
 
 import logging
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -121,11 +121,16 @@ async def create_order(
         ).order_by(desc(Payment.created_at)).first()
 
         reuse_window = timedelta(minutes=10)
+        now_utc = datetime.now(timezone.utc)
+        existing_created_at = None
+        if existing_order and existing_order.created_at:
+            ca = existing_order.created_at
+            existing_created_at = ca if ca.tzinfo else ca.replace(tzinfo=timezone.utc)
         can_reuse = (
             existing_order is not None
             and not bool(getattr(request, "force_new", False))
-            and existing_order.created_at is not None
-            and existing_order.created_at >= (datetime.utcnow() - reuse_window)
+            and existing_created_at is not None
+            and existing_created_at >= (now_utc - reuse_window)
         )
 
         if can_reuse:
