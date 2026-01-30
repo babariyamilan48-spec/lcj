@@ -59,6 +59,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
   const [scriptReady, setScriptReady] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [statusChecked, setStatusChecked] = useState(false);
+  const [postCheckInProgress, setPostCheckInProgress] = useState(false);
 
   // Update displayed amount when user types coupon (using public env for preview)
   useEffect(() => {
@@ -167,6 +168,15 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
       // Store order id to avoid re-creating on rerender
       setOrderId(orderData.order_id);
 
+      // If backend indicates already paid, short-circuit without opening Razorpay
+      if (orderData.paid) {
+        setSuccess(true);
+        setLoading(false);
+        onPaymentSuccess();
+        router.push('/home');
+        return;
+      }
+
       console.log('✅ Order created:', orderData.order_id);
       setEnvironment(orderData.environment as 'test' | 'live');
       setEffectiveAmount(orderData.amount);
@@ -204,12 +214,14 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
           paylater: false,
         },
         modal: {
-          ondismiss: () => {
-            console.log('❌ Payment cancelled by user');
+          ondismiss: async () => {
+            console.log('❌ Payment cancelled/closed by user');
             setLoading(false);
             if (onPaymentCancel) {
               onPaymentCancel();
             }
+            // Fallback: check status in case Razorpay marked paid but handler didn’t fire
+            await checkStatusAndRedirect();
           },
         },
       };
@@ -272,6 +284,29 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
 
       setError(errorMessage);
       setVerifying(false);
+      // Last-resort check: if verify failed but payment might have been captured, poll status once
+      await checkStatusAndRedirect();
+    }
+  };
+
+  const checkStatusAndRedirect = async () => {
+    if (postCheckInProgress) return;
+    try {
+      setPostCheckInProgress(true);
+      const userId = getCurrentUserId();
+      if (!userId) return;
+      const status = await paymentService.checkPaymentStatus(userId);
+      if (status.payment_completed) {
+        setSuccess(true);
+        setLoading(false);
+        setVerifying(false);
+        onPaymentSuccess();
+        router.push('/home');
+      }
+    } catch (e) {
+      console.warn('Fallback status check failed', e);
+    } finally {
+      setPostCheckInProgress(false);
     }
   };
 

@@ -5,7 +5,7 @@ Handles order creation, payment verification, and status checks
 
 import logging
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -407,3 +407,97 @@ async def get_payment_history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch payment history"
         )
+
+
+@router.post("/webhook", status_code=200)
+async def razorpay_webhook(
+    request: Request,
+    x_razorpay_signature: str = Header(None),
+    db: Session = Depends(get_db),
+):
+    """Razorpay webhook handler for payment events (idempotent)."""
+    try:
+        if not settings.RAZORPAY_WEBHOOK_SECRET:
+            logger.error("❌ RAZORPAY_WEBHOOK_SECRET not configured")
+            raise HTTPException(status_code=500, detail="Webhook secret not configured")
+
+        payload = await request.body()
+        signature = x_razorpay_signature
+        if not signature:
+            raise HTTPException(status_code=400, detail="Missing Razorpay signature")
+
+        import hmac
+        import hashlib
+
+        expected = hmac.new(
+            settings.RAZORPAY_WEBHOOK_SECRET.encode(),
+            payload,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected, signature):
+            logger.warning("⚠️ Webhook signature mismatch")
+            raise HTTPException(status_code=400, detail="Invalid signature")
+
+        data = await request.json()
+        event_id = request.headers.get("X-Razorpay-Event-Id")
+        event = data.get("event")
+        payload_obj = data.get("payload", {})
+        payment_entity = payload_obj.get("payment", {}).get("entity", {})
+        order_id = payment_entity.get("order_id")
+        payment_id = payment_entity.get("id")
+        status_str = payment_entity.get("status")
+        contact = payment_entity.get("contact")
+
+        if event != "payment.captured":
+            return {"status": "ignored"}
+
+        if not order_id or not payment_id:
+            raise HTTPException(status_code=400, detail="Missing order_id or payment_id")
+
+        payment = db.query(Payment).filter(Payment.order_id == order_id).order_by(desc(Payment.created_at)).first()
+        if not payment:
+            logger.warning(f"⚠️ Webhook payment record not found for order {order_id}")
+            return {"status": "ignored"}
+
+        user = db.query(User).filter(User.id == payment.user_id).first()
+        if not user:
+            logger.warning(f"⚠️ Webhook user not found for payment order {order_id}")
+            return {"status": "ignored"}
+
+        # Idempotent update
+        if payment.status == "paid" and payment.payment_id == payment_id:
+            return {"status": "ok"}
+
+        if status_str != "captured":
+            logger.warning(f"⚠️ Webhook payment not captured for order {order_id}: {status_str}")
+            return {"status": "ignored"}
+
+
+        payment.payment_id = payment_id
+        payment.status = "paid"
+        payment.signature = payment.signature or "webhook"  # preserve earlier signature if any
+        if contact:
+            payment.contact = contact
+            user.phone_number = contact
+
+        user.payment_completed = True
+        user.plan_type = payment.plan_type
+
+        db.commit()
+        db.refresh(payment)
+        db.refresh(user)
+
+        logger.info(
+            f"✅ Webhook marked payment paid for user {user.id}, order {order_id}, event {event_id or 'unknown'}"
+        )
+
+        return {"status": "ok", "event_id": event_id}
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        logger.error(f"❌ Webhook handling failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Webhook processing failed")

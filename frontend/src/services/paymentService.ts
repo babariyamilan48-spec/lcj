@@ -23,6 +23,7 @@ export interface CreateOrderResponse {
   plan_type: string;
   coupon_applied?: boolean;
   applied_coupon_code?: string | null;
+  paid?: boolean;
 }
 
 export interface VerifyPaymentRequest {

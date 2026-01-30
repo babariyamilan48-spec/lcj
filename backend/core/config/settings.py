@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     RAZORPAY_TEST_KEY_SECRET: Optional[str] = None
     RAZORPAY_LIVE_KEY_ID: Optional[str] = None
     RAZORPAY_LIVE_KEY_SECRET: Optional[str] = None
+    RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
     RAZORPAY_PAYMENT_AMOUNT: int = 44900  # Amount in paise (₹500 = 50000 paise)
     RAZORPAY_COUPON_CODE: Optional[str] = None  # Optional coupon to override amount
     RAZORPAY_COUPON_AMOUNT: int = 100  # Amount in paise for coupon (₹1 = 100 paise)
