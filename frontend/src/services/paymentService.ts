@@ -12,6 +12,7 @@ export interface CreateOrderRequest {
   amount?: number;
   plan_type: string;
   coupon_code?: string;
+  force_new?: boolean;
 }
 
 export interface CreateOrderResponse {

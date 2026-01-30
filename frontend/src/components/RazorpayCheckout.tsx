@@ -60,6 +60,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
   const [orderId, setOrderId] = useState<string | null>(null);
   const [statusChecked, setStatusChecked] = useState(false);
   const [postCheckInProgress, setPostCheckInProgress] = useState(false);
+  const [forceNewNext, setForceNewNext] = useState(false);
 
   // Update displayed amount when user types coupon (using public env for preview)
   useEffect(() => {
@@ -162,11 +163,13 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
         user_id: userId,
         amount: amount || undefined,
         plan_type: planType,
-        coupon_code: couponCode?.trim() || undefined
+        coupon_code: couponCode?.trim() || undefined,
+        force_new: forceNewNext || undefined,
       });
 
       // Store order id to avoid re-creating on rerender
       setOrderId(orderData.order_id);
+      setForceNewNext(false);
 
       // If backend indicates already paid, short-circuit without opening Razorpay
       if (orderData.paid) {
@@ -217,6 +220,9 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
           ondismiss: async () => {
             console.log('❌ Payment cancelled/closed by user');
             setLoading(false);
+            // If user closes and later retries, force a fresh order instead of reusing an older one
+            setOrderId(null);
+            setForceNewNext(true);
             if (onPaymentCancel) {
               onPaymentCancel();
             }
@@ -356,7 +362,12 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
                 <h4 className="font-semibold text-red-800">પેમેન્ટ ભૂલ</h4>
                 <p className="text-red-700 text-sm mt-1">{error}</p>
                 <button
-                  onClick={handlePayment}
+                  onClick={() => {
+                    // After an error, retry should create a fresh order
+                    setOrderId(null);
+                    setForceNewNext(true);
+                    handlePayment();
+                  }}
                   className="mt-3 text-sm font-semibold text-orange-700 hover:text-orange-800 underline"
                 >
                   ફરી પ્રયાસ કરો

@@ -14,6 +14,7 @@ class CreateOrderRequest(BaseModel):
     amount: Optional[int] = Field(None, description="Amount in paise (optional, uses default if not provided)")
     plan_type: str = Field(..., description="Type of plan (test or counseling)")
     coupon_code: Optional[str] = Field(None, description="Optional coupon code to override amount")
+    force_new: Optional[bool] = Field(False, description="Force creating a new Razorpay order instead of reusing an existing created order")
 
     class Config:
         json_schema_extra = {
@@ -21,7 +22,8 @@ class CreateOrderRequest(BaseModel):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
                 "amount": 50000,
                 "plan_type": "counseling",
-                "coupon_code": "LCJ1"
+                "coupon_code": "LCJ1",
+                "force_new": False
             }
         }
 

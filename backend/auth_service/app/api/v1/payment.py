@@ -5,6 +5,7 @@ Handles order creation, payment verification, and status checks
 
 import logging
 from uuid import UUID
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -113,16 +114,38 @@ async def create_order(
             amount = request.amount or razorpay_service.payment_amount
             plan_type = request.plan_type or "default"
 
-        # Idempotency: if an active order exists, reuse it; otherwise create new
+        # Idempotency with safety: reuse only if the created order is recent; otherwise create a fresh order.
         existing_order = db.query(Payment).filter(
             Payment.user_id == user.id,
             Payment.status == "created",
         ).order_by(desc(Payment.created_at)).first()
 
-        if existing_order:
-            logger.info(f" Reusing existing Razorpay order {existing_order.order_id} for user {user.id}")
+        reuse_window = timedelta(minutes=10)
+        can_reuse = (
+            existing_order is not None
+            and not bool(getattr(request, "force_new", False))
+            and existing_order.created_at is not None
+            and existing_order.created_at >= (datetime.utcnow() - reuse_window)
+        )
+
+        if can_reuse:
+            logger.info(f" Reusing recent Razorpay order {existing_order.order_id} for user {user.id}")
             order_id = existing_order.order_id
         else:
+            if existing_order and bool(getattr(request, "force_new", False)):
+                logger.info(
+                    f" Force-new requested; not reusing existing order {existing_order.order_id} for user {user.id}"
+                )
+            elif existing_order:
+                logger.info(
+                    f" Existing order {existing_order.order_id} is too old; creating new order for user {user.id}"
+                )
+
+            # Mark old created order as failed so we don't keep reusing it
+            if existing_order and existing_order.status == "created":
+                existing_order.status = "failed"
+                db.add(existing_order)
+
             # Create order
             # Receipt must be <= 40 characters for Razorpay
             user_id_str = str(user.id)
@@ -149,8 +172,10 @@ async def create_order(
                     plan_type=plan_type
                 )
                 db.add(payment_record)
+                db.commit()
                 logger.info(f" Order created for user {user.id}: {order_id}")
             except Exception as razorpay_error:
+                db.rollback()
                 logger.error(f" Razorpay API error: {str(razorpay_error)}")
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
