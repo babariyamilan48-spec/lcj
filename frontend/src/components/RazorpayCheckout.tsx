@@ -43,7 +43,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
   planType
 }) => {
   const router = useRouter();
-  const baseAmountPaise = amount ?? 29900; // expect paise
+  const baseAmountPaise = amount ?? 49900; // expect paise
   const couponCodePublic = process.env.NEXT_PUBLIC_RAZORPAY_COUPON_CODE?.toLowerCase();
   const couponAmountPublic = process.env.NEXT_PUBLIC_RAZORPAY_COUPON_AMOUNT
     ? Number(process.env.NEXT_PUBLIC_RAZORPAY_COUPON_AMOUNT)

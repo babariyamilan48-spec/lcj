@@ -161,7 +161,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
       id: 'counseling' as const,
       name: 'પરીક્ષણ + પરામર્શ',
       englishName: 'Test + Counselling',
-      price: '299',
+      price: '499',
       popular: true,
       features: [
         '૭ વ્યાપક કેરિયર પરીક્ષણો',
@@ -294,7 +294,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
           <div className="bg-white rounded-3xl p-6 md:p-10 shadow-xl border border-gray-100 text-center">
             <p className="text-gray-500 font-medium mb-2 uppercase tracking-wider text-sm">કુલ ચુકવણી</p>
             <h2 className={`text-5xl md:text-6xl font-black mb-8 text-orange-500`}>
-              ₹299
+              ₹499
             </h2>
 
             <RazorpayCheckout

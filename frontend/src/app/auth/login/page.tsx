@@ -4,7 +4,7 @@ import React, { Suspense } from 'react';
 import UnifiedAuthForm from '@/components/auth/UnifiedAuthForm';
 
 function LoginPageContent() {
-  return <UnifiedAuthForm initialTab="signup" />;
+  return <UnifiedAuthForm initialTab="login" />;
 }
 
 export default function LoginPage() {
