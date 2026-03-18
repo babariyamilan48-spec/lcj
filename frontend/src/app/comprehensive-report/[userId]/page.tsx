@@ -54,7 +54,7 @@ const TestResultSection = ({ testId, testData, index, userId, getTestDisplayName
   useEffect(() => {
     if (testData) {
       console.log(`✅ Using pre-calculated data for ${testId}`);
-      
+
       // Use the pre-calculated analysis directly
       const result = {
         type: getTestDisplayName(testId, testData?.test_name),
@@ -71,7 +71,7 @@ const TestResultSection = ({ testId, testData, index, userId, getTestDisplayName
         dimensions_scores: testData?.dimensions_scores,
         primary_result: testData?.primary_result
       };
-      
+
       setCalculatedResult(result);
     }
     setIsCalculating(false);
@@ -152,8 +152,8 @@ const TestResultSection = ({ testId, testData, index, userId, getTestDisplayName
               case 'decision':
                 return <DecisionResults calculatedResult={calculatedResult} testResults={testResults} />;
               case 'life-situation':
-                return <LifeSituationResults 
-                  calculatedResult={calculatedResult} 
+                return <LifeSituationResults
+                  calculatedResult={calculatedResult}
                   testResults={testResults}
                   userAnswers={testData?.answers || {}}
                   questions={[]}
@@ -203,7 +203,16 @@ const ComprehensiveReportPage = () => {
     const fetchReportData = async () => {
       try {
         console.log('🔄 Fetching comprehensive report for user:', params.userId);
-        const response = await api.get(`/api/v1/results_service/comprehensive-report/${params.userId}`);
+        const response = await api.get(`/api/v1/results_service/comprehensive-report/${params.userId}`, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          },
+          params: {
+            _t: Date.now()
+          }
+        });
         console.log('✅ Report data received:', response.data);
         setReportData(response.data);
       } catch (err: any) {
@@ -246,7 +255,7 @@ const ComprehensiveReportPage = () => {
 
   const getTestDisplayName = (testId: string, testName?: string): string => {
     if (testName) return testName;
-    
+
     const displayNames: Record<string, string> = {
       'mbti': 'MBTI Personality Type',
       'bigfive': 'Big Five Personality Traits',
@@ -257,7 +266,7 @@ const ComprehensiveReportPage = () => {
       'life-situation': 'Life Situation Analysis',
       'svs': 'Values Assessment'
     };
-    
+
     return displayNames[testId] || `${testId.toUpperCase()} Test`;
   };
 
@@ -277,7 +286,7 @@ const ComprehensiveReportPage = () => {
     return entries.sort(([testIdA], [testIdB]) => {
       const indexA = testOrder.indexOf(testIdA);
       const indexB = testOrder.indexOf(testIdB);
-      
+
       // If both are in the standard order, sort by their position
       if (indexA !== -1 && indexB !== -1) {
         return indexA - indexB;
@@ -343,18 +352,18 @@ const ComprehensiveReportPage = () => {
             break-after: page;
           }
         }
-        
+
         /* Test result content styling */
         .test-result-content {
           /* Ensure proper spacing and layout for individual test components */
         }
-        
+
         @media print {
           .print-content > section:first-of-type {
             margin-top: 0 !important;
             padding-top: 0 !important;
           }
-          
+
           /* Print header and footer */
           @page {
             margin: 1.5cm 1cm;
@@ -438,7 +447,7 @@ const ComprehensiveReportPage = () => {
         </div>
 
         {/* Main Content */}
-        <div 
+        <div
           className="max-w-7xl mx-auto p-6 print-content print:p-0 print:m-0"
           style={{ '--print-username': `"User: ${username || 'User'}"` } as React.CSSProperties}
         >
@@ -454,7 +463,7 @@ const ComprehensiveReportPage = () => {
                 Your Comprehensive Assessment Report
               </p>
             </div>
-            
+
             {/* Course Maker Info - Right Side */}
             <div className="print:absolute print:right-8 print:bottom-16 print:text-right">
               <p className="print:text-2xl print:font-bold print:text-gray-900 print:mb-2">Milan Babariya</p>
@@ -489,11 +498,11 @@ const ComprehensiveReportPage = () => {
 
                   {/* Render the exact same AI component as individual pages */}
                   <div className="test-result-content">
-                    <ComprehensiveAIInsights 
-                      insights={typeof reportData.ai_insights.insights_data === 'string' 
-                        ? JSON.parse(reportData.ai_insights.insights_data) 
+                    <ComprehensiveAIInsights
+                      insights={typeof reportData.ai_insights.insights_data === 'string'
+                        ? JSON.parse(reportData.ai_insights.insights_data)
                         : reportData.ai_insights.insights_data
-                      } 
+                      }
                     />
                   </div>
                 </section>
@@ -510,7 +519,7 @@ const ComprehensiveReportPage = () => {
               {getSortedTestResults()
                 .filter(([testId]) => testId !== 'comprehensive-ai-insights') // Handle AI insights separately
                 .map(([testId, testData]: [string, any], index) => (
-                  <TestResultSection 
+                  <TestResultSection
                     key={testId}
                     testId={testId}
                     testData={testData}
@@ -545,11 +554,11 @@ const ComprehensiveReportPage = () => {
 
                   {/* Render the exact same AI component as individual pages */}
                   <div className="test-result-content">
-                    <ComprehensiveAIInsights 
-                      insights={typeof reportData.ai_insights.insights_data === 'string' 
-                        ? JSON.parse(reportData.ai_insights.insights_data) 
+                    <ComprehensiveAIInsights
+                      insights={typeof reportData.ai_insights.insights_data === 'string'
+                        ? JSON.parse(reportData.ai_insights.insights_data)
                         : reportData.ai_insights.insights_data
-                      } 
+                      }
                     />
                   </div>
                 </section>

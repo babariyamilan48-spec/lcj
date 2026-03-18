@@ -33,7 +33,7 @@ export interface ComprehensiveReportPreview {
 }
 
 class ComprehensiveReportService {
-  
+
   private getBaseUrl(): string {
     return `${getApiBaseUrl()}/api/v1`;
   }
@@ -53,13 +53,19 @@ class ComprehensiveReportService {
     }
     return response.json();
   }
-  
+
   /**
    * Get comprehensive report data for a user
    */
   async getComprehensiveReport(userId: string): Promise<ComprehensiveReportData> {
-    const response = await fetch(`${this.getBaseUrl()}/results_service/comprehensive-report/${userId}`, {
-      headers: this.getHeaders(),
+    const response = await fetch(`${this.getBaseUrl()}/results_service/comprehensive-report/${userId}?_t=${Date.now()}`, {
+      headers: {
+        ...this.getHeaders(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+      cache: 'no-store'
     });
 
     return this.handleResponse<ComprehensiveReportData>(response);
@@ -84,7 +90,7 @@ class ComprehensiveReportService {
       // Open comprehensive report in new window
       const reportUrl = `/comprehensive-report/${userId}`;
       const reportWindow = window.open(reportUrl, '_blank', 'width=1200,height=800');
-      
+
       if (!reportWindow) {
         throw new Error('Unable to open report window. Please check your popup blocker settings.');
       }
@@ -125,7 +131,7 @@ class ComprehensiveReportService {
     testCount: number;
   }> {
     const preview = await this.getComprehensiveReportPreview(userId);
-    
+
     return {
       estimatedPages: preview.estimated_pages,
       estimatedTime: preview.generation_time_estimate,

@@ -185,57 +185,91 @@ export default function UnifiedAuthForm({ initialTab = 'signup' }: UnifiedAuthFo
   // Don't render until tab is initialized
   if (activeTab === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center p-4 overflow-x-hidden w-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+      <div className="min-h-screen w-screen overflow-x-hidden bg-gradient-to-br from-orange-50 via-white to-amber-50">
+        <div className="relative min-h-screen flex items-center justify-center p-4">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-orange-200/40 blur-3xl" />
+            <div className="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-amber-200/40 blur-3xl" />
+            <div className="absolute top-1/3 -right-24 h-64 w-64 rounded-full bg-rose-200/30 blur-3xl" />
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center">
+            <motion.h1
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35 }}
+              className="mb-6 text-center text-3xl md:text-4xl font-black tracking-tight text-orange-700"
+            >
+              જીવન પરિવર્તન સફર
+            </motion.h1>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center p-4 overflow-x-hidden w-screen">
-      {/* Loading Overlay */}
-      <AnimatePresence>
-        {(isGoogleLoading || isFormLoading) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4"
-            >
-              <svg className="animate-spin h-12 w-12 text-orange-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <p className="text-gray-700 font-medium">
-                {isGoogleLoading ? 'Signing you in with Google...' : activeTab === 'login' ? 'Signing you in...' : 'Creating your account...'}
-              </p>
-              <p className="text-sm text-gray-500">Please wait</p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="min-h-screen w-screen overflow-x-hidden bg-gradient-to-br from-orange-50 via-white to-amber-50">
+      <div className="relative min-h-screen flex items-center justify-center p-4">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-orange-200/40 blur-3xl" />
+          <div className="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-amber-200/40 blur-3xl" />
+          <div className="absolute top-1/3 -right-24 h-64 w-64 rounded-full bg-rose-200/30 blur-3xl" />
+        </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl backdrop-blur overflow-hidden box-border"
-      >
+        <div className="relative z-10 flex w-full flex-col items-center">
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="mb-6 text-center text-3xl md:text-4xl font-black tracking-tight text-orange-700"
+          >
+            જીવન પરિવર્તન સફર
+          </motion.h1>
+          {/* Loading Overlay */}
+          <AnimatePresence>
+            {(isGoogleLoading || isFormLoading) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4"
+                >
+                  <svg className="animate-spin h-12 w-12 text-orange-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p className="text-gray-700 font-medium">
+                    {isGoogleLoading ? 'Signing you in with Google...' : activeTab === 'login' ? 'Signing you in...' : 'Creating your account...'}
+                  </p>
+                  <p className="text-sm text-gray-500">Please wait</p>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl backdrop-blur overflow-hidden box-border"
+          >
         {/* Header with Logo */}
         <div className="px-6 pt-6 pb-4 text-center">
           <motion.h1
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.3 }}
-            className="text-3xl font-bold text-orange-600 mb-2"
+            className="text-xl font-extrabold text-orange-700 mb-2"
           >
-            જીવન પરિવર્તન સફર
+            Sign in
           </motion.h1>
           <h2 className="text-xl font-bold text-gray-900">
             {GOOGLE_ONLY_AUTH ? 'Sign in to continue' : activeTab === 'login' ? 'Welcome back' : 'Create account'}
@@ -709,9 +743,11 @@ export default function UnifiedAuthForm({ initialTab = 'signup' }: UnifiedAuthFo
           )}
         </div>
         */}
-      </motion.div>
+          </motion.div>
 
-      <Toaster position="top-right" />
+          <Toaster position="top-right" />
+        </div>
+      </div>
     </div>
   );
 }
