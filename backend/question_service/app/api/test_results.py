@@ -208,13 +208,18 @@ async def get_user_analytics(
 @router.get("/latest-summary/{user_id}")
 async def get_user_latest_summary(
     user_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get latest test results summary for user - optimized for overview tab
     Returns pre-calculated results for instant performance
     """
     try:
+        # Authorization: allow self or admin
+        if str(current_user.id) != str(user_id) and current_user.role != "admin":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
         from question_service.app.services.calculated_result_service import CalculatedResultService
 
         # Get pre-calculated results by test (latest for each test type)

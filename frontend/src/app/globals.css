@@ -137,3 +137,133 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* ===== PRINT STYLES FOR COMPREHENSIVE REPORT ===== */
+@media print {
+  /* Hide UI elements not needed in print */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Page setup */
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 12pt !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* @page margins and running headers/footers */
+  @page {
+    margin: 1.5cm 1cm;
+    @top-center {
+      content: "જીવન પરિવર્તન સફર - Life Changing Journey";
+      font-size: 10pt;
+      font-weight: normal;
+      color: #4b5563;
+      text-align: center;
+      padding-bottom: 0.3cm;
+    }
+    @bottom-left {
+      content: "Milan Babariya";
+      font-size: 11pt;
+      color: #4b5563;
+      font-weight: 500;
+    }
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 11pt;
+      color: #4b5563;
+      font-weight: 500;
+    }
+    @bottom-right {
+      content: "+91 6354571342";
+      font-size: 11pt;
+      color: #4b5563;
+      font-weight: 500;
+    }
+  }
+
+  /* ---- Fix Framer Motion: force all animated elements fully visible ---- */
+  /* Framer Motion sets opacity/transform via inline styles; !important overrides them */
+  * {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+    visibility: visible !important;
+  }
+
+  /* ---- Fix semi-transparent backgrounds that make content invisible ---- */
+  /* bg-white/80 = rgba(255,255,255,0.8) — replace with solid white */
+  [class*="bg-white\\/"] {
+    background-color: #ffffff !important;
+  }
+
+  /* ---- Fix backdrop-blur which causes rendering artifacts ---- */
+  [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* ---- Remove overflow-hidden that clips printed content ---- */
+  [class*="overflow-hidden"] {
+    overflow: visible !important;
+  }
+
+  /* ---- Hide decorative blur blobs that consume page space ---- */
+  [class*="blur-2xl"],
+  [class*="blur-3xl"],
+  [class*="blur-xl"] {
+    display: none !important;
+  }
+
+  /* ---- Ensure gradient backgrounds render ---- */
+  [class*="bg-gradient"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ---- Page break utilities ---- */
+  .print-break-before-page {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  /* ---- Title page ---- */
+  .print-title-page {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    overflow: visible !important;
+  }
+
+  /* ---- Sections: avoid breaking inside test result cards ---- */
+  .print-content > section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* ---- Ensure grid layouts collapse to single column in print ---- */
+  .print-content .grid {
+    display: block !important;
+  }
+
+  .print-content .grid > * {
+    margin-bottom: 12pt !important;
+  }
+
+  /* ---- Remove shadows (save ink, avoid rendering oddities) ---- */
+  [class*="shadow"] {
+    box-shadow: none !important;
+  }
+}

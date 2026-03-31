@@ -64,7 +64,7 @@ const DecisionResults: React.FC<DecisionResultsProps> = ({ calculatedResult, tes
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className="relative bg-gradient-to-br from-orange-50 via-white to-orange-100 rounded-3xl p-8 border border-orange-200 shadow-xl overflow-hidden"
+      className="relative bg-gradient-to-br from-orange-50 via-white to-orange-100 rounded-3xl p-8 border border-orange-200 shadow-xl overflow-hidden print:overflow-visible print:bg-white print:shadow-none"
     >
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
@@ -77,7 +77,7 @@ const DecisionResults: React.FC<DecisionResultsProps> = ({ calculatedResult, tes
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Decision Making Styles */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50 shadow-lg">
+          <div className="bg-white backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50 shadow-lg print:shadow-none">
             <div className="flex items-center mb-4">
               <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-primary rounded-lg flex items-center justify-center mr-3">
                 <Brain className="w-4 h-4 text-white" />
@@ -110,7 +110,7 @@ const DecisionResults: React.FC<DecisionResultsProps> = ({ calculatedResult, tes
           </div>
 
           {/* Decision Characteristics */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50 shadow-lg">
+          <div className="bg-white backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50 shadow-lg print:shadow-none">
             <div className="flex items-center mb-4">
               <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-primary rounded-lg flex items-center justify-center mr-3">
                 <TrendingUp className="w-4 h-4 text-white" />
@@ -143,7 +143,7 @@ const DecisionResults: React.FC<DecisionResultsProps> = ({ calculatedResult, tes
           </div>
 
           {/* Decision Strengths & Applications */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50 shadow-lg">
+          <div className="bg-white backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50 shadow-lg print:shadow-none">
             <div className="flex items-center mb-4">
               <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-primary rounded-lg flex items-center justify-center mr-3">
                 <Target className="w-4 h-4 text-white" />

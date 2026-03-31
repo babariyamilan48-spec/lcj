@@ -97,7 +97,7 @@ async def login(request: Request, payload: LoginInput, db: Session = Depends(get
     ensure_password_provider(user)
     check_user_login_eligibility(user)
     access_token, refresh_token = generate_tokens_for_user(user, db)
-    
+
     # CRITICAL FIX: Clear all cache for this user on login
     user_id_str = str(user.id)
     from core.cache import cache
@@ -114,7 +114,7 @@ async def login(request: Request, payload: LoginInput, db: Session = Depends(get
             logger.info(f"Cleared cache on login: {cache_key}")
         except Exception as cache_error:
             logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
-    
+
     out = UserOut(
         id=str(user.id),
         email=user.email,
@@ -150,7 +150,7 @@ async def refresh_token(request: Request, payload: TokenRefreshInput, db: Sessio
         rt.is_revoked = True
         db.add(rt)
         db.commit()
-        
+
         # Generate new tokens - this will create a new refresh token and commit
         try:
             access_token, refresh_token = generate_tokens_for_user(user, db)
@@ -269,9 +269,9 @@ async def logout(payload: Optional[LogoutInput] = None, current_user=Depends(get
     # Revoke provided refresh token; if none, revoke all tokens for this user
     from auth_service.app.models.user import RefreshToken
     from core.cache import cache
-    
+
     user_id = str(current_user.id)
-    
+
     if payload and payload.refresh_token:
         claims = validate_refresh_token(payload.refresh_token)
         jti = claims.get("jti")
@@ -281,7 +281,7 @@ async def logout(payload: Optional[LogoutInput] = None, current_user=Depends(get
     else:
         db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id, RefreshToken.is_revoked.is_(False)).update({RefreshToken.is_revoked: True})
         db.commit()
-    
+
     # CRITICAL FIX: Clear ALL user-related caches on logout
     cache_keys_to_clear = [
         f"user_session:{user_id}",
@@ -290,14 +290,14 @@ async def logout(payload: Optional[LogoutInput] = None, current_user=Depends(get
         f"user_results:{user_id}",  # Results cache
         f"user_analytics:{user_id}",  # Analytics cache
     ]
-    
+
     for cache_key in cache_keys_to_clear:
         try:
             cache.delete(cache_key)
             logger.info(f"Cleared cache: {cache_key}")
         except Exception as cache_error:
             logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
-    
+
     return resp(message="Logged out successfully")
 
 @router.post("/google")
@@ -317,7 +317,7 @@ async def google_login(
             token = None
     if not token:
         raise HTTPException(status_code=400, detail="Missing Firebase ID token")
-    
+
     try:
         claims = verify_google_token(token)
         if not claims:
@@ -326,15 +326,15 @@ async def google_login(
     except Exception as e:
         logger.error(f"Firebase verification error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Firebase verification failed: {str(e)}")
-    
+
     # Get user email from claims for session management
     user_email = claims.get("email", "google-user")
     from core.database_fixed import get_db_session
-    
+
     with get_db_session() as db:
         user = upsert_user_from_google(db, claims)
         access_token, refresh_token = generate_tokens_for_user(user, db)
-    
+
     # CRITICAL FIX: Clear all cache for this user on login
     user_id_str = str(user.id)
     from core.cache import cache
@@ -351,7 +351,7 @@ async def google_login(
             logger.info(f"Cleared cache on Google login: {cache_key}")
         except Exception as cache_error:
             logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
-    
+
     out = UserOut(
         id=str(user.id),
         email=user.email,

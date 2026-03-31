@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # Security / Password policy
     PASSWORD_MIN_LENGTH: int = 6
 
+    # Admin configuration
+    ADMIN_EMAIL: Optional[str] = None
+
     # JWT (kept in env but exposed for convenience if needed elsewhere)
     SECRET_KEY: Optional[str] = None
     ACCESS_TOKEN_EXPIRE_MINUTES: Optional[int] = None

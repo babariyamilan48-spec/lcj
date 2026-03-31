@@ -28,6 +28,8 @@ async def get_all_users(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     is_verified: Optional[bool] = Query(None, description="Filter by verified status"),
     plan_type: Optional[str] = Query(None, description="Filter by plan type: test, counseling, none"),
+    payment_completed: Optional[bool] = Query(None, description="Filter by payment status"),
+    has_completed_test: Optional[bool] = Query(None, description="Filter by test completion status"),
 ):
     """
     Get all users with pagination and filtering (Admin only)
@@ -50,6 +52,8 @@ async def get_all_users(
             is_active=is_active,
             is_verified=is_verified,
             plan_type=plan_type,
+            payment_completed=payment_completed,
+            has_completed_test=has_completed_test,
         )
 
         return users_data

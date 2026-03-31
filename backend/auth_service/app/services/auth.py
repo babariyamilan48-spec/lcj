@@ -66,7 +66,7 @@ def register_user(db: Session, payload: SignupInput) -> User:
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
-    
+
     try:
         otp = EmailOTP(
             user_id=user.id,
@@ -84,19 +84,19 @@ def register_user(db: Session, payload: SignupInput) -> User:
         try:
             # Import here to avoid circular imports
             from core.email import send_email_sync, otp_email_html
-            
+
             # Generate the email HTML
             html = otp_email_html(
                 title="Verify your email",
                 otp=otp.code,
                 note="This code expires in 10 minutes."
             )
-            
+
             # Send the email directly
             send_email_sync("Verify your email", [payload.email], html)
         except Exception as e:
             pass
-    
+
     return user
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
@@ -117,11 +117,11 @@ def authenticate_user_with_details(db: Session, email: str, password: str) -> tu
     user = get_user_by_email(db, email)
     if not user:
         return None, 'user_not_found'
-    
+
     # Check if user only has Google provider
     if user.providers == ["google.com"]:
         return None, 'google_only'
-    
+
     if not verify_password(password, user.password_hash or ""):
         return None, 'incorrect_password'
     if not user.is_active:
@@ -213,6 +213,10 @@ def upsert_user_from_google(db: Session, claims: dict) -> User:
     email = claims.get("email")
     if not email:
         raise HTTPException(status_code=400, detail="Email not present in token")
+
+    admin_email = (getattr(settings, "ADMIN_EMAIL", None) or "").strip().lower()
+    is_admin = bool(admin_email) and email.strip().lower() == admin_email
+
     user = get_user_by_email(db, email)
     if not user:
         user = User(
@@ -221,7 +225,7 @@ def upsert_user_from_google(db: Session, claims: dict) -> User:
             avatar=claims.get("picture"),
             is_verified=True,
             providers=["google.com"],
-            role="user",
+            role="admin" if is_admin else "user",
             firebase_id=claims.get("user_id") or claims.get("sub"),
         )
         db.add(user)
@@ -237,6 +241,10 @@ def upsert_user_from_google(db: Session, claims: dict) -> User:
     user.username = user.username or claims.get("name")
     user.avatar = user.avatar or claims.get("picture")
     user.is_verified = True
+
+    if is_admin and user.role != "admin":
+        user.role = "admin"
+
     db.add(user)
     db.commit()
     db.refresh(user)

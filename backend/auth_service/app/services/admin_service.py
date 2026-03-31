@@ -6,16 +6,35 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, text
 
 from auth_service.app.models.user import User
 from auth_service.app.utils.jwt import get_password_hash
+from question_service.app.models.test_result import TestResult
+from core.cache import cache
 
 logger = logging.getLogger(__name__)
 
 
 class AdminService:
     """Service for admin operations with optimized database handling"""
+
+    @staticmethod
+    def _invalidate_user_cache(user_id: str) -> None:
+        """Best-effort cache invalidation for any user mutations."""
+        cache_keys_to_clear = [
+            f"user_session:{user_id}",
+            f"user_profile:get_user_profile:{user_id}",
+            f"fast_user_me:get_current_user_fast:{user_id}",
+            f"user_results:{user_id}",
+            f"user_analytics:{user_id}",
+        ]
+
+        for cache_key in cache_keys_to_clear:
+            try:
+                cache.delete(cache_key)
+            except Exception as cache_error:
+                logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
 
     @staticmethod
     def get_all_users(
@@ -27,6 +46,8 @@ class AdminService:
         is_active: Optional[bool] = None,
         is_verified: Optional[bool] = None,
         plan_type: Optional[str] = None,
+        payment_completed: Optional[bool] = None,
+        has_completed_test: Optional[bool] = None,
     ) -> tuple[List[Dict[str, Any]], int]:
         """
         Get all users with pagination and filtering
@@ -57,6 +78,16 @@ class AdminService:
                     query = query.filter(User.plan_type.is_(None))
                 else:
                     query = query.filter(User.plan_type == plan_type)
+
+            if payment_completed is not None:
+                query = query.filter(User.payment_completed == payment_completed)
+
+            if has_completed_test is not None:
+                has_test_subquery = db.query(TestResult.user_id).filter(TestResult.is_completed == True)
+                if has_completed_test:
+                    query = query.filter(User.id.in_(has_test_subquery))
+                else:
+                    query = query.filter(~User.id.in_(has_test_subquery))
 
             # Get total count before pagination
             total_count = query.count()
@@ -158,6 +189,8 @@ class AdminService:
             db.commit()
             db.refresh(user)
 
+            AdminService._invalidate_user_cache(str(user.id))
+
             logger.info(f"User updated: {user.email}")
             return AdminService._user_to_dict(user)
 
@@ -175,8 +208,11 @@ class AdminService:
                 raise ValueError(f"User {user_id} not found")
 
             email = user.email
+            deleted_user_id = str(user.id)
             db.delete(user)
             db.commit()
+
+            AdminService._invalidate_user_cache(deleted_user_id)
 
             logger.info(f"User deleted: {email}")
 
@@ -246,6 +282,7 @@ class AdminService:
             "is_verified": user.is_verified,
             "plan_type": user.plan_type,
             "payment_completed": user.payment_completed,
+            "phone_number": user.phone_number,
             "created_at": user.created_at.isoformat() if user.created_at else None,
             "updated_at": user.updated_at.isoformat() if user.updated_at else None,
             "last_login": None,

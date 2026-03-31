@@ -17,6 +17,9 @@ from results_service.app.services.pdf_generator import PDFGeneratorService
 from core.services.ai_service import AIInsightService
 import logging
 
+from auth_service.app.deps.auth import get_current_user
+from auth_service.app.models.user import User
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -56,18 +59,18 @@ async def submit_result(result: TestResultCreate, db: Session = Depends(get_db))
     """Submit a test result with deduplication"""
     try:
         logger.info(f"Submitting result for user {result.user_id}, test {result.test_id}")
-        
+
         # ✅ OPTIMIZED: Single targeted query instead of fetching all results
         import uuid
         from sqlalchemy import and_
         from question_service.app.models.test_result import TestResult as DBTestResult
-        
+
         try:
             user_uuid = uuid.UUID(str(result.user_id))
         except (ValueError, TypeError):
             logger.error(f"Invalid user_id format: {result.user_id}")
             raise HTTPException(status_code=400, detail="Invalid user ID format")
-        
+
         # Check for existing result with single targeted query
         existing_result = db.query(DBTestResult).filter(
             and_(
@@ -76,43 +79,43 @@ async def submit_result(result: TestResultCreate, db: Session = Depends(get_db))
                 DBTestResult.is_completed == True
             )
         ).first()
-        
+
         if existing_result:
             logger.info(f"Test already completed by user {result.user_id}, test {result.test_id}. Preventing retake.")
             return ResultSubmissionResponse(
-                message="Test already completed. Each test can only be taken once.", 
+                message="Test already completed. Each test can only be taken once.",
                 result_id=str(existing_result.id),
                 is_duplicate=True
             )
-        
+
         # Create new result if no recent duplicate found
         created_result = await ResultService.create_result(result)
         logger.info(f"New result created successfully: {created_result.id}")
-        
+
         # CRITICAL: Immediately invalidate completion status cache to ensure fresh data
         try:
             from results_service.app.services.completion_status_service import CompletionStatusService
-            
+
             # Invalidate cache immediately after test submission
             cache_cleared = await CompletionStatusService.invalidate_user_cache(str(result.user_id))
-            
+
             if cache_cleared:
                 logger.info(f"✅ Successfully invalidated completion status cache for user {result.user_id} after test submission")
             else:
                 logger.warning(f"⚠️ Cache invalidation returned False for user {result.user_id}")
-                
+
             # Also mark the test as completed in the completion service
             await CompletionStatusService.mark_test_completed(str(result.user_id), result.test_id)
             logger.info(f"✅ Marked test {result.test_id} as completed for user {result.user_id}")
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to invalidate completion status cache: {e}")
             import traceback
             logger.error(f"Cache invalidation traceback: {traceback.format_exc()}")
             # Don't fail the request, but log the error
-        
+
         return ResultSubmissionResponse(
-            message="Result submitted successfully", 
+            message="Result submitted successfully",
             result_id=created_result.id,
             is_duplicate=False
         )
@@ -130,18 +133,18 @@ async def get_user_results(request: Request, user_id: str, page: int = 1, size: 
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
-        
+
         logger.info(f"Getting results for user {user_id}, page {page}, size {size}")
         results = await ResultService.get_user_results_paginated(user_id, page, size)
         logger.info(f"Successfully retrieved {len(results.get('results', []))} results")
-        
+
         # Optimize response for large datasets
         optimized_results = optimize_large_response(results, max_items=size)
-        
+
         # Use compression for large responses
         if len(results.get('results', [])) > 20:
             return compress_json_response(optimized_results, request)
-        
+
         return optimized_results
     except Exception as e:
         logger.error(f"Error getting user results: {str(e)}")
@@ -181,7 +184,7 @@ async def get_user_analytics(user_id: str, response: Response = None, db: Sessio
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
-        
+
         return await ResultService.get_user_analytics(user_id, db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -190,7 +193,7 @@ async def get_user_analytics(user_id: str, response: Response = None, db: Sessio
 async def generate_ai_insights(request: AIInsightRequest, async_processing: bool = False):
     """
     Generate AI-powered personality insights using Gemini-2.0-flash.
-    
+
     Args:
         request: AI insight request data
         async_processing: If True, returns task ID for async processing. If False, processes synchronously.
@@ -200,9 +203,9 @@ async def generate_ai_insights(request: AIInsightRequest, async_processing: bool
             # Use async processing via Celery
             try:
                 from core.tasks.ai_report_tasks import generate_ai_insights_task
-                
+
                 logger.info(f"Starting async AI insights generation for test {request.test_id}")
-                
+
                 # Prepare test data
                 test_data = {
                     "test_type": request.test_type,
@@ -211,26 +214,26 @@ async def generate_ai_insights(request: AIInsightRequest, async_processing: bool
                     "results": request.results,
                     "user_id": request.user_id
                 }
-                
+
                 # Start the Celery task
                 task = generate_ai_insights_task.delay(test_data)
-                
+
                 return AIInsightResponse(
                     success=True,
                     insights={"task_id": task.id, "status": "PENDING", "message": "Processing started. Use task ID to check progress."},
                     generated_at=datetime.utcnow().isoformat(),
                     model="async-celery"
                 )
-                
+
             except ImportError:
                 logger.warning("Celery not available, falling back to synchronous processing")
                 async_processing = False
-        
+
         if not async_processing:
             # Original synchronous processing
             # Initialize AI service
             ai_service = AIInsightService()
-            
+
             # Prepare test data
             test_data = {
                 "test_type": request.test_type,
@@ -239,14 +242,14 @@ async def generate_ai_insights(request: AIInsightRequest, async_processing: bool
                 "results": request.results,
                 "user_id": request.user_id
             }
-            
+
             # Generate insights
             result = ai_service.generate_insights(test_data)
-            
+
             if result["success"]:
                 # Log successful generation
                 logger.info(f"AI insights generated successfully for test {request.test_id}")
-                
+
                 return AIInsightResponse(
                     success=True,
                     insights=result["insights"],
@@ -256,14 +259,14 @@ async def generate_ai_insights(request: AIInsightRequest, async_processing: bool
             else:
                 # Return fallback insights if AI generation failed
                 logger.warning(f"AI generation failed, using fallback for test {request.test_id}")
-                
+
                 return AIInsightResponse(
                     success=True,
                     insights=result.get("fallback_insights"),
                     error="AI generation failed, using fallback insights",
                     model="fallback"
                 )
-            
+
     except Exception as e:
         logger.error(f"Error in AI insights endpoint: {str(e)}")
         raise HTTPException(
@@ -276,7 +279,7 @@ async def generate_comprehensive_ai_insights(request: ComprehensiveAIRequest, as
     """
     Generate comprehensive AI insights based on all completed tests.
     One-time generation per user - stores result and prevents regeneration.
-    
+
     Args:
         request: Comprehensive AI request data
         async_processing: If True, returns task ID for async processing. If False, processes synchronously.
@@ -296,39 +299,39 @@ async def generate_comprehensive_ai_insights(request: ComprehensiveAIRequest, as
                 generated_at=existing_ai_result.get("generated_at"),
                 model="existing"
             )
-        
+
         if async_processing:
             # Use async processing via Celery
             try:
                 from core.tasks.ai_report_tasks import generate_comprehensive_ai_insights_task
-                
+
                 logger.info(f"Starting async comprehensive AI insights generation for user {request.user_id}")
-                
+
                 # Start the Celery task
                 task = generate_comprehensive_ai_insights_task.delay(request.dict())
-                
+
                 return ComprehensiveAIResponse(
                     success=True,
                     insights={"task_id": task.id, "status": "PENDING", "message": "Processing started. Use task ID to check progress."},
                     generated_at=datetime.utcnow().isoformat(),
                     model="async-celery"
                 )
-                
+
             except ImportError:
                 logger.warning("Celery not available, falling back to synchronous processing")
                 async_processing = False
-        
+
         if not async_processing:
             # Original synchronous processing
             # Initialize AI service
             ai_service = AIInsightService()
-            
+
             # Generate comprehensive insights
             result = ai_service.generate_comprehensive_insights(request.dict())
-            
+
             if result["success"]:
                 logger.info(f"Comprehensive AI insights generated successfully for user {request.user_id}")
-                
+
                 # Store AI insights as a test result for one-time restriction and history display
                 ai_test_result = await ResultService.store_ai_insights(
                     user_id=request.user_id,
@@ -336,7 +339,7 @@ async def generate_comprehensive_ai_insights(request: ComprehensiveAIRequest, as
                     generated_at=result.get("generated_at"),
                     model=result.get("model")
                 )
-                
+
                 return ComprehensiveAIResponse(
                     success=True,
                     insights=result["insights"],
@@ -345,14 +348,14 @@ async def generate_comprehensive_ai_insights(request: ComprehensiveAIRequest, as
                 )
             else:
                 logger.warning(f"Comprehensive AI generation failed for user {request.user_id}")
-                
+
                 return ComprehensiveAIResponse(
                     success=False,
                     insights=None,
                     error="AI insights are currently unavailable. Please try again in a few minutes. Our AI service may be temporarily busy processing other requests.",
                     model="unavailable"
                 )
-            
+
     except Exception as e:
         logger.error(f"Error in comprehensive AI insights endpoint: {str(e)}")
         raise HTTPException(
@@ -372,13 +375,13 @@ async def get_user_ai_insights(user_id: str):
                 status_code=404,
                 detail="No AI insights found for this user"
             )
-        
+
         return {
             "success": True,
             "ai_insights": ai_insights,
             "message": "AI insights retrieved successfully"
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -395,14 +398,14 @@ async def get_user_ai_insights_for_history(user_id: str):
     """
     try:
         ai_insights_history = await ResultService.get_user_ai_insights_for_history(user_id)
-        
+
         return {
             "success": True,
             "ai_insights": ai_insights_history,
             "count": len(ai_insights_history),
             "message": "AI insights history retrieved successfully"
         }
-        
+
     except Exception as e:
         logger.error(f"Error retrieving AI insights history for user {user_id}: {str(e)}")
         raise HTTPException(
@@ -420,18 +423,18 @@ async def get_all_test_results(request: Request, user_id: str, db: Session = Dep
     """
     try:
         from question_service.app.services.calculated_result_service import CalculatedResultService
-        
+
         # Get pre-calculated results by test (latest for each test type)
         calculated_results = CalculatedResultService.get_latest_results_by_test(db, user_id)
-        
+
         # If no calculated results found, fallback to get_all_test_results for backward compatibility
         if not calculated_results:
             logger.warning(f"No pre-calculated results found for user {user_id}, falling back to test_results table")
             return await ResultService.get_all_test_results(user_id)
-        
+
         # Organize results by test type
         organized_results = {}
-        
+
         for test_id, result in calculated_results.items():
             if test_id:
                 # Use pre-calculated data
@@ -449,10 +452,10 @@ async def get_all_test_results(request: Request, user_id: str, db: Session = Dep
                     'updated_at': result.updated_at.isoformat() if result.updated_at else None,
                     'user_id': str(result.user_id)  # Convert UUID to string for JSON serialization
                 }
-        
+
         logger.info(f"Retrieved {len(organized_results)} unique test results for user {user_id}")
         logger.info(f"Test types found: {list(organized_results.keys())}")
-        
+
         # Add AI insights to the results if they exist
         try:
             ai_insights = await ResultService.get_user_ai_insights(user_id)
@@ -481,7 +484,7 @@ async def get_all_test_results(request: Request, user_id: str, db: Session = Dep
                 logger.info(f"Added AI insights to all-results for user {user_id}")
         except Exception as ai_error:
             logger.warning(f"Could not add AI insights to all-results for user {user_id}: {ai_error}")
-        
+
         # Additional safety check: ensure all datetime and UUID objects are converted to strings
         def ensure_json_serializable(obj):
             if isinstance(obj, dict):
@@ -494,17 +497,17 @@ async def get_all_test_results(request: Request, user_id: str, db: Session = Dep
                 return str(obj)
             else:
                 return obj
-        
+
         organized_results = ensure_json_serializable(organized_results)
-        
+
         # Optimize and compress large responses
         optimized_results = optimize_large_response(organized_results)
-        
+
         if len(organized_results) > 5:
             return compress_json_response(optimized_results, request)
-        
+
         return optimized_results
-        
+
     except Exception as e:
         logger.error(f"Error getting all test results: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting all test results: {str(e)}")
@@ -520,7 +523,7 @@ async def get_all_test_results(request: Request, user_id: str, db: Session = Dep
                 "all_test_results": organized_results
             }
         }
-        
+
     except Exception as e:
         logger.error(f"Error in debug endpoint: {str(e)}")
         return {
@@ -559,16 +562,17 @@ async def ai_insights_health_check():
 
 @router.get("/download-report/{user_id}")
 async def download_user_report(
-    user_id: str, 
+    user_id: str,
     format: str = "pdf",
     include_ai_insights: bool = True,
     test_id: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Download comprehensive user report including overview, results, and AI insights
     Uses pre-calculated results for instant performance
-    
+
     Args:
         user_id: User ID to generate report for
         format: Report format (pdf, json, csv)
@@ -576,10 +580,14 @@ async def download_user_report(
         test_id: Optional specific test ID to generate report for (if not provided, includes all tests)
     """
     try:
+        # Authorization: allow self or admin
+        if str(current_user.id) != str(user_id) and current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+
         logger.info(f"Generating {format} report for user {user_id}, include_ai_insights={include_ai_insights}, test_id={test_id}")
-        
+
         from question_service.app.services.calculated_result_service import CalculatedResultService
-        
+
         # Get pre-calculated results instead of recalculating
         calculated_results = None
         if test_id:
@@ -590,7 +598,7 @@ async def download_user_report(
         else:
             # Get all pre-calculated results by test
             calculated_results = CalculatedResultService.get_latest_results_by_test(db, user_id)
-        
+
         # If no calculated results found, fallback to generate_comprehensive_report
         if not calculated_results:
             logger.warning(f"No pre-calculated results found for user {user_id}, falling back to test_results table")
@@ -620,14 +628,14 @@ async def download_user_report(
                     for test_id, result in calculated_results.items()
                 ]
             }
-        
+
         logger.info(f"Report data generated successfully, contains {len(report_data.get('test_results', []))} test results")
-        
+
         if format.lower() == "json":
             # Return JSON report
             json_content = json.dumps(report_data, indent=2, default=str)
             buffer = io.BytesIO(json_content.encode('utf-8'))
-            
+
             return StreamingResponse(
                 io.BytesIO(json_content.encode('utf-8')),
                 media_type="application/json",
@@ -635,11 +643,11 @@ async def download_user_report(
                     "Content-Disposition": f"attachment; filename=user_report_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                 }
             )
-        
+
         elif format.lower() == "csv":
             # Generate CSV report
             csv_content = await ResultService.generate_csv_report(report_data)
-            
+
             return StreamingResponse(
                 io.BytesIO(csv_content.encode('utf-8')),
                 media_type="text/csv",
@@ -647,13 +655,13 @@ async def download_user_report(
                     "Content-Disposition": f"attachment; filename=user_report_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
                 }
             )
-        
+
         elif format.lower() == "markdown" or format.lower() == "md":
             # Generate Markdown report
             logger.info("Starting Markdown generation...")
             markdown_content = await MarkdownReportService.generate_markdown_report(report_data)
             logger.info(f"Markdown generated successfully, size: {len(markdown_content)} characters")
-            
+
             return StreamingResponse(
                 io.BytesIO(markdown_content.encode('utf-8')),
                 media_type="text/markdown",
@@ -661,13 +669,13 @@ async def download_user_report(
                     "Content-Disposition": f"attachment; filename=user_report_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
                 }
             )
-        
+
         elif format.lower() == "pdf":
             # Generate PDF report
             logger.info("Starting PDF generation...")
             pdf_buffer = await ResultService.generate_pdf_report(report_data)
             logger.info(f"PDF generated successfully, size: {len(pdf_buffer)} bytes")
-            
+
             return StreamingResponse(
                 io.BytesIO(pdf_buffer),
                 media_type="application/pdf",
@@ -675,10 +683,10 @@ async def download_user_report(
                     "Content-Disposition": f"attachment; filename=user_report_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                 }
             )
-        
+
         else:
             raise HTTPException(status_code=400, detail="Unsupported format. Use 'pdf', 'json', 'csv', or 'markdown'")
-            
+
     except Exception as e:
         logger.error(f"Error generating report for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
@@ -690,13 +698,13 @@ async def cleanup_duplicate_results(user_id: str):
     """
     try:
         logger.info(f"Cleaning up duplicate results for user {user_id}")
-        
+
         # Use the service method to actually clean up duplicates
         cleanup_result = await ResultService.cleanup_duplicate_results(user_id)
-        
+
         logger.info(f"Cleanup completed: {cleanup_result}")
         return cleanup_result
-        
+
     except Exception as e:
         logger.error(f"Error cleaning up duplicates: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
@@ -708,16 +716,16 @@ async def clear_user_cache(user_id: str):
     """
     try:
         logger.info(f"Clearing cache for user {user_id}")
-        
+
         # Clear all user-related cache
         QueryCache.invalidate_all_user_cache(user_id)
-        
+
         return {
             "status": "success",
             "message": f"Cache cleared for user {user_id}",
             "user_id": user_id
         }
-        
+
     except Exception as e:
         logger.error(f"Error clearing cache for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Cache clear failed: {str(e)}")
@@ -731,14 +739,14 @@ async def test_report_generation(user_id: str):
     """
     try:
         logger.info(f"Testing report generation for user {user_id}")
-        
+
         # Generate the report data
         report_data = await ResultService.generate_comprehensive_report(
             user_id=user_id,
             include_ai_insights=False,  # Disable AI insights for testing
             test_id=None
         )
-        
+
         return {
             "status": "success",
             "message": "Report generation test successful",
@@ -747,7 +755,7 @@ async def test_report_generation(user_id: str):
             "has_user_profile": bool(report_data.get('user_overview', {}).get('profile')),
             "report_metadata": report_data.get('report_metadata', {})
         }
-        
+
     except Exception as e:
         logger.error(f"Error in test report generation: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Test failed: {str(e)}")

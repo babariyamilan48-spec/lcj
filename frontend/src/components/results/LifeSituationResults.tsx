@@ -142,17 +142,17 @@ const LifeSituationResults: React.FC<LifeSituationResultsProps> = ({
 
         {/* Summary Stats */}
         <div className="grid md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-orange-200/50 shadow-lg text-center">
+          <div className="bg-white backdrop-blur-sm rounded-xl p-4 border border-orange-200/50 shadow-lg text-center print:shadow-none">
             <div className="text-2xl font-bold text-orange-600">{totalQuestions}</div>
             <div className="text-sm text-orange-500">Total Questions</div>
             <div className="text-xs text-gray-500 gujarati-text">કુલ પ્રશ્નો</div>
           </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-orange-200/50 shadow-lg text-center">
+          <div className="bg-white backdrop-blur-sm rounded-xl p-4 border border-orange-200/50 shadow-lg text-center print:shadow-none">
             <div className="text-2xl font-bold text-green-600">3</div>
             <div className="text-sm text-green-500">Categories</div>
             <div className="text-xs text-gray-500 gujarati-text">વિભાગો</div>
           </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-orange-200/50 shadow-lg text-center">
+          <div className="bg-white backdrop-blur-sm rounded-xl p-4 border border-orange-200/50 shadow-lg text-center print:shadow-none">
             <div className="text-2xl font-bold text-blue-600">100%</div>
             <div className="text-sm text-blue-500">Completed</div>
             <div className="text-xs text-gray-500 gujarati-text">પૂર્ણ</div>
@@ -167,7 +167,7 @@ const LifeSituationResults: React.FC<LifeSituationResultsProps> = ({
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50 shadow-lg hover:shadow-xl transition-all duration-300"
+              className="bg-white backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50 shadow-lg hover:shadow-xl transition-all duration-300 print:shadow-none"
             >
               {/* Category Header */}
               <div className="flex items-center mb-4">
@@ -212,7 +212,7 @@ const LifeSituationResults: React.FC<LifeSituationResultsProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
-          className="mt-8 bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-orange-200/50 text-center"
+          className="mt-8 bg-white backdrop-blur-sm rounded-xl p-6 border border-orange-200/50 text-center"
         >
           <div className="flex items-center justify-center mb-2">
             <Target className="w-5 h-5 text-orange-600 mr-2" />
