@@ -1,20 +1,20 @@
 import { getApiEndpoints, getAuthHeaders, ApiResponse } from '../config/api';
 import { tokenStore } from './token';
 
-export interface LoginPayload { 
-  email: string; 
-  password: string; 
+export interface LoginPayload {
+  email: string;
+  password: string;
 }
 
-export interface SignupPayload { 
-  email: string; 
-  password: string; 
-  username?: string; 
+export interface SignupPayload {
+  email: string;
+  password: string;
+  username?: string;
 }
 
-export interface TokenPair { 
-  access_token: string; 
-  refresh_token: string; 
+export interface TokenPair {
+  access_token: string;
+  refresh_token: string;
 }
 
 export interface User {
@@ -51,30 +51,34 @@ class AuthService {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
     const url = `${this.getBaseUrl()}${endpoint}`;
     const token = tokenStore.getAccessToken();
-    
+
     try {
       const response = await fetch(url, {
         ...options,
         headers: {
           ...getAuthHeaders(token || undefined),
+          // Prevent CDN/browser caching for auth requests
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
           ...options?.headers,
         },
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         const errorMessage = data?.detail || data?.message || data?.error || `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
-      
+
       // Handle API responses with success field
       if (data && typeof data === 'object' && 'success' in data && !data.success) {
         const errorMessage = data.error || data.message || data.detail || 'Authentication request failed';
         console.warn('Auth API returned success=false:', errorMessage);
         throw new Error(errorMessage);
       }
-      
+
       return data;
     } catch (error) {
       // Handle network errors
@@ -92,15 +96,17 @@ class AuthService {
 
   async login(payload: LoginPayload): Promise<AuthResponse> {
     const endpoints = getApiEndpoints();
-    const response = await this.request<AuthResponse>(endpoints.AUTH.LOGIN, {
+    // Add cache-buster to prevent CDN caching of login requests
+    const cacheBuster = `?_cb=${Date.now()}`;
+    const response = await this.request<AuthResponse>(endpoints.AUTH.LOGIN + cacheBuster, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    
+
     if (response.data?.token) {
       tokenStore.setTokens(response.data.token.access_token, response.data.token.refresh_token);
     }
-    
+
     return response.data!;
   }
 
@@ -110,7 +116,7 @@ class AuthService {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    
+
     return response.data!;
   }
 
@@ -210,15 +216,17 @@ class AuthService {
 
   async googleLogin(idToken: string): Promise<AuthResponse> {
     const endpoints = getApiEndpoints();
-    const response = await this.request<AuthResponse>(endpoints.AUTH.GOOGLE_LOGIN, {
+    // Add cache-buster to prevent CDN caching
+    const cacheBuster = `?_cb=${Date.now()}`;
+    const response = await this.request<AuthResponse>(endpoints.AUTH.GOOGLE_LOGIN + cacheBuster, {
       method: 'POST',
       body: JSON.stringify({ id_token: idToken }),
     });
-    
+
     if (response.data?.token) {
       tokenStore.setTokens(response.data.token.access_token, response.data.token.refresh_token);
     }
-    
+
     return response.data!;
   }
 
@@ -243,4 +251,3 @@ class AuthService {
 }
 
 export const authService = new AuthService();
-

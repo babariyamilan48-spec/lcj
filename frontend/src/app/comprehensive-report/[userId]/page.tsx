@@ -210,10 +210,14 @@ const ComprehensiveReportPage = () => {
             'Expires': '0'
           },
           params: {
-            _t: Date.now()
+            _t: Date.now(), // Cache buster
+            _role: 'user'   // Ensure user gets their own data
           }
         });
         console.log('✅ Report data received:', response.data);
+        // Debug: Log test results count
+        const testCount = Object.keys(response.data?.test_results || {}).length;
+        console.log(`📊 DEBUG: Received ${testCount} tests:`, Object.keys(response.data?.test_results || {}));
         setReportData(response.data);
       } catch (err: any) {
         console.error('❌ Error fetching report:', err);
