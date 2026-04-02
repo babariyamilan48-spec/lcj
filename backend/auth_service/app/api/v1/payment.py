@@ -4,6 +4,7 @@ Handles order creation, payment verification, and status checks
 """
 
 import logging
+from typing import Optional
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Request
@@ -26,6 +27,16 @@ from auth_service.app.schemas.payment import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payment", tags=["Payment"])
+
+
+def _normalize_in_mobile(value: object) -> Optional[str]:
+    """Last 10 digits for Indian mobiles (Razorpay may return with country code)."""
+    if value is None:
+        return None
+    digits = "".join(ch for ch in str(value) if ch.isdigit())
+    if len(digits) >= 10:
+        return digits[-10:]
+    return digits if len(digits) == 10 else None
 
 
 @router.post("/create-order", response_model=CreateOrderResponse)
@@ -54,6 +65,24 @@ async def create_order(
 
         user = current_user
         logger.info(f"Payment request from authenticated user: {user.id}")
+
+        # Check if user email is in bypass list (bypass payment completely)
+        bypass_emails = getattr(settings, "BYPASS_PAYMENT_EMAILS", [])
+        user_email = (user.email or "").strip().lower()
+        if user_email and bypass_emails and user_email in [e.strip().lower() for e in bypass_emails]:
+            logger.info(f"🚀 Payment bypassed via create-order for user {user.id} with email {user_email}")
+            razorpay_service = get_razorpay_service()
+            return CreateOrderResponse(
+                order_id="bypass",
+                amount=0,
+                currency="INR",
+                razorpay_key_id=razorpay_service.get_key_id(),
+                environment=razorpay_service.get_environment(),
+                plan_type=request.plan_type or "bypass",
+                coupon_applied=False,
+                applied_coupon_code=None,
+                paid=True,
+            )
 
         # Idempotency: if already paid, short-circuit
         if user.payment_completed:
@@ -270,7 +299,8 @@ async def verify_payment(
         contact_number = None
         try:
             payment_details = razorpay_service.fetch_payment(request.payment_id)
-            contact_number = payment_details.get("contact") or payment_details.get("phone")
+            raw_contact = payment_details.get("contact") or payment_details.get("phone")
+            contact_number = _normalize_in_mobile(raw_contact)
         except Exception as fetch_err:
             logger.warning(f"⚠️ Could not fetch payment details for contact: {fetch_err}")
 
@@ -350,6 +380,18 @@ async def check_payment_status(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
+            )
+
+        # Check if user email is in bypass list
+        bypass_emails = getattr(settings, "BYPASS_PAYMENT_EMAILS", [])
+        user_email = (user.email or "").strip().lower()
+        if user_email and bypass_emails and user_email in [e.strip().lower() for e in bypass_emails]:
+            logger.info(f"🚀 Payment bypassed for user {user.id} with email {user_email}")
+            return PaymentStatusResponse(
+                payment_completed=True,
+                plan_type=user.plan_type or "bypass",
+                last_payment_date=None,
+                payment_id="bypass"
             )
 
         # ✅ OPTIMIZED: Get last successful payment with single targeted query
@@ -477,7 +519,7 @@ async def razorpay_webhook(
         order_id = payment_entity.get("order_id")
         payment_id = payment_entity.get("id")
         status_str = payment_entity.get("status")
-        contact = payment_entity.get("contact")
+        contact = _normalize_in_mobile(payment_entity.get("contact"))
 
         if event != "payment.captured":
             return {"status": "ignored"}

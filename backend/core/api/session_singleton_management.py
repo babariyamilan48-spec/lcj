@@ -20,13 +20,13 @@ async def session_health() -> Dict[str, Any]:
         from core.database_fixed import db_manager
         pool = db_manager.engine.pool
         active_count = pool.checkedout()
-        
+
         status_level = "healthy"
         if active_count > 7:
             status_level = "warning"
         if active_count > 8:
             status_level = "critical"
-        
+
         return {
             "status": status_level,
             "active_sessions": active_count,
@@ -48,7 +48,7 @@ async def session_stats() -> Dict[str, Any]:
     try:
         from core.database_fixed import db_manager
         pool = db_manager.engine.pool
-        
+
         return {
             "active_sessions": pool.checkedout(),
             "available_connections": pool.checkedin(),
@@ -70,7 +70,7 @@ async def cleanup_all_sessions() -> Dict[str, Any]:
     try:
         from core.database_fixed import db_manager
         db_manager.engine.dispose()
-        
+
         return {
             "status": "success",
             "message": "All sessions cleaned up",
@@ -90,7 +90,7 @@ async def cleanup_user_session(user_id: str) -> Dict[str, Any]:
     try:
         from core.database_fixed import db_manager
         from core.cache import cache
-        
+
         # Clear user-related cache entries
         cache_keys = [
             f"user_session:{user_id}",
@@ -99,13 +99,13 @@ async def cleanup_user_session(user_id: str) -> Dict[str, Any]:
             f"user_results:{user_id}",
             f"user_analytics:{user_id}"
         ]
-        
+
         for key in cache_keys:
             try:
                 cache.delete(key)
-            except:
+            except Exception:
                 pass
-        
+
         return {
             "status": "success",
             "message": f"Session cleaned up for user {user_id}",
@@ -125,7 +125,7 @@ async def session_info() -> Dict[str, Any]:
     try:
         from core.database_fixed import db_manager
         pool = db_manager.engine.pool
-        
+
         return {
             "total_active_sessions": pool.checkedout(),
             "available_connections": pool.checkedin(),

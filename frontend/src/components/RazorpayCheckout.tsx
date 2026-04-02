@@ -97,27 +97,9 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
     };
   }, []);
 
-  // On mount: check payment status and short-circuit if already paid
+  // PaymentGate already calls /payment/status before showing this component; skip duplicate request.
   useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const userId = getCurrentUserId();
-        if (!userId) return;
-        const status = await paymentService.checkPaymentStatus(userId);
-        if (status.payment_completed) {
-          setSuccess(true);
-          setStatusChecked(true);
-          // redirect to home since already paid
-          router.push('/home');
-          return;
-        }
-      } catch (err) {
-        console.warn('⚠️ Payment status check failed', err);
-      } finally {
-        setStatusChecked(true);
-      }
-    };
-    checkStatus();
+    setStatusChecked(true);
   }, []);
 
   const normalizeError = (err: any, defaultMsg: string) => {
@@ -409,7 +391,8 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
             exit={{ opacity: 0, y: 10 }}
             className="space-y-3"
           >
-            {/* Coupon input */}
+            {/* Coupon input - HIDDEN */}
+            {/*
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <label className="text-sm font-semibold text-gray-700">કૂપન કોડ</label>
               <div className="mt-2 flex gap-2">
@@ -426,6 +409,7 @@ const RazorpayCheckout: React.FC<RazorpayCheckoutProps> = ({
                 )}
               </div>
             </div>
+            */}
 
             <motion.button
               onClick={handlePayment}

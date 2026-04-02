@@ -1,6 +1,6 @@
 /**
  * Test Progress Card Component
- * 
+ *
  * A reusable component for displaying test completion progress with modern UI
  */
 
@@ -52,7 +52,7 @@ const TestProgressCard: React.FC<TestProgressCardProps> = ({
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       console.log(`🔄 Fetching test progress data${bustCache ? ' (cache-busting)' : ''}`);
-      
+
       const [completionResponse, progressResponse] = await Promise.all([
         completionStatusService.getCompletionStatus(userId, bustCache),
         completionStatusService.getProgressSummary(userId, bustCache)
@@ -82,7 +82,7 @@ const TestProgressCard: React.FC<TestProgressCardProps> = ({
       fetchData(true);
     }
   }, [userId]);
-  
+
   // Also refresh when component becomes visible (e.g., when navigating back from profile)
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -91,17 +91,17 @@ const TestProgressCard: React.FC<TestProgressCardProps> = ({
         fetchData(true);
       }
     };
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [userId]);
-  
+
   // Add refresh function for external use
   const refreshData = () => {
     console.log('🔄 Manually refreshing test progress data...');
     fetchData(true);
   };
-  
+
   // Expose refresh function via ref or global method
   React.useEffect(() => {
     // Store refresh function globally for debugging
@@ -178,7 +178,7 @@ const TestProgressCard: React.FC<TestProgressCardProps> = ({
     return null;
   }
 
-  const progressColor = completionData.all_completed 
+  const progressColor = completionData.all_completed
     ? 'from-green-500 to-emerald-500'
     : completionData.completion_percentage > 50
     ? 'from-blue-500 to-indigo-500'
@@ -232,6 +232,32 @@ const TestProgressCard: React.FC<TestProgressCardProps> = ({
           />
         </div>
       </div>
+
+      {/* Counseling Call Banner - Shows when all tests completed */}
+      {completionData.all_completed && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mb-6 p-4 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 rounded-xl border-2 border-orange-300 shadow-md"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-orange-800 font-bold text-base leading-tight">
+                🎉 બધા પરીક્ષણો પૂર્ણ! તમારા પરિણામો જુઓ
+              </p>
+              <p className="text-orange-700 text-sm mt-1">
+                📞 24 કલાકમાં કારકિર્દી કાઉન્સેલિંગ માટે કોલ આવશે
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Detailed View */}
       {showDetailedView && (

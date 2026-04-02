@@ -37,6 +37,8 @@ class User(Base):
     flag = Column(VARCHAR(255), nullable=True)  # ✅ OPTIMIZED: VARCHAR
     payment_completed = Column(Boolean, nullable=False, default=False, index=True)  # ✅ Added index
     plan_type = Column(VARCHAR(32), nullable=True, index=True)  # ✅ test or counseling
+    counseling_completed = Column(Boolean, nullable=False, default=False, index=True)  # ✅ Track if counseling call is done
+    counseling_completed_at = Column(DateTime(timezone=True), nullable=True)  # ✅ When counseling was completed
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)  # ✅ Added index
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -63,7 +65,7 @@ class EmailOTP(Base):
     consumed_at = Column(DateTime(timezone=True), nullable=True)
 
     attempts = Column(Integer, nullable=False, server_default='0')
-    
+
     # ✅ OPTIMIZED: Indexes for common queries
     __table_args__ = (
         Index("ix_emailotp_user_purpose", "user_id", "purpose"),  # User OTPs by purpose
@@ -122,4 +124,3 @@ class Payment(Base):
         Index("ix_payments_status_created", "status", desc("created_at")),  # Analytics
         CheckConstraint("status IN ('created','paid','failed')", name="ck_payments_status"),
     )
-

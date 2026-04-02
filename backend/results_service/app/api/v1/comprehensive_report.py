@@ -29,6 +29,7 @@ async def get_comprehensive_report(
             raise HTTPException(status_code=403, detail="Not authorized")
 
         logger.info(f"🔍 Generating comprehensive report for user {user_id}")
+        logger.info(f"🔍 Requested by user {current_user.id} with role {current_user.role}")
 
         import uuid
         from question_service.app.models.test_result import TestResult as DBTestResult
@@ -216,8 +217,8 @@ async def get_comprehensive_report_preview(user_id: str):
         try:
             ai_insights = await ResultService.get_user_ai_insights(user_id)
             has_ai_insights = ai_insights is not None
-        except:
-            pass
+        except Exception:
+            has_ai_insights = False
 
         preview_data = {
             "user_id": user_id,

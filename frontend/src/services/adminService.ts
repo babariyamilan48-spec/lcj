@@ -337,6 +337,30 @@ export const adminApi = {
         throw error;
       }
     },
+
+    // Get counseling status
+    getCounselingStatus: async (userId: string) => {
+      try {
+        const response = await api.get(`/api/v1/auth_service/users/${userId}/counseling`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching counseling status for user ${userId}:`, error);
+        throw error;
+      }
+    },
+
+    // Update counseling status
+    updateCounselingStatus: async (userId: string, counseling_completed: boolean) => {
+      try {
+        const response = await api.put(`/api/v1/auth_service/users/${userId}/counseling`, {
+          counseling_completed
+        });
+        return response.data;
+      } catch (error) {
+        console.error(`Error updating counseling status for user ${userId}:`, error);
+        throw error;
+      }
+    },
   },
 
   // Question Management
@@ -485,4 +509,3 @@ export const adminApi = {
 };
 
 export default api;
-

@@ -29,7 +29,8 @@ import {
   Eye,
   EyeOff,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Phone
 } from 'lucide-react';
 import ModernNavbar from '@/components/layout/ModernNavbar';
 import ModernFooter from '@/components/layout/ModernFooter';
@@ -48,10 +49,10 @@ export default function ProfilePage() {
   const userId = user?.id || undefined;
 
   const { profile, loading: profileLoading, updateProfile } = useUserProfile(userId);
-  
+
   // ⚡ NEW: Use combined dashboard endpoint instead of 2 separate calls
   const { dashboardData, loading: dashboardLoading } = useProfileDashboard(userId);
-  
+
   // ✅ FIXED: Extract results AND ai_insights from combined dashboard data
   const results = dashboardData ? [
     ...(dashboardData.ai_insights || []),  // ✅ Add AI insights first
@@ -72,13 +73,52 @@ export default function ProfilePage() {
     goals: []
   } : null;
   const analyticsLoading = dashboardLoading;
-  
+
   // State for download modal
   const [showDownloadModal, setShowDownloadModal] = useState(false);
-  
+
+  // State for counseling popup
+  const [showCounselingPopup, setShowCounselingPopup] = useState(false);
+
+  // State for counseling status
+  const [counselingStatus, setCounselingStatus] = useState<{ counseling_completed: boolean; counseling_completed_at?: string } | null>(null);
+
+  // Fetch counseling status
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchCounselingStatus = async () => {
+      try {
+        const token = localStorage.getItem('at');
+        console.log('Fetching counseling status for user:', userId);
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth_service/users/${userId}/counseling`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token || ''}`,
+            },
+          }
+        );
+        console.log('Counseling API response status:', response.status);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Counseling status data:', data);
+          setCounselingStatus(data.data);
+        } else {
+          const errorText = await response.text();
+          console.error('Failed to fetch counseling status:', response.status, errorText);
+        }
+      } catch (error) {
+        console.error('Error fetching counseling status:', error);
+      }
+    };
+
+    fetchCounselingStatus();
+  }, [userId]);
+
   // Fallback: If results are empty, try to get them from analyticsData
-  const effectiveResults = results && results.length > 0 
-    ? results 
+  const effectiveResults = results && results.length > 0
+    ? results
     : analyticsData?.testHistory || [];
   const { downloading, downloadReport } = useReportDownload();
 
@@ -97,7 +137,7 @@ export default function ProfilePage() {
   const getTestDisplayName = (testId: string, testName?: string) => {
     const testNameMappings: Record<string, string> = {
       'mbti': 'મારા સ્વભાવની ઓળખ',
-      'intelligence': 'મારી બુદ્ધિની ઓળખ', 
+      'intelligence': 'મારી બુદ્ધિની ઓળખ',
       'riasec': 'મારા રસ-રુચિ ની ઓળખ',
       'bigfive': 'મારા વ્યક્તિત્વની ઓળખ',
       'decision': 'મારી નિર્ણય શૈલીની ઓળખ',
@@ -209,11 +249,11 @@ export default function ProfilePage() {
     const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab');
     const highlight = urlParams.get('highlight');
-    
+
     if (tab === 'history') {
       setActiveTab('tests');
     }
-    
+
     if (highlight === 'ai-insights') {
       setHighlightAI(true);
       // Remove highlight after 3 seconds
@@ -405,12 +445,12 @@ export default function ProfilePage() {
     if (profile?.stats && profile.stats.total_tests > 0) {
       return profile.stats;
     }
-    
+
     // Then try analytics stats
     if (analyticsData?.stats && analyticsData.stats.total_tests > 0) {
       return analyticsData.stats;
     }
-    
+
     // Finally, calculate from results (ALL tests, not just filtered ones)
     if (results && results.length > 0) {
       const completedTests = results.filter(r => {
@@ -419,10 +459,10 @@ export default function ProfilePage() {
         // 2. AND completion_percentage is 100 (all questions answered)
         const isCompleted = (r as any).is_completed === true;
         const completion = (r as any).completion_percentage || 0;
-        
+
         return isCompleted && completion >= 100;
       }).length;
-      
+
       const calculatedStats = {
         total_tests: completedTests,
         achievements: Math.floor(completedTests / 2),
@@ -431,45 +471,45 @@ export default function ProfilePage() {
         completion_rate: 100,
         time_spent: completedTests * 15
       };
-      
+
       return calculatedStats;
     }
-    
+
     return null;
   })();
   // Filter and sort all results to only include 7 standard tests
   const filteredAndSortedResults = (() => {
     if (!results || results.length === 0) return [];
-    
+
     // Filter to only include the 7 standard tests (plus AI insights)
-    const filteredTests = results.filter((test: any) => 
-      test.test_id === 'comprehensive-ai-insights' || 
+    const filteredTests = results.filter((test: any) =>
+      test.test_id === 'comprehensive-ai-insights' ||
       STANDARD_TESTS.includes(test.test_id)
     );
-    
+
     // Find AI insights
-    const aiInsights = filteredTests.filter((test: any) => 
-      test.test_id === 'comprehensive-ai-insights' || 
+    const aiInsights = filteredTests.filter((test: any) =>
+      test.test_id === 'comprehensive-ai-insights' ||
       test.id?.toString().includes('ai_insights') ||
       test.test_name?.includes('AI વિશ્લેષણ') ||
       test.test_name?.includes('AI Analysis')
     );
-    
+
     // Get other tests (non-AI insights)
-    const otherTests = filteredTests.filter((test: any) => 
-      !(test.test_id === 'comprehensive-ai-insights' || 
+    const otherTests = filteredTests.filter((test: any) =>
+      !(test.test_id === 'comprehensive-ai-insights' ||
         test.id?.toString().includes('ai_insights') ||
         test.test_name?.includes('AI વિશ્લેષણ') ||
         test.test_name?.includes('AI Analysis'))
     );
-    
+
     // Sort other tests by test order
     const sortedOtherTests = otherTests.sort((a: any, b: any) => {
       const aOrder = getTestOrder(a.test_id);
       const bOrder = getTestOrder(b.test_id);
       return aOrder - bOrder;
     });
-    
+
     // Combine: AI insights first, then sorted other tests
     return [...aiInsights, ...sortedOtherTests];
   })();
@@ -477,42 +517,42 @@ export default function ProfilePage() {
   // Prioritize AI insights in recent tests display
   const recentTests = (() => {
     if (!effectiveResults || effectiveResults.length === 0) return [];
-    
+
     // Filter to only include the 7 standard tests (plus AI insights)
-    const filteredTests = effectiveResults.filter((test: any) => 
-      test.test_id === 'comprehensive-ai-insights' || 
+    const filteredTests = effectiveResults.filter((test: any) =>
+      test.test_id === 'comprehensive-ai-insights' ||
       STANDARD_TESTS.includes(test.test_id)
     );
-    
+
     // Find AI insights
-    const aiInsights = filteredTests.filter((test: any) => 
-      test.test_id === 'comprehensive-ai-insights' || 
+    const aiInsights = filteredTests.filter((test: any) =>
+      test.test_id === 'comprehensive-ai-insights' ||
       test.id?.toString().includes('ai_insights') ||
       test.test_name?.includes('AI વિશ્લેષણ') ||
       test.test_name?.includes('AI Analysis')
     );
-    
+
     // Get other tests (non-AI insights)
-    const otherTests = filteredTests.filter((test: any) => 
-      !(test.test_id === 'comprehensive-ai-insights' || 
+    const otherTests = filteredTests.filter((test: any) =>
+      !(test.test_id === 'comprehensive-ai-insights' ||
         test.id?.toString().includes('ai_insights') ||
         test.test_name?.includes('AI વિશ્લેષણ') ||
         test.test_name?.includes('AI Analysis'))
     );
-    
+
     // Sort other tests by test order
     const sortedOtherTests = otherTests.sort((a: any, b: any) => {
       const aOrder = getTestOrder(a.test_id);
       const bOrder = getTestOrder(b.test_id);
       return aOrder - bOrder;
     });
-    
+
     // Combine: AI insights first, then sorted other tests
     const combined = [...aiInsights, ...sortedOtherTests.slice(0, 3 - aiInsights.length)];
-    
+
     return combined.slice(0, 3);
   })();
-  
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -548,10 +588,6 @@ export default function ProfilePage() {
                   <p className="text-gray-500 mt-2 max-w-md text-xs sm:text-base line-clamp-2">{profile.bio}</p>
                 )}
                 <div className="flex flex-col sm:flex-row sm:items-center mt-3 gap-2 sm:gap-4">
-                  <span className="inline-flex items-center justify-center sm:justify-start px-3 py-1.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 w-full sm:w-auto">
-                    <User className="w-3 h-3 mr-1 flex-shrink-0" />
-                    <span className="truncate">Premium Member</span>
-                  </span>
                   {profile?.location && (
                     <span className="text-xs sm:text-sm text-gray-600 flex items-center justify-center sm:justify-start w-full sm:w-auto">
                       <MapPin className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
@@ -602,6 +638,83 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
             {/* Main Content */}
             <div className="lg:col-span-2 xl:col-span-3 space-y-6 lg:space-y-8">
+
+              {/* Counseling Call Banner - Shows when all 7 tests completed - AT TOP */}
+              {stats?.total_tests >= 7 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.1 }}
+                  onClick={() => setShowCounselingPopup(true)}
+                  className={`rounded-2xl shadow-lg border-3 p-6 cursor-pointer hover:shadow-xl transition-all duration-300 group ${
+                    counselingStatus?.counseling_completed
+                      ? 'bg-gradient-to-r from-green-100 via-emerald-100 to-green-100 shadow-green-200 border-green-500 hover:border-green-600'
+                      : 'bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 shadow-orange-200 border-orange-500 hover:border-orange-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <motion.div
+                        animate={{ rotate: counselingStatus?.counseling_completed ? [0] : [0, 10, -10, 0] }}
+                        transition={{ duration: 0.5, delay: 0.5 }}
+                        className={`w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-md ${
+                          counselingStatus?.counseling_completed
+                            ? 'bg-gradient-to-br from-green-500 to-emerald-500'
+                            : 'bg-gradient-to-br from-orange-500 to-amber-500'
+                        }`}
+                      >
+                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                      </motion.div>
+                      <div>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className={`px-2 py-0.5 text-white text-xs font-bold rounded-full ${
+                            counselingStatus?.counseling_completed
+                              ? 'bg-green-500'
+                              : 'bg-orange-500 animate-pulse'
+                          }`}>
+                            {counselingStatus?.counseling_completed ? '✅ COMPLETED' : '⏳ PENDING'}
+                          </span>
+                          <h3 className={`text-xl font-extrabold ${
+                            counselingStatus?.counseling_completed ? 'text-green-900' : 'text-orange-900'
+                          }`}>
+                            {counselingStatus?.counseling_completed ? 'કાઉન્સેલિંગ પૂર્ણ થઈ ગયું છે' : 'કાઉન્સેલિંગ બાકી છે'}
+                          </h3>
+                        </div>
+                        <p className={`font-bold text-sm ${
+                          counselingStatus?.counseling_completed ? 'text-green-800' : 'text-orange-800'
+                        }`}>
+                          {counselingStatus?.counseling_completed
+                            ? '🎉 અભિનંદન! કારકિર્દી માર્ગદર્શન પૂર્ણ થયું'
+                            : '📞 24 કલાકમાં તમને કોલ આવશે'}
+                        </p>
+                        <p className={`text-xs mt-1 ${
+                          counselingStatus?.counseling_completed ? 'text-green-700' : 'text-orange-700'
+                        }`}>
+                          {counselingStatus?.counseling_completed
+                            ? 'Career Counseling Completed • શુભકામનાઓ!'
+                            : 'બધા પરીક્ષણો પૂર્ણ થઈ ગયા છે • Career Counseling Pending'}
+                        </p>
+                      </div>
+                    </div>
+                    <motion.div
+                      animate={{ x: counselingStatus?.counseling_completed ? [0] : [0, 5, 0] }}
+                      transition={{ duration: 1, repeat: counselingStatus?.counseling_completed ? 0 : Infinity, repeatDelay: 2 }}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors duration-300 shadow-md ${
+                        counselingStatus?.counseling_completed
+                          ? 'bg-green-500 group-hover:bg-green-600'
+                          : 'bg-orange-500 group-hover:bg-orange-600'
+                      }`}
+                    >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </motion.div>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Stats Overview */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -688,7 +801,7 @@ export default function ProfilePage() {
                     // Check if we have any test data
                     const hasTestData = recentTests.length > 0;
                     const hasStats = stats && stats.total_tests > 0;
-                    
+
                     if (hasTestData) {
                       // Show actual test cards
                       return recentTests.map((test: any, index: number) => (
@@ -714,7 +827,7 @@ export default function ProfilePage() {
                                 </div>
                               </div>
                             </div>
-                            
+
                             <button
                               onClick={() => window.location.href = `/test-result/${test.test_id}`}
                               className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors w-full sm:w-auto"
@@ -805,95 +918,43 @@ export default function ProfilePage() {
                           <p className="text-sm text-gray-900 truncate">{profile?.email || user?.email}</p>
                         </div>
                       </div>
+
+                      {profile?.phone && (
+                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
+                          <Phone className="w-4 h-4 text-gray-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Phone Number</p>
+                            <p className="text-sm text-gray-900 truncate">{profile.phone}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
+                        <Shield className="w-4 h-4 text-gray-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Counseling Status</p>
+                          <p className={`text-sm font-medium truncate ${counselingStatus?.counseling_completed ? 'text-green-600' : 'text-orange-600'}`}>
+                            {counselingStatus?.counseling_completed ? '✅ Completed' : '⏳ Pending'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
 
-                  {/* Security Settings Card */}
+                  {/* Security Settings Card - Password Change Hidden */}
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.6, delay: 0.4 }}
                     className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6"
                   >
-                    <div className="flex items-center space-x-3 mb-6">
+                    <div className="flex items-center space-x-3 mb-4">
                       <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
                         <Shield className="w-4 h-4 text-white" />
                       </div>
-                      <h3 className="text-lg font-bold text-gray-900">Security</h3>
+                      <h3 className="text-lg font-bold text-gray-900">Account Info</h3>
                     </div>
-
-                    <form onSubmit={(e) => { e.preventDefault(); handlePasswordSave(); }} className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-                        <div className="relative">
-                          <input
-                            type={showCurrentPassword ? 'text' : 'password'}
-                            name="currentPassword"
-                            value={passwordData.currentPassword}
-                            onChange={handlePasswordChange}
-                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                            placeholder="Enter current password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                            {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-                        <div className="relative">
-                          <input
-                            type={showNewPassword ? 'text' : 'password'}
-                            name="newPassword"
-                            value={passwordData.newPassword}
-                            onChange={handlePasswordChange}
-                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                            placeholder="Enter new password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
-                        <div className="relative">
-                          <input
-                            type={showConfirmPassword ? 'text' : 'password'}
-                            name="confirmPassword"
-                            value={passwordData.confirmPassword}
-                            onChange={handlePasswordChange}
-                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                            placeholder="Confirm new password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 font-medium flex items-center justify-center space-x-2"
-                      >
-                        <Shield className="w-4 h-4" />
-                        <span>Update Password</span>
-                      </button>
-                    </form>
+                    <p className="text-sm text-gray-500">Your account is secure with password protection.</p>
                   </motion.div>
                 </>
               ) : (
@@ -1034,8 +1095,8 @@ export default function ProfilePage() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                         <div className="flex items-center space-x-4">
                           <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                            test.test_id === 'comprehensive-ai-insights' 
-                              ? 'bg-gradient-to-br from-orange-100 to-amber-100' 
+                            test.test_id === 'comprehensive-ai-insights'
+                              ? 'bg-gradient-to-br from-orange-100 to-amber-100'
                               : test.percentage >= 80 ? 'bg-green-100' :
                                 test.percentage >= 60 ? 'bg-yellow-100' : 'bg-red-100'
                           }`}>
@@ -1130,7 +1191,7 @@ export default function ProfilePage() {
               <p className="text-gray-700 mb-4">
                 આ તમારા બધા ટેસ્ટ પરિણામો અને AI વિશ્લેષણને એક જ દસ્તાવેજમાં સમાવતી વ્યાપક રિપોર્ટ બનાવશે.
               </p>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium text-gray-900 mb-2">શું સમાવેશ થાય છે:</h4>
                 <ul className="text-sm text-gray-600 space-y-1">
@@ -1184,8 +1245,62 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Counseling Call Popup Modal */}
+      {showCounselingPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowCounselingPopup(false)}>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-2 border-orange-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon */}
+            <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-2xl font-bold text-center text-gray-900 mb-4">
+              અભિનંદન!
+            </h3>
+
+            {/* Message */}
+            <div className="text-center space-y-4">
+              <p className="text-lg text-gray-700 font-medium">
+                તમે બધા ટેસ્ટ સફળતાપૂર્વક પૂર્ણ કરી લીધા છે!
+              </p>
+
+              <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-200">
+                <p className="text-orange-800 font-semibold text-lg mb-2">
+                  24 કલાકમાં કોલ આવશે
+                </p>
+                <p className="text-orange-700 text-sm leading-relaxed">
+                  તમારા કારકિર્દી કાઉન્સેલિંગ માટે અમારી ટીમ તરફથી 24 કલાકની અંદર તમને ફોન કરવામાં આવશે.
+                </p>
+              </div>
+
+              <p className="text-sm text-gray-500">
+                તમારા ડેટા પર આધારિત વ્યક્તિગત માર્ગદર્શન માટે તૈયાર રહો!
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowCounselingPopup(false)}
+              className="w-full mt-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-amber-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              સમજાઈ ગયું
+            </button>
+          </motion.div>
+        </div>
+      )}
+
       {/* Mobile Navigation Drawer with Profile Tabs */}
-      <MobileNavDrawer 
+      <MobileNavDrawer
         currentPage={activeTab}
         onTabChange={setActiveTab}
         showProfileTabs={true}

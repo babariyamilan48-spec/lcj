@@ -329,7 +329,7 @@ export default function UnifiedAuthForm({ initialTab = 'signup' }: UnifiedAuthFo
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={isGoogleLoading}
-                className="group w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-semibold text-gray-800 shadow-sm transition hover:shadow-md hover:border-gray-300 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                className="group w-full rounded-xl border-2 border-orange-300 bg-white px-4 py-4 font-semibold text-gray-800 shadow-lg shadow-orange-100 transition-all duration-200 hover:shadow-xl hover:border-orange-400 hover:bg-orange-50 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-3 ring-2 ring-orange-200 ring-offset-2"
               >
                 {isGoogleLoading ? (
                   <>

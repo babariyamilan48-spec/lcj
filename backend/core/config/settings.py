@@ -92,11 +92,31 @@ class Settings(BaseSettings):
     def validate_smtp_from(cls, v: Any) -> Optional[str]:
         if v is None or v == "":
             return None
-        # Basic email validation
         v_str = str(v).strip()
         if v_str and "@" not in v_str:
             raise ValueError(f"SMTP_FROM must be a valid email address, got: {v_str}")
         return v_str if v_str else None
+
+    @field_validator("BYPASS_PAYMENT_EMAILS", mode="before")
+    @classmethod
+    def parse_bypass_payment_emails(cls, v: Any) -> List[str]:
+        if isinstance(v, list):
+            return [str(x).strip().lower() for x in v if x]
+        if isinstance(v, str):
+            s = v.strip()
+            # Try JSON-style list
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    import json
+                    parsed = json.loads(s)
+                    if isinstance(parsed, list):
+                        return [str(x).strip().lower() for x in parsed if x]
+                except Exception:
+                    pass
+            # Comma-separated fallback
+            return [x.strip().lower() for x in s.split(",") if x.strip()]
+        # default
+        return []
 
     @field_validator("allowed_hosts", mode="before")
     @classmethod

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/app-store';
 import ModernHomePage from '@/components/ModernHomePage';
@@ -12,6 +12,8 @@ import Quiz from '@/components/Quiz';
 import ModernResults from '@/components/ModernResults';
 import ModernNavbar from '@/components/layout/ModernNavbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import MobileNumberModal from '@/components/MobileNumberModal';
+import { optimizedAuthService } from '@/services/optimizedAuthService';
 
 export default function HomeRoot() {
   const {
@@ -26,6 +28,7 @@ export default function HomeRoot() {
     resetApp
   } = useAppStore();
   const router = useRouter();
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
 
   // Ensure we start on home screen when component mounts
   React.useEffect(() => {
@@ -42,7 +45,24 @@ export default function HomeRoot() {
     }
   }, []);
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    try {
+      const user = await optimizedAuthService.getCurrentUser(true);
+      const digits = (user.phone_number || '').replace(/\D/g, '');
+      if (digits.length >= 10) {
+        setCurrentScreen('selection');
+        return;
+      }
+      setPhoneModalOpen(true);
+    } catch (e) {
+      console.error('Failed to load user for phone check:', e);
+      setPhoneModalOpen(true);
+    }
+  };
+
+  const handleFollowupPhoneSaved = async (phoneDigits: string) => {
+    await optimizedAuthService.setFollowupPhone(phoneDigits);
+    setPhoneModalOpen(false);
     setCurrentScreen('selection');
   };
 
@@ -126,6 +146,11 @@ export default function HomeRoot() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-white">
+        <MobileNumberModal
+          open={phoneModalOpen}
+          onClose={() => setPhoneModalOpen(false)}
+          onSubmit={handleFollowupPhoneSaved}
+        />
         <ModernNavbar
           currentScreen={currentScreen}
           onNavigate={handleNavigate}

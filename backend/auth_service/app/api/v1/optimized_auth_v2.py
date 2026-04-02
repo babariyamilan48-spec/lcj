@@ -12,7 +12,8 @@ import time
 import uuid
 
 from ...schemas.user import SignupInput, UserOut, VerifyEmailRequestInput, VerifyEmailConfirmInput, TokenRefreshInput, ForgotPasswordInput, ResetPasswordInput, Token
-from ...schemas.auth import LoginRequest, LoginResponse, UserResponse
+from ...schemas.auth import LoginRequest, LoginResponse, UserResponse, PhoneUpdateInput
+from ...deps.auth import get_current_user as deps_get_current_user
 from ...services.auth import authenticate_user_with_details, generate_tokens_for_user, register_user, verify_and_consume_otp, get_user_by_email, issue_reset_otp, verify_google_token, upsert_user_from_google, validate_refresh_token
 from ...utils.jwt import get_password_hash
 from core.database_fixed import get_db, get_db_session
@@ -42,17 +43,17 @@ async def signup_optimized_v2(
     Optimized signup with centralized session management
     """
     start_time = time.time()
-    
+
     try:
         from core.database_fixed import get_db_session
         with get_db_session() as session:
             try:
                 # Register the user
                 user = register_user(session, signup_data)
-                
+
                 # Generate tokens
                 access_token, refresh_token = generate_tokens_for_user(user, session)
-                
+
                 # Prepare user response
                 user_out = UserOut(
                     id=str(user.id),
@@ -63,7 +64,7 @@ async def signup_optimized_v2(
                     providers=user.providers,
                     role=user.role,
                 )
-                
+
                 # Cache user session info
                 user_id_str = str(user.id)
                 cache_key = f"user_session:{user_id_str}"
@@ -73,23 +74,23 @@ async def signup_optimized_v2(
                     "is_active": user.is_active,
                     "signup_time": time.time()
                 }
-                
+
                 try:
                     cache.set(cache_key, session_data, ttl=3600)  # 1 hour
                 except Exception as cache_error:
                     logger.warning(f"Failed to cache user session: {cache_error}")
-                
+
                 # Log performance
                 duration = time.time() - start_time
                 logger.info(f"Optimized signup completed in {duration:.3f}s for user {user.email}")
-                
+
                 return {
                     "user": user_out.dict(),
                     "access_token": access_token,
                     "refresh_token": refresh_token,
                     "token_type": "bearer"
                 }
-                
+
             except HTTPException:
                 # Re-raise HTTPException from register_user (email/username already taken, etc.)
                 raise
@@ -129,7 +130,7 @@ async def login_optimized_v2(
     Ensures proper session cleanup and prevents session leaks
     """
     start_time = time.time()
-    
+
     try:
         # Validate input
         if not login_data.email or not login_data.password:
@@ -137,18 +138,18 @@ async def login_optimized_v2(
                 status_code=400,
                 detail="Email and password are required"
             )
-        
+
         # Use centralized session manager for authentication
         from core.database_fixed import get_db_session
         with get_db_session() as session:
             try:
                 # Authenticate user with detailed error information
                 user, error_type = authenticate_user_with_details(
-                    session, 
-                    login_data.email, 
+                    session,
+                    login_data.email,
                     login_data.password
                 )
-                
+
                 if not user:
                     if error_type == "user_not_found":
                         raise HTTPException(
@@ -175,22 +176,22 @@ async def login_optimized_v2(
                             status_code=401,
                             detail="Authentication failed"
                         )
-                
+
                 # Generate real tokens
                 access_token, refresh_token = generate_tokens_for_user(user, session)
-                
+
                 user_id_str = str(user.id)
-                
+
                 # Log performance
                 duration = time.time() - start_time
                 logger.info(f"Optimized login completed in {duration:.3f}s for user {user.email}")
-                
+
                 # Background task to cleanup any orphaned sessions for this user
                 background_tasks.add_task(
                     _cleanup_user_sessions_background,
                     user_id_str
                 )
-                
+
                 # Create response in format expected by frontend
                 user_response = UserResponse(
                     id=str(user.id),
@@ -200,9 +201,10 @@ async def login_optimized_v2(
                     is_verified=user.is_verified,
                     role=user.role,
                     avatar=user.avatar,
-                    providers=user.providers or ["password"]
+                    providers=user.providers or ["password"],
+                    phone_number=user.phone_number,
                 )
-                
+
                 # Return wrapped response for frontend compatibility
                 return {
                     "success": True,
@@ -214,7 +216,7 @@ async def login_optimized_v2(
                         }
                     }
                 }
-                
+
             except HTTPException:
                 # Re-raise HTTP exceptions
                 raise
@@ -224,7 +226,7 @@ async def login_optimized_v2(
                     status_code=500,
                     detail="Authentication service temporarily unavailable"
                 )
-        
+
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
@@ -243,7 +245,7 @@ async def get_current_user_optimized_v2(
 ) -> UserResponse:
     """
     ⚡ ULTRA-OPTIMIZED: Get current user - Target: <50ms
-    
+
     CRITICAL: This endpoint NEVER uses cache and ALWAYS returns fresh data
     to prevent showing previous user's data after logout/login
     """
@@ -254,15 +256,15 @@ async def get_current_user_optimized_v2(
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
         response.headers["ETag"] = ""  # Disable ETag caching
-    
+
     start_time = time.time()
-    
+
     try:
         # Extract and validate token
         token = credentials.credentials
         if not token:
             raise HTTPException(status_code=401, detail="No token provided")
-        
+
         # Decode token
         from auth_service.app.utils.jwt import decode_token
         try:
@@ -271,30 +273,30 @@ async def get_current_user_optimized_v2(
                 raise HTTPException(status_code=401, detail="Invalid token")
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
-        
+
         # Extract user ID
         user_id_str = claims.get("uid")
         if not user_id_str:
             raise HTTPException(status_code=401, detail="Invalid token payload")
-        
+
         try:
             user_uuid = uuid.UUID(user_id_str)
         except (ValueError, TypeError):
             raise HTTPException(status_code=401, detail="Invalid token format")
-        
+
         # ⚡ OPTIMIZED: SELECT only essential columns
         from ...models.user import User
         user = db.query(
-            User.id, User.email, User.username, User.is_active, 
-            User.is_verified, User.role, User.avatar, User.providers
+            User.id, User.email, User.username, User.is_active,
+            User.is_verified, User.role, User.avatar, User.providers, User.phone_number
         ).filter(User.id == user_uuid).first()
-        
+
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         if not user[3]:  # is_active is at index 3
             raise HTTPException(status_code=403, detail="User account is inactive")
-        
+
         # Return minimal response
         return UserResponse(
             id=str(user[0]),
@@ -304,14 +306,60 @@ async def get_current_user_optimized_v2(
             is_verified=user[4],
             role=user[5],
             avatar=user[6],
-            providers=user[7] or ["password"]
+            providers=user[7] or ["password"],
+            phone_number=user[8],
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get current user error: {e}")
         raise HTTPException(status_code=500, detail="Authentication service unavailable")
+
+
+@router.post("/phone", response_model=UserResponse)
+@limiter.limit("10/minute")
+async def set_followup_phone(
+    request: Request,
+    payload: PhoneUpdateInput,
+    db: Session = Depends(get_db),
+    current_user=Depends(deps_get_current_user),
+):
+    """
+    Store a 10-digit follow-up mobile number once (before payment).
+    Verified Razorpay contact may replace this after payment.
+    """
+    existing = (current_user.phone_number or "").strip()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number already set",
+        )
+    current_user.phone_number = payload.phone_number
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    user_id_str = str(current_user.id)
+    for cache_key in (
+        f"user_profile:get_user_profile:{user_id_str}",
+        f"fast_user_me:get_current_user_fast:{user_id_str}",
+    ):
+        try:
+            cache.delete(cache_key)
+        except Exception as cache_error:
+            logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
+    return UserResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        username=current_user.username,
+        is_active=current_user.is_active,
+        is_verified=current_user.is_verified,
+        role=current_user.role,
+        avatar=current_user.avatar,
+        providers=current_user.providers or ["password"],
+        phone_number=current_user.phone_number,
+    )
+
 
 @router.post("/logout")
 async def logout_optimized_v2(
@@ -324,10 +372,10 @@ async def logout_optimized_v2(
     try:
         # Extract token
         token = credentials.credentials
-        
+
         if not token:
             return {"message": "Successfully logged out"}
-        
+
         # CRITICAL FIX: Decode JWT token to extract user ID (not just check for prefix)
         user_id_str = None
         try:
@@ -337,12 +385,12 @@ async def logout_optimized_v2(
                 user_id_str = claims.get("uid")
         except Exception as decode_error:
             logger.warning(f"Failed to decode token during logout: {decode_error}")
-        
+
         # If we got a user ID, clear all their caches
         if user_id_str:
             try:
                 uuid.UUID(user_id_str)
-                
+
                 # CRITICAL FIX: Clear ALL user-related caches on logout
                 cache_keys_to_clear = [
                     f"user_session:{user_id_str}",
@@ -351,14 +399,14 @@ async def logout_optimized_v2(
                     f"user_results:{user_id_str}",  # Results cache
                     f"user_analytics:{user_id_str}",  # Analytics cache
                 ]
-                
+
                 for cache_key in cache_keys_to_clear:
                     try:
                         cache.delete(cache_key)
                         logger.info(f"Cleared cache: {cache_key}")
                     except Exception as cache_error:
                         logger.warning(f"Failed to clear cache {cache_key}: {cache_error}")
-                
+
                 # Force close any remaining database sessions for this user
                 if background_tasks:
                     background_tasks.add_task(
@@ -367,12 +415,12 @@ async def logout_optimized_v2(
                     )
                 else:
                     force_close_user_sessions(user_id_str)
-                
+
             except (ValueError, TypeError):
                 pass  # Invalid user ID, but still return success
-        
+
         return {"message": "Successfully logged out"}
-        
+
     except Exception as e:
         logger.error(f"Logout error: {e}")
         # Return success even on error to avoid revealing information
@@ -396,16 +444,16 @@ async def verify_email_request_optimized(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User does not exist"
                 )
-            
+
             # Import EmailOTP model
             from ...models.user import EmailOTP
-            
+
             # Delete existing OTPs for this user
             session.query(EmailOTP).filter(
                 EmailOTP.user_id == user.id,
                 EmailOTP.purpose == "verify_email"
             ).delete()
-            
+
             # Create new OTP
             otp = EmailOTP(
                 user_id=user.id,
@@ -415,14 +463,14 @@ async def verify_email_request_optimized(
             )
             session.add(otp)
             session.commit()
-            
+
             # Check if email is configured
             if not is_email_configured():
                 return resp(
                     message="Email service not configured. Please contact administrator to set up email settings.",
                     status_code=503
                 )
-            
+
             # Send verification email
             html = otp_email_html(
                 "Verify your email",
@@ -434,15 +482,15 @@ async def verify_email_request_optimized(
                 [payload.email],
                 html
             )
-            
+
             if not email_sent:
                 return resp(
                     message="Failed to send verification email. Please try again later or contact support.",
                     status_code=503
                 )
-            
+
             return resp(message="Verification code sent successfully.")
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -471,27 +519,27 @@ async def verify_email_confirm_optimized(
                 "verify_email",
                 payload.otp
             )
-            
+
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid or expired OTP"
                 )
-            
+
             # Mark user as verified
             user.is_verified = True
             session.add(user)
             session.commit()
-            
+
             # Clear any cached session data for this user
             try:
                 cache_key = f"user_session:{str(user.id)}"
                 cache.delete(cache_key)
             except Exception as cache_error:
                 logger.warning(f"Failed to clear cache: {cache_error}")
-            
+
             return resp(message="Email verified successfully.")
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -507,11 +555,11 @@ async def auth_health_check_optimized_v2() -> Dict[str, Any]:
     Health check for optimized auth service
     """
     start_time = time.time()
-    
+
     try:
         # Get session health
         session_health = get_session_health()
-        
+
         # Test database connection
         connection_test = False
         try:
@@ -521,7 +569,7 @@ async def auth_health_check_optimized_v2() -> Dict[str, Any]:
                 connection_test = (result == 1)
         except Exception as db_error:
             logger.warning(f"Database health check failed: {db_error}")
-        
+
         # Basic service health
         service_health = {
             "service": "optimized_auth_v2",
@@ -530,13 +578,13 @@ async def auth_health_check_optimized_v2() -> Dict[str, Any]:
             "response_time_ms": round((time.time() - start_time) * 1000, 2),
             "timestamp": time.time()
         }
-        
+
         # Combine health data
         health_data = {
             **service_health,
             "session_manager": session_health
         }
-        
+
         # Determine overall status
         if session_health.get("status") != "healthy" or not connection_test:
             health_data["status"] = "warning"
@@ -544,9 +592,9 @@ async def auth_health_check_optimized_v2() -> Dict[str, Any]:
             if not connection_test:
                 issues.append("Database connection failed")
             health_data["issues"] = issues
-        
+
         return health_data
-        
+
     except Exception as e:
         logger.error(f"Auth health check failed: {e}")
         return {
@@ -564,11 +612,11 @@ async def _cleanup_user_sessions_background(user_id: str):
         # Small delay to allow main operation to complete
         import asyncio
         await asyncio.sleep(1)
-        
+
         # Force cleanup of any remaining sessions for this user
         force_close_user_sessions(user_id)
         logger.debug(f"Background auth session cleanup completed for user {user_id}")
-        
+
     except Exception as e:
         logger.warning(f"Background auth session cleanup failed for user {user_id}: {e}")
 
@@ -628,35 +676,35 @@ async def refresh_token_optimized(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Refresh token is required"
             )
-        
+
         # Import required functions
         from auth_service.app.services.auth import validate_refresh_token, generate_tokens_for_user
         from auth_service.app.models.user import RefreshToken, User
         from datetime import datetime, timezone
-        
+
         # Validate refresh token JWT
         claims = validate_refresh_token(refresh_token_value)
         jti = claims.get("jti")
         uid = claims.get("uid")
-        
+
         if not jti or not uid:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
             )
-        
+
         # Check DB token
         rt = db.query(RefreshToken).filter(
-            RefreshToken.jti == jti, 
+            RefreshToken.jti == jti,
             RefreshToken.is_revoked.is_(False)
         ).first()
-        
+
         if not rt or str(rt.user_id) != uid or rt.expires_at <= datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired refresh token"
             )
-        
+
         # Get user
         user = db.query(User).filter(User.id == rt.user_id).first()
         if not user:
@@ -664,16 +712,16 @@ async def refresh_token_optimized(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found"
             )
-        
+
         # Revoke old refresh token
         rt.is_revoked = True
         db.add(rt)
         db.commit()
-        
+
         # Generate new token pair - this will create a new refresh token and commit
         try:
             access_token, new_refresh_token = generate_tokens_for_user(user, db)
-            
+
             return resp(
                 {
                     "token": {
@@ -689,7 +737,7 @@ async def refresh_token_optimized(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to generate new tokens"
             )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -709,7 +757,7 @@ async def forgot_password_optimized(request: Request, payload: ForgotPasswordInp
         user = get_user_by_email(db, payload.email)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not exist")
-        
+
         # Run email sending in background to avoid blocking
         background_tasks.add_task(issue_reset_otp, db, user)
         return resp(message="Reset code sent to your email.")
@@ -732,11 +780,11 @@ async def reset_password_optimized(request: Request, payload: ResetPasswordInput
         user = verify_and_consume_otp(db, payload.email, "reset_password", payload.otp)
         if not user:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP")
-        
+
         user.password_hash = get_password_hash(payload.new_password)
         db.add(user)
         db.commit()
-        
+
         return resp(message="Password has been reset.")
     except HTTPException:
         raise
@@ -767,24 +815,24 @@ async def google_login_optimized(
                     token = body.get("id_token")
             except Exception:
                 token = None
-        
+
         if not token:
             raise HTTPException(status_code=400, detail="Missing Firebase ID token")
-        
+
         # Verify Firebase ID token
         claims = verify_google_token(token)
         if not claims:
             raise HTTPException(status_code=401, detail="Invalid Firebase ID token")
-        
+
         # Get user email from claims for session management
         user_email = claims.get("email", "google-user")
-        
+
         # Use proper session management with get_db_session
         from core.database_fixed import get_db_session
         with get_db_session() as db:
             user = upsert_user_from_google(db, claims)
             access_token, refresh_token = generate_tokens_for_user(user, db)
-        
+
         out = UserOut(
             id=str(user.id),
             email=user.email,

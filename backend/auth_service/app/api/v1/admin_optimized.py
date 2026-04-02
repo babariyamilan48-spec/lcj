@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from core.database_fixed import get_db, get_db_session
-from auth_service.app.deps.auth import get_current_admin_user
+from auth_service.app.deps.auth import get_current_admin_user, get_current_user
 from auth_service.app.models.user import User
 from auth_service.app.services.admin_service import AdminService
 from core.app_factory import resp
@@ -30,6 +30,7 @@ async def get_all_users(
     plan_type: Optional[str] = Query(None, description="Filter by plan type: test, counseling, none"),
     payment_completed: Optional[bool] = Query(None, description="Filter by payment status"),
     has_completed_test: Optional[bool] = Query(None, description="Filter by test completion status"),
+    counseling_completed: Optional[bool] = Query(None, description="Filter by counseling completion status"),
 ):
     """
     Get all users with pagination and filtering (Admin only)
@@ -54,6 +55,7 @@ async def get_all_users(
             plan_type=plan_type,
             payment_completed=payment_completed,
             has_completed_test=has_completed_test,
+            counseling_completed=counseling_completed,
         )
 
         return users_data
@@ -274,4 +276,102 @@ async def admin_health_check(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed"
+        )
+
+
+@router.put("/users/{user_id}/counseling", response_model=dict)
+async def update_counseling_status(
+    user_id: str,
+    counseling_data: dict,
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user's counseling status (Admin only)
+
+    Path Parameters:
+    - user_id: UUID of the user to update
+
+    Request Body:
+    {
+        "counseling_completed": true,  # or false
+    }
+    """
+    try:
+        from auth_service.app.services.admin_service import AdminService
+
+        counseling_completed = counseling_data.get('counseling_completed')
+        if counseling_completed is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="counseling_completed field is required"
+            )
+
+        updated_user = AdminService.update_counseling_status(
+            db=db,
+            user_id=user_id,
+            counseling_completed=counseling_completed
+        )
+
+        return resp({
+            "user_id": str(updated_user.id),
+            "counseling_completed": updated_user.counseling_completed,
+            "counseling_completed_at": updated_user.counseling_completed_at.isoformat() if updated_user.counseling_completed_at else None
+        }, message="Counseling status updated successfully")
+
+    except ValueError as e:
+        logger.warning(f"Validation error updating counseling status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND if "not found" in str(e).lower() else status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error updating counseling status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update counseling status"
+        )
+
+
+@router.get("/users/{user_id}/counseling", response_model=dict)
+async def get_counseling_status(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get user's counseling status (User can check their own, Admin can check any)
+
+    Path Parameters:
+    - user_id: UUID of the user to check
+    """
+    try:
+        # Users can only check their own status, admins can check any
+        if str(current_user.id) != user_id and current_user.role != 'admin':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only check your own counseling status"
+            )
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        return resp({
+            "user_id": str(user.id),
+            "email": user.email,
+            "counseling_completed": user.counseling_completed,
+            "counseling_completed_at": user.counseling_completed_at.isoformat() if user.counseling_completed_at else None
+        }, message="Counseling status retrieved successfully")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching counseling status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch counseling status"
         )

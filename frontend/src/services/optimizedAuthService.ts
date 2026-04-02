@@ -30,6 +30,8 @@ export interface User {
   lastName?: string;
   is_active: boolean;
   role: string;
+  /** 10-digit follow-up / verified mobile when set */
+  phone_number?: string | null;
 }
 
 export interface LoginResponse {
@@ -154,21 +156,23 @@ class OptimizedAuthService {
     }
   }
 
-  async getCurrentUser(): Promise<User> {
+  async getCurrentUser(forceRefresh = false): Promise<User> {
     console.log('👤 Getting current user...');
     const startTime = performance.now();
     
     try {
       // Try cache first for better performance
-      const cachedUser = localStorage.getItem('user_data');
-      const lastLogin = localStorage.getItem('last_login');
-      
-      // Use cached data if recent (within 5 minutes)
-      if (cachedUser && lastLogin) {
-        const cacheAge = Date.now() - new Date(lastLogin).getTime();
-        if (cacheAge < 5 * 60 * 1000) { // 5 minutes
-          console.log('📱 Using cached user data');
-          return JSON.parse(cachedUser);
+      if (!forceRefresh) {
+        const cachedUser = localStorage.getItem('user_data');
+        const lastLogin = localStorage.getItem('last_login');
+        
+        // Use cached data if recent (within 5 minutes)
+        if (cachedUser && lastLogin) {
+          const cacheAge = Date.now() - new Date(lastLogin).getTime();
+          if (cacheAge < 5 * 60 * 1000) { // 5 minutes
+            console.log('📱 Using cached user data');
+            return JSON.parse(cachedUser);
+          }
         }
       }
       
@@ -319,6 +323,17 @@ class OptimizedAuthService {
     // Update cached user data
     localStorage.setItem('user_data', JSON.stringify(response));
     
+    return response;
+  }
+
+  /** One-time follow-up mobile (10 digits); backend rejects if already set. */
+  async setFollowupPhone(phoneDigits: string): Promise<User> {
+    const response = await this.request<User>('/phone', {
+      method: 'POST',
+      body: JSON.stringify({ phone_number: phoneDigits }),
+    });
+    localStorage.setItem('user_data', JSON.stringify(response));
+    localStorage.setItem('last_login', new Date().toISOString());
     return response;
   }
 

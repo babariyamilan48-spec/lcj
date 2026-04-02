@@ -22,8 +22,42 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
   const [loadingCompletion, setLoadingCompletion] = useState(true);
   const [hasCheckedCompletion, setHasCheckedCompletion] = useState(false);
 
+  // Counseling status state
+  const [counselingStatus, setCounselingStatus] = useState<{ counseling_completed: boolean; counseling_completed_at?: string } | null>(null);
+
   const { tests, loading, error, refetch } = useTests();
   const { selectTest, clearSelection } = useTestSelection();
+
+  // Fetch counseling status when all tests completed
+  useEffect(() => {
+    const allTestsCompleted = tests && tests.length > 0 && completedTests.length === tests.length;
+    if (!allTestsCompleted) return;
+
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    const fetchCounselingStatus = async () => {
+      try {
+        const token = localStorage.getItem('at');
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth_service/users/${userId}/counseling`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token || ''}`,
+            },
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setCounselingStatus(data.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch counseling status:', error);
+      }
+    };
+
+    fetchCounselingStatus();
+  }, [tests, completedTests]);
 
   // Fetch completion status - prevent multiple calls
   useEffect(() => {
@@ -32,11 +66,11 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
 
       try {
         const userId = getCurrentUserId();
-        
+
         const statusResponse = await completionStatusService.getCompletionStatus(userId, true); // Use cache-busting for fresh data
-            
+
         const status = statusResponse.data;
-        
+
         // Handle both old format (array of test IDs) and new format (count)
         let completedTestIds: string[] = [];
         if (Array.isArray(status.completed_tests)) {
@@ -46,10 +80,10 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
           // For now, we'll use an empty array and rely on the backend to provide the list
           completedTestIds = [];
         }
-        
+
         setCompletedTests(completedTestIds);
         setHasCheckedCompletion(true);
-        
+
       } catch (error) {
         console.error('❌ Error fetching completion status:', error);
         setCompletedTests([]);
@@ -115,7 +149,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
   const handleTestSelect = (test: ApiTest) => {
     // Check if test is already completed
     const isCompleted = completedTests.includes(test.test_id);
-    
+
     if (isCompleted) {
       // Redirect to profile page with tests tab instead of allowing retake
       window.location.href = `/profile`;
@@ -154,23 +188,23 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
   // Function to sort tests in the desired order
   const getSortedTests = (testsToSort: ApiTest[]): ApiTest[] => {
     const testOrder = ['mbti', 'intelligence', 'riasec', 'bigfive', 'decision', 'vark', 'life'];
-    
+
     return testsToSort.sort((a, b) => {
       const aId = a.test_id?.toLowerCase() || '';
       const bId = b.test_id?.toLowerCase() || '';
-      
+
       const aIndex = testOrder.findIndex(order => aId.includes(order));
       const bIndex = testOrder.findIndex(order => bId.includes(order));
-      
+
       // If both found in order, sort by order
       if (aIndex !== -1 && bIndex !== -1) {
         return aIndex - bIndex;
       }
-      
+
       // If only one found, it comes first
       if (aIndex !== -1) return -1;
       if (bIndex !== -1) return 1;
-      
+
       // If neither found, maintain original order
       return 0;
     });
@@ -269,6 +303,62 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
                     <span className="text-xs text-green-600 font-medium">
                       🎉 બધા પરીક્ષણો પૂર્ણ! તમારા પરિણામો જુઓ.
                     </span>
+
+                    {/* Counseling Call Banner - HIGHLIGHTED */}
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                      className={`p-4 rounded-xl border-3 shadow-lg ${
+                        counselingStatus?.counseling_completed
+                          ? 'bg-gradient-to-r from-green-100 via-emerald-100 to-green-100 border-green-500 shadow-green-200'
+                          : 'bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 border-orange-500 shadow-orange-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center space-x-3">
+                        <motion.div
+                          animate={{ rotate: counselingStatus?.counseling_completed ? [0] : [0, 10, -10, 0] }}
+                          transition={{ duration: 0.5, delay: 0.5 }}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md ${
+                            counselingStatus?.counseling_completed ? 'bg-green-500' : 'bg-orange-500'
+                          }`}
+                        >
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                        </motion.div>
+                        <div className="text-center">
+                          <p className={`font-extrabold text-base leading-tight ${
+                            counselingStatus?.counseling_completed ? 'text-green-900' : 'text-orange-900'
+                          }`}>
+                            {counselingStatus?.counseling_completed
+                              ? '🎉 કાઉન્સેલિંગ પૂર્ણ થઈ ગયું છે'
+                              : '📞 24 કલાકમાં કારકિર્દી કાઉન્સેલિંગ માટે કોલ આવશે'
+                            }
+                          </p>
+                          <p className={`text-xs font-medium mt-1 ${
+                            counselingStatus?.counseling_completed ? 'text-green-700' : 'text-orange-700'
+                          }`}>
+                            {counselingStatus?.counseling_completed
+                              ? '✅ Counseling Completed'
+                              : '⏳ કાઉન્સેલિંગ બાકી છે (Counseling Pending)'
+                            }
+                          </p>
+                        </div>
+                        <motion.div
+                          animate={{ x: counselingStatus?.counseling_completed ? [0] : [0, 5, 0] }}
+                          transition={{ duration: 1, repeat: counselingStatus?.counseling_completed ? 0 : Infinity, repeatDelay: 2 }}
+                          className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            counselingStatus?.counseling_completed ? 'bg-green-500' : 'bg-orange-500'
+                          }`}
+                        >
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </motion.div>
+                      </div>
+                    </motion.div>
+
                     <div>
                       <motion.button
                         onClick={() => window.location.href = '/profile?tab=history'}
@@ -391,7 +481,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
               ) : error ? (
                 <div className="text-red-500">
                   <p>Error loading tests: {error}</p>
-                  <button 
+                  <button
                     onClick={refetch}
                     className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                   >
@@ -401,7 +491,7 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
               ) : (
                 <div className="text-center space-y-4">
                   <p className="text-gray-500">No tests available</p>
-                  <button 
+                  <button
                     onClick={refetch}
                     className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                   >

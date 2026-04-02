@@ -43,7 +43,11 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
           .split(',')
           .map(e => e.trim().toLowerCase())
           .filter(Boolean);
+
+        console.log('🔍 [PaymentGate] Checking bypass:', { email, bypassList, envVar: process.env.NEXT_PUBLIC_BYPASS_PAYMENT_EMAILS });
+
         if (email && bypassList.includes(email)) {
+          console.log('✅ [PaymentGate] BYPASS ACTIVATED for:', email);
           setIsBypass(true);
           setPaymentCompleted(true);
           setLoading(false);
@@ -136,17 +140,28 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
     return (
       <>
         {isBypass && (
-          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-4">
-            <div className="flex items-center gap-2">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-amber-100 via-orange-50 to-amber-100 border-2 border-amber-400 text-amber-900 px-4 py-4 rounded-xl mb-6 shadow-md"
+          >
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🧪</span>
+                <div>
+                  <p className="font-bold text-sm">Demo Mode Active</p>
+                  <p className="text-xs text-amber-700">This is a demo account with unlimited test resets</p>
+                </div>
+              </div>
               <button
                 onClick={handleResetTests}
                 disabled={resetting}
-                className="text-sm font-semibold px-3 py-2 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 disabled:opacity-60"
+                className="flex items-center gap-2 text-sm font-bold px-4 py-2.5 bg-white border-2 border-amber-400 rounded-lg hover:bg-amber-50 hover:border-amber-500 transition-all disabled:opacity-60 shadow-sm"
               >
-                {resetting ? 'Resetting...' : 'Reset all tests'}
+                <span>{resetting ? '⏳ Resetting...' : '🔄 Reset All Tests'}</span>
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
         {resetMessage && (
           <div className="mb-4 text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{resetMessage}</div>

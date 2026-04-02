@@ -27,6 +27,12 @@ class UserResponse(BaseModel):
     role: str = "user"
     avatar: Optional[str] = None
     providers: Optional[list] = ["password"]
+    phone_number: Optional[str] = None
+
+
+class PhoneUpdateInput(BaseModel):
+    """Follow-up mobile (10-digit Indian number with +91 prefix)."""
+    phone_number: str = Field(..., min_length=13, max_length=13, pattern=r"^\+91[6-9]\d{9}$")
 
 class TokenRefreshRequest(BaseModel):
     """Token refresh request schema"""

@@ -68,6 +68,7 @@ async def get_all_users(
             "is_verified": user.is_verified,
             "plan_type": user.plan_type,
             "payment_completed": user.payment_completed,
+            "phone_number": user.phone_number,
             "created_at": user.created_at.isoformat() if user.created_at else None,
             "updated_at": user.updated_at.isoformat() if user.updated_at else None,
             "last_login": None,  # User model doesn't have last_login field

@@ -53,6 +53,7 @@ const ComprehensiveReportPage = () => {
   const [generatingInsights, setGeneratingInsights] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string>('');
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
+  const [showCounselingPopup, setShowCounselingPopup] = useState(false);
 
   // Test type icons mapping
   const testIcons = {
@@ -85,10 +86,10 @@ const ComprehensiveReportPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Get user ID from multiple sources with priority
       let userId = localStorage.getItem('userId');
-      
+
       // If no userId in localStorage, try to get from user_data
       if (!userId) {
         const userData = localStorage.getItem('user_data');
@@ -105,13 +106,13 @@ const ComprehensiveReportPage = () => {
           }
         }
       }
-      
+
       // Final fallback to demo user
       if (!userId) {
         userId = '11dc4aec-2216-45f9-b045-60edac007262';
         console.warn('🚨 Using fallback demo user ID. User may not be authenticated.');
       }
-      
+
       console.log('🔍 Comprehensive report for user:', userId);
       console.log('🔍 User ID length:', userId?.length);
       console.log('🔍 User ID type:', typeof userId);
@@ -119,19 +120,19 @@ const ComprehensiveReportPage = () => {
       // Fetch completion status using new service (with cache-busting for fresh data)
       const statusResponse = await completionStatusService.getCompletionStatus(userId, true);
       console.log('🔍 Raw completion status response:', JSON.stringify(statusResponse, null, 2));
-      
+
       // ✅ FIXED: Handle both old and new API response formats
       const completedTests = statusResponse.data.completed_tests || [];
       const totalTests = statusResponse.data.total_tests || 7;
       const completionPercentage = statusResponse.data.completion_percentage || 0;
-      
+
       // Calculate missing tests
       const allStandardTests = ['mbti', 'intelligence', 'riasec', 'bigfive', 'decision', 'vark', 'life-situation'];
       const missingTests = allStandardTests.filter(test => !completedTests.includes(test));
-      
+
       // Check if all tests are completed
       const allCompleted = completedTests.length === totalTests && completionPercentage === 100;
-      
+
       const status = {
         allCompleted: allCompleted,
         completedTests: completedTests,
@@ -156,6 +157,9 @@ const ComprehensiveReportPage = () => {
       const testResults = results.all_test_results || results || {};
       setAllTestResults(testResults as Record<string, TestResult>);
 
+      // ✅ Show counseling call popup when all tests completed (AI disabled - show immediately)
+      setShowCounselingPopup(true);
+
       // Generate comprehensive insights using async service
       setGeneratingInsights(true);
       setProgressMessage('રિપોર્ટ તૈયાર કરી રહ્યું છે...');
@@ -166,7 +170,7 @@ const ComprehensiveReportPage = () => {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-        
+
         const workerResponse = await fetch('https://lcj-celery-worker.onrender.com/health', {
           method: 'GET',
           headers: {
@@ -200,14 +204,14 @@ const ComprehensiveReportPage = () => {
             // Show a brief message before redirecting
             setProgressMessage('AI રિપોર્ટ પહેલેથી જ તૈયાર છે. ટેસ્ટ હિસ્ટરીમાં રીડાયરેક્ટ કરી રહ્યું છે...');
             setProgressPercentage(100);
-            
+
             // Redirect after a short delay to show the message
             setTimeout(() => {
               window.location.href = '/profile?tab=history&highlight=ai-insights';
             }, 1500);
             return;
           }
-          
+
           setComprehensiveInsights(insightsResponse.insights);
           setProgressMessage('રિપોર્ટ તૈયાર થઈ ગઈ!');
           setProgressPercentage(100);
@@ -229,7 +233,7 @@ const ComprehensiveReportPage = () => {
         }
       } catch (insightError: any) {
         console.error('Failed to generate insights:', insightError);
-        
+
         // Check if this is a timeout error
         if (insightError.message?.includes('timeout') || insightError.message?.includes('સમય લાગી રહ્યો છે')) {
           setError('AI રિપોર્ટ બનાવવામાં સમય લાગી રહ્યો છે. કૃપા કરીને ફરીથી પ્રયાસ કરો અથવા પ્રોફાઈલ પેજ પર જઈને ટેસ્ટ હિસ્ટરી તપાસો.');
@@ -253,7 +257,7 @@ const ComprehensiveReportPage = () => {
     setError(null);
     setErrorType('completion');
     setComprehensiveInsights(null);
-    
+
     // Clear cache before retrying
     try {
       const userId = getCurrentUserId();
@@ -264,7 +268,7 @@ const ComprehensiveReportPage = () => {
     } catch (error) {
       console.warn('⚠️ Failed to clear cache:', error);
     }
-    
+
     fetchData();
   };
 
@@ -289,11 +293,11 @@ const ComprehensiveReportPage = () => {
           <p className="text-gray-600 text-lg mb-4">
             {loading ? 'તમારા પરીક્ષણ પરિણામોનું વિશ્લેષણ કરી રહ્યું છે...' : progressMessage}
           </p>
-          
+
           {generatingInsights && (
             <div className="mb-6">
               <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
-                <div 
+                <div
                   className="bg-gradient-to-r from-orange-500 to-amber-500 h-3 rounded-full transition-all duration-300"
                   style={{ width: `${progressPercentage}%` }}
                 ></div>
@@ -301,7 +305,7 @@ const ComprehensiveReportPage = () => {
               <p className="text-sm text-gray-500">{progressPercentage}% પૂર્ણ</p>
             </div>
           )}
-          
+
           <div className="flex justify-center space-x-2 mt-6">
             <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"></div>
             <div className="w-3 h-3 bg-amber-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
@@ -326,14 +330,14 @@ const ComprehensiveReportPage = () => {
             <AlertCircle className="w-10 h-10 text-orange-500" />
           </div>
           <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
-            {errorType === 'completion' ? 'પ્રવેશ પ્રતિબંધિત' : 
-             errorType === 'ai_generation' ? 'AI રિપોર્ટ બનાવવામાં સમસ્યા' : 
+            {errorType === 'completion' ? 'પ્રવેશ પ્રતિબંધિત' :
+             errorType === 'ai_generation' ? 'AI રિપોર્ટ બનાવવામાં સમસ્યા' :
              'ડેટા લોડ કરવામાં સમસ્યા'}
           </h2>
           <p className="text-gray-600 mb-8 leading-relaxed">
             {error || 'સંપૂર્ણ રિપોર્ટ જોવા માટે કૃપા કરીને બધા ટેસ્ટ પૂર્ણ કરો.'}
           </p>
-          
+
           {errorType === 'completion' ? (
             <motion.button
               onClick={() => window.location.href = '/test-selection'}
@@ -353,7 +357,7 @@ const ComprehensiveReportPage = () => {
               >
                 ફરી પ્રયાસ કરો
               </motion.button>
-              
+
               {/* Show "Go to Test History" button for timeout errors */}
               {error?.includes('સમય લાગી રહ્યો છે') || error?.includes('timeout') ? (
                 <motion.button
@@ -496,6 +500,68 @@ const ComprehensiveReportPage = () => {
               >
                 ફરીથી પ્રયાસ કરો
               </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Counseling Call Popup Modal */}
+        <AnimatePresence>
+          {showCounselingPopup && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowCounselingPopup(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-2 border-orange-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Icon */}
+                <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </div>
+
+                {/* Title */}
+                <h3 className="text-2xl font-bold text-center text-gray-900 mb-4">
+                  🎉 અભિનંદન!
+                </h3>
+
+                {/* Message */}
+                <div className="text-center space-y-4">
+                  <p className="text-lg text-gray-700 font-medium">
+                    તમે બધા ટેસ્ટ સફળતાપૂર્વક પૂર્ણ કરી લીધા છે!
+                  </p>
+
+                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-200">
+                    <p className="text-orange-800 font-semibold text-lg mb-2">
+                      📞 24 કલાકમાં કોલ આવશે
+                    </p>
+                    <p className="text-orange-700 text-sm leading-relaxed">
+                      તમારા કારકિર્દી કાઉન્સેલિંગ માટે અમારી ટીમ તરફથી 24 કલાકની અંદર તમને ફોન કરવામાં આવશે.
+                    </p>
+                  </div>
+
+                  <p className="text-sm text-gray-500">
+                    તમારા ડેટા પર આધારિત વ્યક્તિગત માર્ગદર્શન માટે તૈયાર રહો!
+                  </p>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowCounselingPopup(false)}
+                  className="w-full mt-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-amber-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  સમજાઈ ગયું
+                </button>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>

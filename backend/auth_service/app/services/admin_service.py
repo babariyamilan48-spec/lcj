@@ -48,6 +48,7 @@ class AdminService:
         plan_type: Optional[str] = None,
         payment_completed: Optional[bool] = None,
         has_completed_test: Optional[bool] = None,
+        counseling_completed: Optional[bool] = None,
     ) -> tuple[List[Dict[str, Any]], int]:
         """
         Get all users with pagination and filtering
@@ -88,6 +89,9 @@ class AdminService:
                     query = query.filter(User.id.in_(has_test_subquery))
                 else:
                     query = query.filter(~User.id.in_(has_test_subquery))
+
+            if counseling_completed is not None:
+                query = query.filter(User.counseling_completed == counseling_completed)
 
             # Get total count before pagination
             total_count = query.count()
@@ -270,6 +274,37 @@ class AdminService:
             raise
 
     @staticmethod
+    def update_counseling_status(
+        db: Session,
+        user_id: str,
+        counseling_completed: bool
+    ) -> User:
+        """Update user's counseling status"""
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                raise ValueError(f"User {user_id} not found")
+
+            user.counseling_completed = counseling_completed
+            if counseling_completed:
+                user.counseling_completed_at = datetime.utcnow()
+            else:
+                user.counseling_completed_at = None
+
+            db.commit()
+            db.refresh(user)
+
+            AdminService._invalidate_user_cache(str(user.id))
+
+            logger.info(f"Counseling status updated for user {user.email}: {counseling_completed}")
+            return user
+
+        except Exception as e:
+            logger.error(f"Error updating counseling status: {e}")
+            db.rollback()
+            raise
+
+    @staticmethod
     def _user_to_dict(user: User) -> Dict[str, Any]:
         """Convert User model to dictionary"""
         return {
@@ -282,6 +317,8 @@ class AdminService:
             "is_verified": user.is_verified,
             "plan_type": user.plan_type,
             "payment_completed": user.payment_completed,
+            "counseling_completed": user.counseling_completed,
+            "counseling_completed_at": user.counseling_completed_at.isoformat() if user.counseling_completed_at else None,
             "phone_number": user.phone_number,
             "created_at": user.created_at.isoformat() if user.created_at else None,
             "updated_at": user.updated_at.isoformat() if user.updated_at else None,

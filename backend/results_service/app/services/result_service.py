@@ -48,12 +48,12 @@ class ResultService:
         except Exception as e:
             logger.error(f"Database connection failed: {e}")
             return None
-    
+
     @staticmethod
     async def create_result(result_data: TestResultCreate) -> TestResult:
         """Create a new test result with database persistence and deduplication"""
         import uuid
-        
+
         # Convert user_id to UUID if it's a string - FIX FOR UUID HANDLING
         try:
             if isinstance(result_data.user_id, str):
@@ -81,7 +81,7 @@ class ResultService:
             results_db[result_id] = result_dict
             QueryCache.invalidate_all_user_cache(str(result_data.user_id))
             return TestResult(**result_dict)
-        
+
         # ✅ FIXED: Use context manager for proper session cleanup
         if DBTestResult:
             try:
@@ -89,14 +89,14 @@ class ResultService:
                     # Check for existing recent results to prevent duplicates
                     from datetime import datetime, timedelta
                     five_minutes_ago = datetime.now() - timedelta(minutes=5)
-                    
+
                     existing_result = db.query(DBTestResult).filter(
                         DBTestResult.user_id == user_uuid,
                         DBTestResult.test_id == result_data.test_id,
                         DBTestResult.created_at > five_minutes_ago,
                         DBTestResult.is_completed == True
                     ).first()
-                    
+
                     if existing_result:
                         logger.info(f"Duplicate result found for user {result_data.user_id}, test {result_data.test_id}")
                         # Return existing result instead of creating duplicate
@@ -120,13 +120,13 @@ class ResultService:
                             "completed_at": existing_result.completed_at
                         }
                         return TestResult(**result_dict)
-                    
+
                     # Ensure answers is properly formatted for database storage
                     answers_data = result_data.answers or {}
                     if isinstance(answers_data, list):
                         # Convert list back to dict with numeric keys for storage
                         answers_data = {str(i): answer for i, answer in enumerate(answers_data)}
-                    
+
                     # Create database record
                     db_result = DBTestResult(
                         user_id=user_uuid,  # Use converted UUID instead of raw user_id
@@ -146,11 +146,11 @@ class ResultService:
                         is_completed=True,
                         completed_at=datetime.now()
                     )
-                    
+
                     db.add(db_result)
                     db.commit()
                     db.refresh(db_result)
-                    
+
                     # Convert to response format
                     result_dict = {
                         "id": str(db_result.id),
@@ -171,10 +171,10 @@ class ResultService:
                         "timestamp": db_result.created_at,
                         "completed_at": db_result.completed_at
                     }
-                    
+
                     # Invalidate ALL user cache to prevent cross-user contamination
                     QueryCache.invalidate_all_user_cache(str(result_data.user_id))
-                    
+
                     # Also invalidate completion status cache using direct cache operations
                     try:
                         # Clear completion status cache keys directly
@@ -185,11 +185,11 @@ class ResultService:
                             f"progress_summary:{user_id_str}",
                             f"completion_status_v2:{user_id_str}",
                         ]
-                        
+
                         # Use QueryCache methods for proper cache invalidation
                         QueryCache.invalidate_completion_status(user_id_str)
                         QueryCache.invalidate_user_results(user_id_str)
-                        
+
                         # Also clear specific keys using cache instance
                         from core.cache import cache
                         for cache_key in cache_keys:
@@ -197,20 +197,20 @@ class ResultService:
                                 cache.delete(cache_key)
                             except Exception as cache_error:
                                 logger.debug(f"Cache key {cache_key} not found or already cleared: {cache_error}")
-                        
+
                         logger.info(f"Invalidated completion status cache for user {result_data.user_id}")
                     except Exception as cache_error:
                         logger.warning(f"Failed to clear completion status cache: {cache_error}")
-                    
+
                     return TestResult(**result_dict)
-                    
+
             except Exception as e:
                 logger.error(f"Database save failed, using fallback: {e}")
-        
+
         # Fallback to in-memory storage
         result_id = str(uuid.uuid4())
         timestamp = datetime.now()
-        
+
         # Generate default recommendations if none provided
         recommendations = result_data.recommendations or [
             f"Continue practicing in areas related to {result_data.test_name}",
@@ -218,17 +218,17 @@ class ResultService:
             "Consider taking similar assessments to track your progress",
             "Seek additional resources to enhance your skills"
         ]
-        
+
         # Use percentage_score if available, otherwise use percentage or score
         percentage_value = result_data.percentage_score or result_data.percentage or result_data.score or 0
         score_value = result_data.total_score or result_data.score or 0
-        
+
         # Ensure answers is properly formatted for storage
         answers_data = result_data.answers or {}
         if isinstance(answers_data, list):
             # Convert list back to dict with numeric keys for storage
             answers_data = {str(i): answer for i, answer in enumerate(answers_data)}
-        
+
         result_dict = {
             "id": result_id,
             "user_id": result_data.user_id,
@@ -248,19 +248,19 @@ class ResultService:
             "timestamp": timestamp,
             "completed_at": timestamp
         }
-        
+
         results_db[result_id] = result_dict
-        
+
         # Invalidate cache for in-memory storage too
         QueryCache.invalidate_user_results(result_data.user_id)
-        
+
         return TestResult(**result_dict)
-    
+
     @staticmethod
     async def get_user_results(user_id: str) -> List[TestResult]:
         """Get all results for a user from database first, fallback to memory - OPTIMIZED with caching"""
         import uuid
-        
+
         # Convert user_id to UUID if it's a string - FIX FOR UUID HANDLING
         try:
             if isinstance(user_id, str):
@@ -270,13 +270,13 @@ class ResultService:
         except (ValueError, TypeError):
             logger.error(f"Invalid user_id format in get_user_results: {user_id}")
             return []
-        
+
         # Try cache first - use string user_id for cache key consistency
         cached_results = QueryCache.get_user_results(user_id)
         if cached_results:
             logger.info(f"✅ Returning {len(cached_results)} cached results for user {user_id}")
             return cached_results
-        
+
         # ✅ FIXED: Use context manager for proper session cleanup
         if DBTestResult:
             try:
@@ -287,7 +287,7 @@ class ResultService:
                         DBTestResult.user_id == user_uuid,
                         DBTestResult.is_completed == True
                     ).order_by(desc(DBTestResult.created_at)).all()
-                    
+
                     logger.info(f"✅ Database query returned {len(db_results)} completed results for user {user_id}")
                     if len(db_results) == 0:
                         logger.warning(f"⚠️ No completed results found. Checking all results for user {user_uuid}...")
@@ -297,7 +297,7 @@ class ResultService:
                         logger.warning(f"⚠️ Total results (all statuses): {len(all_results)}")
                         for r in all_results:
                             logger.warning(f"  - Test: {r.test_id}, is_completed: {r.is_completed}, created_at: {r.created_at}")
-                    
+
                     # If no completed results, try to get any results (fallback)
                     if len(db_results) == 0:
                         logger.warning(f"⚠️ No completed results found, trying to get ANY results for user {user_uuid}...")
@@ -305,26 +305,26 @@ class ResultService:
                             DBTestResult.user_id == user_uuid
                         ).order_by(desc(DBTestResult.created_at)).all()
                         logger.warning(f"⚠️ Found {len(db_results)} total results (any status)")
-                    
+
                     user_results = []
                     for db_result in db_results:
                         calculated_result = db_result.calculated_result or {}
-                        
+
                         # Enrich empty analysis data from configurations
                         analysis = calculated_result.get('analysis', {})
                         if not analysis or not analysis.get('code'):
                             analysis = ResultService._get_fallback_analysis(db_result.test_id, db_result.primary_result)
-                        
+
                         # Enrich empty recommendations
                         recommendations = calculated_result.get('recommendations', [])
                         if not recommendations:
                             recommendations = ResultService._get_fallback_recommendations(db_result.test_id, analysis.get('code'))
-                        
+
                         # Enrich empty dimensions_scores
                         dimensions_scores = calculated_result.get('dimensions_scores', {})
                         if not dimensions_scores:
                             dimensions_scores = ResultService._get_fallback_dimensions(db_result.test_id, analysis.get('code'))
-                        
+
                         result_dict = {
                             "id": str(db_result.id),
                             "user_id": str(db_result.user_id),
@@ -345,36 +345,36 @@ class ResultService:
                             "completed_at": db_result.completed_at
                         }
                         user_results.append(TestResult(**result_dict))
-                    
+
                     logger.info(f"✅ Successfully retrieved {len(user_results)} results for user {user_id}")
                     # Cache the results
                     QueryCache.set_user_results(user_id, user_results, ttl=600)
                     return user_results
-                    
+
             except Exception as e:
                 logger.error(f"Database error in get_user_results: {e}")
-        
+
         # Fallback to in-memory storage
         user_results = [
-            TestResult(**result) for result in results_db.values() 
+            TestResult(**result) for result in results_db.values()
             if result["user_id"] == user_id
         ]
         # Sort by timestamp descending (newest first)
         user_results.sort(key=lambda x: x.timestamp, reverse=True)
         return user_results
-    
+
     @staticmethod
     @cache_async_result(ttl=300, key_prefix="paginated_results")
     async def get_user_results_paginated(user_id: str, page: int = 1, size: int = 10) -> Dict[str, Any]:
         """Get paginated results for a user - OPTIMIZED with caching"""
         all_results = await ResultService.get_user_results(user_id)
-        
+
         # Calculate pagination
         total = len(all_results)
         start_idx = (page - 1) * size
         end_idx = start_idx + size
         paginated_results = all_results[start_idx:end_idx]
-        
+
         # Convert results to dictionaries for JSON serialization
         results_data = []
         for result in paginated_results:
@@ -384,15 +384,15 @@ class ResultService:
             else:
                 # Regular dictionary
                 result_dict = result
-            
+
             # Convert datetime objects to ISO strings for JSON serialization
             if 'timestamp' in result_dict and hasattr(result_dict['timestamp'], 'isoformat'):
                 result_dict['timestamp'] = result_dict['timestamp'].isoformat()
             if 'completed_at' in result_dict and result_dict['completed_at'] and hasattr(result_dict['completed_at'], 'isoformat'):
                 result_dict['completed_at'] = result_dict['completed_at'].isoformat()
-                
+
             results_data.append(result_dict)
-        
+
         return {
             "results": results_data,
             "total": total,
@@ -400,13 +400,13 @@ class ResultService:
             "size": size,
             "total_pages": (total + size - 1) // size
         }
-    
+
     @staticmethod
     async def get_latest_result(user_id: str, db: Session = None) -> Optional[TestResult]:
         """Get the latest result for a user"""
         user_results = await ResultService.get_user_results(user_id, db)
         return user_results[0] if user_results else None
-    
+
     @staticmethod
     @cache_async_result(ttl=1800, key_prefix="user_profile")
     async def get_user_profile(user_id: str, db: Session = None) -> UserProfile:
@@ -436,16 +436,16 @@ class ResultService:
                 "updated_at": datetime.now()
             }
             user_profiles_db[user_id] = profile_dict
-        
+
         # Get user stats
         user_results = await ResultService.get_user_results(user_id, db)
         stats = await ResultService._calculate_user_stats(user_id, user_results)
-        
+
         profile_dict = user_profiles_db[user_id].copy()
         profile_dict["stats"] = stats
-        
+
         return UserProfile(**profile_dict)
-    
+
     @staticmethod
     async def update_user_profile(user_id: str, profile_data: UserProfileUpdate, db: Session = None) -> UserProfile:
         """Update user profile"""
@@ -461,26 +461,26 @@ class ResultService:
         else:
             profile_dict = user_profiles_db[user_id].copy()
             profile_dict["updated_at"] = datetime.now()
-        
+
         # Update fields
         update_data = profile_data.dict(exclude_unset=True)
         profile_dict.update(update_data)
-        
+
         user_profiles_db[user_id] = profile_dict
         return UserProfile(**profile_dict)
-    
+
     @staticmethod
     @cache_async_result(ttl=900, key_prefix="all_test_results")
     async def get_all_test_results(user_id: str) -> Dict[str, Any]:
         """Get all test results organized by test type for comprehensive analysis"""
         user_results = await ResultService.get_user_results(str(user_id))
-        
+
         if not user_results:
             return {}
-        
+
         # Organize results by test type (get latest result for each test type)
         organized_results = {}
-        
+
         for result in user_results:
             test_id = result.test_id
             if test_id:
@@ -503,10 +503,10 @@ class ResultService:
                         'completed_at': result.completed_at.isoformat() if hasattr(result.completed_at, 'isoformat') else str(result.completed_at),
                         'user_id': str(user_id)
                     }
-        
+
         logger.info(f"Retrieved {len(organized_results)} unique test results for user {user_id}")
         logger.info(f"Test types found: {list(organized_results.keys())}")
-        
+
         # Add AI insights to the results if they exist
         try:
             ai_insights = await ResultService.get_user_ai_insights(user_id)
@@ -535,14 +535,14 @@ class ResultService:
                 logger.info(f"Added AI insights to all-results for user {user_id}")
         except Exception as ai_error:
             logger.warning(f"Could not add AI insights to all-results for user {user_id}: {ai_error}")
-        
+
         return organized_results
 
     @staticmethod
     async def get_user_analytics(user_id: str, db: Session = None) -> Dict[str, Any]:
         """Get user analytics data - OPTIMIZED with caching"""
         user_results = await ResultService.get_user_results(user_id)
-        
+
         if not user_results:
             return {
                 "stats": {
@@ -558,11 +558,11 @@ class ResultService:
                 "progressOverTime": [],
                 "goals": []
             }
-        
+
         # Calculate analytics
         total_tests = len(user_results)
         average_score = sum(r.score for r in user_results) / total_tests
-        
+
         # Calculate category scores
         category_scores = {}
         for result in user_results:
@@ -571,11 +571,11 @@ class ResultService:
                     if category not in category_scores:
                         category_scores[category] = []
                     category_scores[category].append(score)
-        
+
         # Average category scores
         for category in category_scores:
             category_scores[category] = sum(category_scores[category]) / len(category_scores[category])
-        
+
         # Get AI insights and add to test history
         test_history = [
             {
@@ -585,7 +585,7 @@ class ResultService:
                 "completed_at": r.timestamp.isoformat() if hasattr(r.timestamp, 'isoformat') else str(r.timestamp)
             } for r in user_results
         ]
-        
+
         # Add AI insights to test history if they exist
         try:
             ai_insights_history = await ResultService.get_user_ai_insights_for_history(user_id)
@@ -597,17 +597,17 @@ class ResultService:
                         "score": ai_insight.get("score", 100),
                         "completed_at": ai_insight.get("completion_date")
                     })
-                
+
                 # Update total tests count to include AI insights
                 total_tests += len(ai_insights_history)
-                
+
                 logger.info(f"Added {len(ai_insights_history)} AI insights to analytics for user {user_id}")
         except Exception as ai_error:
             logger.warning(f"Could not add AI insights to analytics for user {user_id}: {ai_error}")
-        
+
         # Sort test history by completion date (newest first)
         test_history.sort(key=lambda x: x.get("completed_at", ""), reverse=True)
-        
+
         return {
             "stats": {
                 "total_tests": total_tests,
@@ -644,15 +644,15 @@ class ResultService:
                 recent_tests=[],
                 category_scores={}
             )
-        
+
         # Calculate basic stats
         total_tests = len(user_results)
         total_score = sum(result.percentage_score for result in user_results)
         average_score = total_score / total_tests if total_tests > 0 else 0.0
-        
+
         # Calculate streak (simplified - consecutive days with tests)
         streak_days = min(total_tests, 7)  # Simple streak calculation
-        
+
         # Calculate achievements (based on milestones)
         achievements = 0
         if total_tests >= 1:
@@ -663,10 +663,10 @@ class ResultService:
             achievements += 1  # 10 tests milestone
         if average_score >= 80:
             achievements += 1  # High performer
-        
+
         # Get recent tests (last 5)
         recent_tests = sorted(user_results, key=lambda x: x.completed_at, reverse=True)[:5]
-        
+
         # Calculate category scores (from dimensions_scores)
         category_scores = {}
         for result in user_results:
@@ -675,11 +675,11 @@ class ResultService:
                     if category not in category_scores:
                         category_scores[category] = []
                     category_scores[category].append(score)
-        
+
         # Average category scores
         for category in category_scores:
             category_scores[category] = sum(category_scores[category]) / len(category_scores[category])
-        
+
         return UserStats(
             total_tests=total_tests,
             average_score=average_score,
@@ -691,8 +691,8 @@ class ResultService:
 
     @staticmethod
     async def generate_comprehensive_report(
-        user_id: str, 
-        include_ai_insights: bool = True, 
+        user_id: str,
+        include_ai_insights: bool = True,
         test_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate comprehensive report data including overview, results, and AI insights"""
@@ -700,17 +700,17 @@ class ResultService:
             # Get user profile and stats
             user_profile = await ResultService.get_user_profile(user_id)
             user_analytics = await ResultService.get_user_analytics(user_id)
-            
+
             # Get user results
             if test_id:
                 # Get specific test result
-                user_results = [result for result in results_db.values() 
+                user_results = [result for result in results_db.values()
                               if result["user_id"] == user_id and result["test_id"] == test_id]
                 user_results = [TestResult(**result) for result in user_results]
             else:
                 # Get all user results
                 user_results = await ResultService.get_user_results(user_id)
-            
+
             # Prepare AI insights data if requested
             ai_insights_data = []
             if include_ai_insights and user_results:
@@ -718,7 +718,7 @@ class ResultService:
                     # Try to get real AI insights, fall back to mock data if service unavailable
                     from core.services.ai_service import AIInsightService
                     ai_service = AIInsightService()
-                    
+
                     for result in user_results:
                         try:
                             # Prepare test data for AI service
@@ -733,10 +733,10 @@ class ResultService:
                                 },
                                 "user_id": result.user_id
                             }
-                            
+
                             # Generate AI insights
                             ai_result = ai_service.generate_insights(test_data)
-                            
+
                             if ai_result["success"] and ai_result.get("insights"):
                                 ai_insight = {
                                     "test_id": result.test_id,
@@ -749,25 +749,25 @@ class ResultService:
                             else:
                                 # Fallback to mock insights
                                 ai_insight = ResultService._generate_fallback_insights(result)
-                            
+
                             ai_insights_data.append(ai_insight)
-                            
+
                         except Exception as e:
                             # If AI service fails for individual result, use fallback
-                            print(f"AI service failed for test {result.test_id}: {str(e)}")
+                            logger.warning(f"AI service failed for test {result.test_id}: {str(e)}")
                             ai_insights_data.append(ResultService._generate_fallback_insights(result))
-                            
+
                 except ImportError:
                     # AI service not available, use fallback for all results
-                    print("AI service not available, using fallback insights")
+                    logger.info("AI service not available, using fallback insights")
                     for result in user_results:
                         ai_insights_data.append(ResultService._generate_fallback_insights(result))
                 except Exception as e:
                     # AI service initialization failed, use fallback
-                    print(f"AI service initialization failed: {str(e)}")
+                    logger.warning(f"AI service initialization failed: {str(e)}")
                     for result in user_results:
                         ai_insights_data.append(ResultService._generate_fallback_insights(result))
-            
+
             # Compile comprehensive report
             report_data = {
                 "report_metadata": {
@@ -819,9 +819,9 @@ class ResultService:
                     "improvement_trend": "Positive" if len(user_results) > 1 and user_results[0].percentage_score > user_results[-1].percentage_score else "Stable"
                 }
             }
-            
+
             return report_data
-            
+
         except Exception as e:
             raise Exception(f"Error generating comprehensive report: {str(e)}")
 
@@ -831,12 +831,12 @@ class ResultService:
         try:
             output = io.StringIO()
             writer = csv.writer(output)
-            
+
             # Write header information
             writer.writerow(["User Report - Generated at", report_data["report_metadata"]["generated_at"]])
             writer.writerow(["User ID", report_data["report_metadata"]["user_id"]])
             writer.writerow([])
-            
+
             # Write user overview
             writer.writerow(["USER OVERVIEW"])
             profile = report_data["user_overview"]["profile"]
@@ -844,7 +844,7 @@ class ResultService:
                 if value:
                     writer.writerow([key.replace('_', ' ').title(), str(value)])
             writer.writerow([])
-            
+
             # Write statistics
             writer.writerow(["STATISTICS"])
             stats = report_data["user_overview"]["statistics"]
@@ -852,16 +852,16 @@ class ResultService:
                 if key != "category_scores":
                     writer.writerow([key.replace('_', ' ').title(), str(value)])
             writer.writerow([])
-            
+
             # Write test results
             writer.writerow(["TEST RESULTS"])
             if report_data["test_results"]:
                 # Headers
                 writer.writerow([
-                    "Test Name", "Score", "Percentage", "Completed At", 
+                    "Test Name", "Score", "Percentage", "Completed At",
                     "Duration (min)", "Total Questions"
                 ])
-                
+
                 # Data rows
                 for result in report_data["test_results"]:
                     writer.writerow([
@@ -873,7 +873,7 @@ class ResultService:
                         result["total_questions"]
                     ])
             writer.writerow([])
-            
+
             # Write AI insights summary
             if report_data["ai_insights"]:
                 writer.writerow(["AI INSIGHTS SUMMARY"])
@@ -883,9 +883,9 @@ class ResultService:
                     writer.writerow(["Key Strengths", ", ".join(insight["insights"]["strengths"])])
                     writer.writerow(["Areas for Improvement", ", ".join(insight["insights"]["areas_for_improvement"])])
                     writer.writerow([])
-            
+
             return output.getvalue()
-            
+
         except Exception as e:
             raise Exception(f"Error generating CSV report: {str(e)}")
 
@@ -895,7 +895,7 @@ class ResultService:
         try:
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(
-                buffer, 
+                buffer,
                 pagesize=A4,
                 rightMargin=50,
                 leftMargin=50,
@@ -904,7 +904,7 @@ class ResultService:
             )
             styles = getSampleStyleSheet()
             story = []
-            
+
             # Ultra-modern custom styles with vibrant colors
             title_style = ParagraphStyle(
                 'CustomTitle',
@@ -915,7 +915,7 @@ class ResultService:
                 alignment=1,  # Center alignment
                 fontName='Helvetica-Bold'
             )
-            
+
             heading_style = ParagraphStyle(
                 'CustomHeading',
                 parent=styles['Heading2'],
@@ -925,7 +925,7 @@ class ResultService:
                 textColor=colors.HexColor('#7c3aed'),  # Violet-600 (modern purple)
                 fontName='Helvetica-Bold'
             )
-            
+
             subheading_style = ParagraphStyle(
                 'CustomSubHeading',
                 parent=styles['Heading3'],
@@ -935,7 +935,7 @@ class ResultService:
                 textColor=colors.HexColor('#0f766e'),  # Teal-700 (sophisticated)
                 fontName='Helvetica-Bold'
             )
-            
+
             highlight_style = ParagraphStyle(
                 'HighlightStyle',
                 parent=styles['Normal'],
@@ -943,7 +943,7 @@ class ResultService:
                 textColor=colors.HexColor('#dc2626'),  # Red-600 (attention-grabbing)
                 fontName='Helvetica-Bold'
             )
-            
+
             # New modern styles for enhanced visual appeal
             accent_style = ParagraphStyle(
                 'AccentStyle',
@@ -952,7 +952,7 @@ class ResultService:
                 textColor=colors.HexColor('#0891b2'),  # Cyan-600
                 fontName='Helvetica-Oblique'
             )
-            
+
             card_title_style = ParagraphStyle(
                 'CardTitleStyle',
                 parent=styles['Normal'],
@@ -961,13 +961,13 @@ class ResultService:
                 fontName='Helvetica-Bold',
                 alignment=1
             )
-            
+
             # Modern Cover Page with gradient-like effect
             story.append(Paragraph("🎯 Life Changing Journey", title_style))
             story.append(Paragraph("<font color='#8b5cf6'>Comprehensive Assessment Report</font>", heading_style))
             story.append(Paragraph("<font color='#6b7280' size='12'><i>Empowering Personal & Professional Growth Through AI-Powered Insights</i></font>", accent_style))
             story.append(Spacer(1, 40))
-            
+
             # Add a modern decorative element
             decorative_data = [[""]]
             decorative_table = Table(decorative_data, colWidths=[7*inch], rowHeights=[0.2*inch])
@@ -978,20 +978,20 @@ class ResultService:
             ]))
             story.append(decorative_table)
             story.append(Spacer(1, 20))
-            
+
             # Report metadata with modern styling
             metadata = report_data["report_metadata"]
             from datetime import datetime
             generated_date = datetime.fromisoformat(metadata['generated_at'].replace('Z', '+00:00'))
             formatted_date = generated_date.strftime("%B %d, %Y at %I:%M %p")
-            
+
             metadata_data = [
                 ["📅 Generated:", formatted_date],
                 ["👤 User ID:", metadata['user_id']],
                 ["📊 Report Type:", "Comprehensive Analysis"],
                 ["🤖 AI Insights:", "Included" if metadata.get('includes_ai_insights') else "Not Included"]
             ]
-            
+
             metadata_table = Table(metadata_data, colWidths=[2.2*inch, 4.8*inch])
             metadata_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef7ff')),  # Fuchsia-50 (modern gradient feel)
@@ -1007,11 +1007,11 @@ class ResultService:
             ]))
             story.append(metadata_table)
             story.append(PageBreak())
-            
+
             # User Overview Section with modern design
             story.append(Paragraph("👤 User Profile", heading_style))
             profile = report_data["user_overview"]["profile"]
-            
+
             # Profile information with icons and better formatting
             profile_sections = [
                 ("📝 Personal Information", [
@@ -1028,15 +1028,15 @@ class ResultService:
                     ("Goals", ", ".join(profile.get("goals", [])) if profile.get("goals") else "N/A")
                 ])
             ]
-            
+
             for section_title, section_data in profile_sections:
                 story.append(Paragraph(section_title, subheading_style))
-                
+
                 section_table_data = []
                 for key, value in section_data:
                     if value and value != "N/A":
                         section_table_data.append([key + ":", str(value)])
-                
+
                 if section_table_data:
                     section_table = Table(section_table_data, colWidths=[1.5*inch, 4.5*inch])
                     section_table.setStyle(TableStyle([
@@ -1052,14 +1052,14 @@ class ResultService:
                     ]))
                     story.append(section_table)
                     story.append(Spacer(1, 10))
-            
+
             story.append(Spacer(1, 15))
-            
+
             # Performance Statistics Section with modern cards
             story.append(Paragraph("📊 Performance Overview", heading_style))
             stats = report_data["user_overview"]["statistics"]
             summary = report_data.get("summary", {})
-            
+
             # Create performance cards layout
             performance_cards = [
                 ("🎯 Tests Completed", str(stats.get("total_tests_completed", 0)), "Total assessments taken"),
@@ -1067,7 +1067,7 @@ class ResultService:
                 ("🏆 Highest Score", f"{summary.get('highest_score', 0):.1f}%", "Best achievement"),
                 ("🎖️ Achievements", str(stats.get("achievements", 0)), "Milestones reached")
             ]
-            
+
             # Create a 2x2 grid for performance cards
             card_rows = []
             for i in range(0, len(performance_cards), 2):
@@ -1080,7 +1080,7 @@ class ResultService:
                     else:
                         row_data.append("")
                 card_rows.append(row_data)
-            
+
             performance_table = Table(card_rows, colWidths=[3.5*inch, 3.5*inch])
             performance_table.setStyle(TableStyle([
                 # Create gradient-like effect with alternating modern colors
@@ -1101,12 +1101,12 @@ class ResultService:
             ]))
             story.append(performance_table)
             story.append(Spacer(1, 20))
-            
+
             # Category Scores if available
             if stats.get("category_scores"):
                 story.append(Paragraph("📋 Category Performance", subheading_style))
                 category_data = [["Category", "Score", "Performance Level"]]
-                
+
                 for category, score in stats["category_scores"].items():
                     performance_level = "Excellent" if score >= 90 else "Good" if score >= 70 else "Average" if score >= 50 else "Needs Improvement"
                     category_data.append([
@@ -1114,7 +1114,7 @@ class ResultService:
                         f"{score:.1f}%",
                         performance_level
                     ])
-                
+
                 category_table = Table(category_data, colWidths=[2*inch, 1.5*inch, 2.5*inch])
                 category_table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#059669')),  # Green-600
@@ -1129,17 +1129,17 @@ class ResultService:
                 ]))
                 story.append(category_table)
                 story.append(Spacer(1, 20))
-            
+
             # Detailed Test Results Section
             if report_data["test_results"]:
                 story.append(PageBreak())
                 story.append(Paragraph("📝 Detailed Test Results", heading_style))
-                
+
                 for i, result in enumerate(report_data["test_results"]):
                     # Test header
                     test_title = f"Test {i+1}: {result['test_name']}"
                     story.append(Paragraph(test_title, subheading_style))
-                    
+
                     # Test overview table
                     test_overview = [
                         ["📊 Score:", f"{result['score']}/{result.get('total_questions', 'N/A')}"],
@@ -1148,7 +1148,7 @@ class ResultService:
                         ["⏱️ Duration:", f"{result['duration_minutes']} minutes" if result["duration_minutes"] else "N/A"],
                         ["❓ Questions:", str(result.get('total_questions', 'N/A'))]
                     ]
-                    
+
                     overview_table = Table(test_overview, colWidths=[1.5*inch, 4.5*inch])
                     overview_table.setStyle(TableStyle([
                         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef3c7')),  # Yellow-100
@@ -1162,12 +1162,12 @@ class ResultService:
                         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#f59e0b'))
                     ]))
                     story.append(overview_table)
-                    
+
                     # Dimension scores if available
                     if result.get("dimensions_scores"):
                         story.append(Spacer(1, 10))
                         story.append(Paragraph("🎯 Dimension Breakdown:", styles['Heading4']))
-                        
+
                         dim_data = [["Dimension", "Score", "Percentage"]]
                         for dim, score in result["dimensions_scores"].items():
                             if isinstance(score, dict):
@@ -1176,13 +1176,13 @@ class ResultService:
                             else:
                                 percentage = score
                                 raw_score = score
-                            
+
                             dim_data.append([
                                 dim.replace('_', ' ').title(),
                                 str(raw_score),
                                 f"{percentage:.1f}%"
                             ])
-                        
+
                         dim_table = Table(dim_data, colWidths=[2.5*inch, 1.5*inch, 2*inch])
                         dim_table.setStyle(TableStyle([
                             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7c3aed')),  # Purple-600
@@ -1196,13 +1196,13 @@ class ResultService:
                             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#8b5cf6'))
                         ]))
                         story.append(dim_table)
-                    
+
                     # Analysis and recommendations if available
                     if result.get("analysis"):
                         story.append(Spacer(1, 10))
                         story.append(Paragraph("📋 Analysis:", styles['Heading4']))
                         story.append(Paragraph(str(result["analysis"]), styles['Normal']))
-                    
+
                     if result.get("recommendations"):
                         story.append(Spacer(1, 10))
                         story.append(Paragraph("💡 Recommendations:", styles['Heading4']))
@@ -1211,26 +1211,26 @@ class ResultService:
                                 story.append(Paragraph(f"• {rec}", styles['Normal']))
                         else:
                             story.append(Paragraph(str(result["recommendations"]), styles['Normal']))
-                    
+
                     story.append(Spacer(1, 20))
-            
+
             # Comprehensive AI Insights Section
             if report_data["ai_insights"]:
                 story.append(PageBreak())
                 story.append(Paragraph("🤖 AI-Powered Insights & Analysis", heading_style))
-                
+
                 for i, insight in enumerate(report_data["ai_insights"]):
                     # AI Insight Header
                     insight_title = f"AI Analysis {i+1}: {insight['test_name']}"
                     story.append(Paragraph(insight_title, subheading_style))
-                    
+
                     # AI Metadata
                     ai_meta = [
                         ["🎯 Confidence Score:", f"{insight['confidence_score']:.1f}%"],
                         ["🤖 AI Model:", insight.get('model', 'gemini-2.5-flash-lite')],
                         ["📅 Generated:", insight.get('generated_at', 'N/A')[:10] if insight.get('generated_at') else 'N/A']
                     ]
-                    
+
                     meta_table = Table(ai_meta, colWidths=[1.5*inch, 4.5*inch])
                     meta_table.setStyle(TableStyle([
                         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f4ff')),  # Indigo-50
@@ -1245,9 +1245,9 @@ class ResultService:
                     ]))
                     story.append(meta_table)
                     story.append(Spacer(1, 15))
-                    
+
                     insights_data = insight.get("insights", {})
-                    
+
                     # Personality Traits
                     if insights_data.get("personality_traits"):
                         story.append(Paragraph("🧠 Personality Traits", styles['Heading4']))
@@ -1256,14 +1256,14 @@ class ResultService:
                             traits_text += f"• {trait}\n"
                         story.append(Paragraph(traits_text, styles['Normal']))
                         story.append(Spacer(1, 10))
-                    
+
                     # Key Strengths
                     if insights_data.get("strengths"):
                         story.append(Paragraph("💪 Key Strengths", styles['Heading4']))
                         strengths_data = []
                         for strength in insights_data["strengths"]:
                             strengths_data.append([f"✅ {strength}"])
-                        
+
                         strengths_table = Table(strengths_data, colWidths=[6*inch])
                         strengths_table.setStyle(TableStyle([
                             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0fdf4')),  # Green-50
@@ -1277,14 +1277,14 @@ class ResultService:
                         ]))
                         story.append(strengths_table)
                         story.append(Spacer(1, 10))
-                    
+
                     # Areas for Improvement
                     if insights_data.get("areas_for_improvement"):
                         story.append(Paragraph("🎯 Areas for Growth", styles['Heading4']))
                         improvement_data = []
                         for area in insights_data["areas_for_improvement"]:
                             improvement_data.append([f"🔄 {area}"])
-                        
+
                         improvement_table = Table(improvement_data, colWidths=[6*inch])
                         improvement_table.setStyle(TableStyle([
                             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef3c7')),  # Yellow-100
@@ -1298,14 +1298,14 @@ class ResultService:
                         ]))
                         story.append(improvement_table)
                         story.append(Spacer(1, 10))
-                    
+
                     # Career Recommendations
                     if insights_data.get("career_recommendations"):
                         story.append(Paragraph("💼 Career Recommendations", styles['Heading4']))
                         career_data = []
                         for rec in insights_data["career_recommendations"]:
                             career_data.append([f"🚀 {rec}"])
-                        
+
                         career_table = Table(career_data, colWidths=[6*inch])
                         career_table.setStyle(TableStyle([
                             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ede9fe')),  # Purple-100
@@ -1319,14 +1319,14 @@ class ResultService:
                         ]))
                         story.append(career_table)
                         story.append(Spacer(1, 10))
-                    
+
                     # Learning Path
                     if insights_data.get("learning_path"):
                         story.append(Paragraph("📚 Recommended Learning Path", styles['Heading4']))
                         learning_data = []
                         for step in insights_data["learning_path"]:
                             learning_data.append([f"📖 {step}"])
-                        
+
                         learning_table = Table(learning_data, colWidths=[6*inch])
                         learning_table.setStyle(TableStyle([
                             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f9ff')),  # Sky-50
@@ -1340,7 +1340,7 @@ class ResultService:
                         ]))
                         story.append(learning_table)
                         story.append(Spacer(1, 15))
-                    
+
                     # Add separator between insights
                     if i < len(report_data["ai_insights"]) - 1:
                         story.append(Spacer(1, 10))
@@ -1351,15 +1351,15 @@ class ResultService:
                         ]))
                         story.append(separator_table)
                         story.append(Spacer(1, 15))
-            
+
             # Enhanced Summary Section
             story.append(PageBreak())
             story.append(Paragraph("📋 Executive Summary", heading_style))
             summary = report_data["summary"]
-            
+
             # Key Performance Indicators
             story.append(Paragraph("🎯 Key Performance Indicators", subheading_style))
-            
+
             kpi_data = [
                 ["📊 Total Assessments:", str(summary.get("total_tests", 0))],
                 ["🏆 Highest Achievement:", f"{summary.get('highest_score', 0):.1f}%"],
@@ -1368,7 +1368,7 @@ class ResultService:
                 ["🕒 Most Recent Test:", summary.get("most_recent_test", "N/A")],
                 ["📊 Progress Trend:", summary.get("improvement_trend", "Stable")]
             ]
-            
+
             kpi_table = Table(kpi_data, colWidths=[2.5*inch, 3.5*inch])
             kpi_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),  # Gray-50
@@ -1384,27 +1384,27 @@ class ResultService:
             ]))
             story.append(kpi_table)
             story.append(Spacer(1, 20))
-            
+
             # Overall Assessment
             story.append(Paragraph("🎖️ Overall Assessment", subheading_style))
-            
+
             avg_score = summary.get('average_score', 0)
             performance_level = "Outstanding" if avg_score >= 90 else "Excellent" if avg_score >= 80 else "Good" if avg_score >= 70 else "Satisfactory" if avg_score >= 60 else "Needs Improvement"
-            
+
             assessment_text = f"""
             Based on the comprehensive analysis of {summary.get('total_tests', 0)} assessment(s), your overall performance level is classified as <b>{performance_level}</b> with an average score of {avg_score:.1f}%.
-            
+
             Your highest achievement reached {summary.get('highest_score', 0):.1f}%, demonstrating your potential for excellence. The performance trend shows {summary.get('improvement_trend', 'stable')} progress, indicating {"consistent growth" if summary.get('improvement_trend') == 'Positive' else "steady performance"}.
-            
+
             The AI-powered insights provide personalized recommendations to help you leverage your strengths and address areas for development, creating a clear path for continued growth and success.
             """
-            
+
             story.append(Paragraph(assessment_text, styles['Normal']))
             story.append(Spacer(1, 20))
-            
+
             # Next Steps
             story.append(Paragraph("🚀 Recommended Next Steps", subheading_style))
-            
+
             next_steps = [
                 ["1. 📚 Review AI Insights:", "Study the detailed AI analysis for each assessment to understand your strengths and growth areas."],
                 ["2. 🎯 Set Goals:", "Based on the recommendations, set specific, measurable goals for personal and professional development."],
@@ -1412,7 +1412,7 @@ class ResultService:
                 ["4. 💼 Apply Insights:", "Use the career recommendations to guide your professional development and decision-making."],
                 ["5. 🤝 Seek Support:", "Consider working with mentors or coaches to accelerate your development in identified areas."]
             ]
-            
+
             steps_table = Table(next_steps, colWidths=[1.5*inch, 4.5*inch])
             steps_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ecfdf5')),  # Green-50
@@ -1428,7 +1428,7 @@ class ResultService:
             ]))
             story.append(steps_table)
             story.append(Spacer(1, 30))
-            
+
             # Footer
             footer_text = f"""
             <para align="center">
@@ -1439,14 +1439,14 @@ class ResultService:
             For support or questions, contact us at support@lifechangingjourneyapp.com
             </para>
             """
-            
+
             story.append(Paragraph(footer_text, styles['Normal']))
-            
+
             # Build PDF
             doc.build(story)
             buffer.seek(0)
             return buffer.getvalue()
-            
+
         except Exception as e:
             raise Exception(f"Error generating PDF report: {str(e)}")
 
@@ -1460,7 +1460,7 @@ class ResultService:
                 RIASEC_CONFIGURATIONS, DECISION_CONFIGURATIONS, VARK_CONFIGURATIONS,
                 SVS_CONFIGURATIONS, LIFE_SITUATION_CONFIGURATIONS
             )
-            
+
             config_map = {
                 'mbti': MBTI_CONFIGS,
                 'intelligence': INTELLIGENCE_CONFIGURATIONS,
@@ -1471,11 +1471,11 @@ class ResultService:
                 'svs': SVS_CONFIGURATIONS,
                 'life-situation': LIFE_SITUATION_CONFIGURATIONS
             }
-            
+
             configs = config_map.get(test_id, [])
             if not configs:
                 return {}
-            
+
             # If primary_result is provided, find matching config
             if primary_result:
                 for config in configs:
@@ -1487,7 +1487,7 @@ class ResultService:
                             'gujarati_name': config.get('result_name_gujarati'),
                             'gujarati_description': config.get('description_gujarati')
                         }
-            
+
             # Return first config as default
             if configs:
                 config = configs[0]
@@ -1498,12 +1498,12 @@ class ResultService:
                     'gujarati_name': config.get('result_name_gujarati'),
                     'gujarati_description': config.get('description_gujarati')
                 }
-                
+
         except ImportError:
             pass
-        
+
         return {}
-    
+
     @staticmethod
     def _get_fallback_recommendations(test_id: str, result_code: str = None) -> List[str]:
         """Get recommendations from test result configurations"""
@@ -1513,7 +1513,7 @@ class ResultService:
                 RIASEC_CONFIGURATIONS, DECISION_CONFIGURATIONS, VARK_CONFIGURATIONS,
                 SVS_CONFIGURATIONS, LIFE_SITUATION_CONFIGURATIONS
             )
-            
+
             config_map = {
                 'mbti': MBTI_CONFIGS,
                 'intelligence': INTELLIGENCE_CONFIGURATIONS,
@@ -1524,24 +1524,24 @@ class ResultService:
                 'svs': SVS_CONFIGURATIONS,
                 'life-situation': LIFE_SITUATION_CONFIGURATIONS
             }
-            
+
             configs = config_map.get(test_id, [])
-            
+
             # Find matching config by result_code
             if result_code:
                 for config in configs:
                     if config.get('result_code') == result_code:
                         return config.get('recommendations', [])
-            
+
             # Return default recommendations
             if configs:
                 return configs[0].get('recommendations', [])
-                
+
         except ImportError:
             pass
-        
+
         return []
-    
+
     @staticmethod
     def _get_fallback_dimensions(test_id: str, result_code: str = None) -> Dict[str, Any]:
         """Get dimension scores from test result configurations"""
@@ -1553,7 +1553,7 @@ class ResultService:
     async def cleanup_duplicate_results(user_id: str) -> Dict[str, Any]:
         """Clean up duplicate test results for a user, keeping only the latest result for each test type"""
         import uuid
-        
+
         # Convert user_id to UUID if it's a string - FIX FOR UUID HANDLING
         try:
             if isinstance(user_id, str):
@@ -1563,7 +1563,7 @@ class ResultService:
         except (ValueError, TypeError):
             logger.error(f"Invalid user_id format in cleanup_duplicate_results: {user_id}")
             return {"error": "Invalid user ID format", "cleaned_count": 0}
-        
+
         # ✅ FIXED: Use context manager for proper session cleanup
         if DBTestResult:
             try:
@@ -1573,10 +1573,10 @@ class ResultService:
                         DBTestResult.user_id == user_uuid,
                         DBTestResult.is_completed == True
                     ).order_by(DBTestResult.test_id, desc(DBTestResult.created_at)).all()
-                    
+
                     if not all_results:
                         return {"message": "No results found", "cleaned_count": 0}
-                    
+
                     # Group by test_id and keep only the latest
                     test_groups = {}
                     for result in all_results:
@@ -1584,9 +1584,9 @@ class ResultService:
                         if test_id not in test_groups:
                             test_groups[test_id] = []
                         test_groups[test_id].append(result)
-                    
+
                     duplicates_removed = 0
-                    
+
                     # For each test type, delete all but the latest
                     for test_id, results in test_groups.items():
                         if len(results) > 1:
@@ -1594,9 +1594,9 @@ class ResultService:
                             for duplicate in results[1:]:
                                 db.delete(duplicate)
                                 duplicates_removed += 1
-                    
+
                     db.commit()
-                    
+
                     return {
                         "message": f"Cleaned up {duplicates_removed} duplicate results",
                         "cleaned_count": duplicates_removed,
@@ -1604,11 +1604,11 @@ class ResultService:
                         "total_results_before": len(all_results),
                         "total_results_after": len(all_results) - duplicates_removed
                     }
-                    
+
             except Exception as e:
                 logger.error(f"Error cleaning up duplicates: {e}")
                 raise e
-        
+
         return {"message": "Database not available", "cleaned_count": 0}
 
     @staticmethod
@@ -1625,7 +1625,7 @@ class ResultService:
                 ],
                 "strengths": [
                     "Logical reasoning",
-                    "Pattern recognition", 
+                    "Pattern recognition",
                     "Critical thinking"
                 ],
                 "areas_for_improvement": [
@@ -1635,7 +1635,7 @@ class ResultService:
                 ],
                 "career_recommendations": [
                     "Consider roles in data analysis",
-                    "Explore project management opportunities", 
+                    "Explore project management opportunities",
                     "Develop presentation skills"
                 ],
                 "learning_path": [
@@ -1661,7 +1661,7 @@ class ResultService:
     ) -> Optional[Dict[str, Any]]:
         """
         Store AI insights in dedicated ai_insights table
-        
+
         Args:
             insights_type: Type of insights - "comprehensive" or "individual"
         """
@@ -1681,9 +1681,9 @@ class ResultService:
                     "test_results_used": json.dumps(test_results_used or []),
                     "generation_duration": generation_duration
                 }
-                print(f"AI insights stored in memory for user {user_id}")
+                logger.info(f"AI insights stored in memory for user {user_id}")
                 return results_db[f"ai_insights_{user_id}_{insights_type}"]
-            
+
             # Create AI insights record
             ai_insights = AIInsights(
                 user_id=user_id,
@@ -1696,14 +1696,14 @@ class ResultService:
                 test_results_used=json.dumps(test_results_used or []),
                 generation_duration=generation_duration
             )
-            
+
             # Save to database
             db.add(ai_insights)
             db.commit()
             db.refresh(ai_insights)
-            
-            print(f"AI insights stored successfully for user {user_id} with ID {ai_insights.id}")
-            
+
+            logger.info(f"AI insights stored successfully for user {user_id} with ID {ai_insights.id}")
+
             # Return as dict for compatibility
             return {
                 "id": ai_insights.id,
@@ -1716,9 +1716,9 @@ class ResultService:
                 "test_results_used": ai_insights.test_results_used,
                 "generation_duration": ai_insights.generation_duration
             }
-            
+
         except Exception as e:
-            print(f"Error storing AI insights for user {user_id}: {str(e)}")
+            logger.error(f"Error storing AI insights for user {user_id}: {str(e)}")
             # Fallback to in-memory storage on database error
             insights_id = str(uuid.uuid4())
             results_db[f"ai_insights_{user_id}_{insights_type}"] = {
@@ -1741,13 +1741,13 @@ class ResultService:
         """
         import uuid
         import json
-        
-        print(f"🔍 get_user_ai_insights: Searching for AI insights for user {user_id}")
-        
+
+        logger.info(f"🔍 get_user_ai_insights: Searching for AI insights for user {user_id}")
+
         # First check in-memory storage for any insights type
         for key in results_db:
             if f"ai_insights_{user_id}" in key:
-                print(f"✅ Found AI insights in memory: {key}")
+                logger.info(f"✅ Found AI insights in memory: {key}")
                 insights = results_db[key]
                 # Parse insights_data if it's a JSON string
                 if isinstance(insights.get("insights_data"), str):
@@ -1756,16 +1756,16 @@ class ResultService:
                     except:
                         pass
                 return insights
-        
+
         # Then try database
         try:
             from core.database_fixed import get_db_session
-            
+
             with get_db_session() as db:
                 if not db or not AIInsights:
-                    print(f"❌ Database session not available for user {user_id}")
+                    logger.warning(f"❌ Database session not available for user {user_id}")
                     return None
-                
+
                 # Convert user_id to UUID if it's a string
                 try:
                     if isinstance(user_id, str):
@@ -1775,35 +1775,37 @@ class ResultService:
                 except (ValueError, TypeError):
                     logger.error(f"Invalid user_id format in get_user_ai_insights: {user_id}")
                     return None
-                
+
                 # Query AI insights table - look for comprehensive insights first
                 ai_insights = db.query(AIInsights).filter(
                     AIInsights.user_id == user_uuid,
                     AIInsights.insights_type == "comprehensive",
                     AIInsights.status == "completed"
                 ).order_by(desc(AIInsights.generated_at)).first()
-                
+
                 # If no comprehensive insights, look for any completed insights
                 if not ai_insights:
-                    print(f"⚠️ No comprehensive insights found, checking for any completed insights")
+                    logger.info(f"⚠️ No comprehensive insights found, checking for any completed insights")
                     ai_insights = db.query(AIInsights).filter(
                         AIInsights.user_id == user_uuid,
                         AIInsights.status == "completed"
                     ).order_by(desc(AIInsights.generated_at)).first()
-                
+
                 if ai_insights:
-                    print(f"✅ Found AI insights in database for user {user_id}")
-                    
+                    logger.info(f"✅ Found AI insights in database for user {user_id}")
+
                     # Parse insights_data if it's a JSON string
                     insights_data = ai_insights.insights_data
                     if isinstance(insights_data, str):
                         try:
                             insights_data = json.loads(insights_data)
-                            print(f"✅ Successfully parsed JSON insights data")
+                            logger.info(f"✅ Successfully parsed JSON insights data")
                         except json.JSONDecodeError as e:
                             logger.error(f"Failed to parse insights_data JSON for user {user_id}: {e}")
                             insights_data = ai_insights.insights_data  # Keep as string if parsing fails
-                    
+                        except Exception as e:
+                            logger.warning(f"Could not parse insights_data: {e}")
+                            insights_data = ai_insights.insights_data
                     return {
                         "id": str(ai_insights.id),
                         "user_id": str(ai_insights.user_id),  # Convert UUID to string
@@ -1814,12 +1816,12 @@ class ResultService:
                         "generated_at": ai_insights.generated_at.isoformat(),
                         "timestamp": ai_insights.generated_at.isoformat()  # For compatibility, also as string
                     }
-                
-                print(f"❌ No AI insights found for user {user_id} in database")
+
+                logger.info(f"❌ No AI insights found for user {user_id} in database")
                 return None
-            
+
         except Exception as e:
-            print(f"Error checking AI insights for user {user_id}: {str(e)}")
+            logger.error(f"Error checking AI insights for user {user_id}: {str(e)}")
             return None
 
     @staticmethod
@@ -1831,7 +1833,7 @@ class ResultService:
             ai_insights = await ResultService.get_user_ai_insights(user_id)
             if not ai_insights:
                 return []
-            
+
             # ✅ FIXED: Include full insights_data in response
             formatted_insight = {
                 "id": f"ai_insights_{ai_insights['id']}",
@@ -1851,9 +1853,9 @@ class ResultService:
                 "confidence_score": ai_insights.get("confidence_score"),
                 "user_id": ai_insights.get("user_id")
             }
-            
+
             return [formatted_insight]
-            
+
         except Exception as e:
-            print(f"Error getting AI insights for history for user {user_id}: {str(e)}")
+            logger.error(f"Error getting AI insights for history for user {user_id}: {str(e)}")
             return []

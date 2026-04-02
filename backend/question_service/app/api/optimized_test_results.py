@@ -318,6 +318,13 @@ async def reset_user_tests(
         # Delete main test results
         deleted_results = db.query(TestResult).filter(TestResult.user_id == user_id).delete(synchronize_session=False)
 
+        # ✅ Reset counseling status for demo/bypass accounts
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            user.counseling_completed = False
+            user.counseling_completed_at = None
+            db.add(user)
+
         db.commit()
 
         # Invalidate caches
@@ -331,7 +338,8 @@ async def reset_user_tests(
             "success": True,
             "deleted_results": deleted_results,
             "deleted_details": deleted_details,
-            "deleted_calculated": deleted_calculated
+            "deleted_calculated": deleted_calculated,
+            "counseling_reset": True
         }
     except HTTPException:
         raise

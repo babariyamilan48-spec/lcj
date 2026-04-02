@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { resultsService, TestResult, UserStats, UserProfile } from '../services/resultsService';
 import { aiInsightsHistoryService, AIInsightsHistoryItem } from '../services/aiInsightsHistoryService';
 
@@ -30,7 +30,7 @@ export const useTestResults = (userId?: string) => {
     total: 0,
     total_pages: 0
   });
-  
+
   // Request deduplication and debouncing
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState(0);
@@ -56,26 +56,26 @@ export const useTestResults = (userId?: string) => {
     if (!userId) {
       return;
     }
-    
+
     // Prevent duplicate requests and debounce rapid calls
     const now = Date.now();
     if (isRequestInProgress) {
       return;
     }
-    
+
     // Debounce: prevent calls within 500ms of each other
     if (now - lastRequestTime < 500) {
       return;
     }
-    
+
     setIsRequestInProgress(true);
     setLastRequestTime(now);
-    
+
     // Clear existing results to force fresh data
     setResults([]);
     setAiInsights([]);
     setPagination({ page: 1, total: 0, total_pages: 0 });
-    
+
     setLoading(true);
     setError(null);
 
@@ -111,24 +111,24 @@ export const useTestResults = (userId?: string) => {
         completed_at: insight.completion_date,
         duration_minutes: 0 // AI insights don't have duration
       }));
-      
+
       // Combine regular results with AI insights, prioritizing AI insights at the top
       const combinedResults = [...aiInsightsResults, ...response.results];
       // Sort to ensure AI insights are always at the top
       const sortedResults = combinedResults.sort((a, b) => {
         const aIsAI = a.test_id === 'comprehensive-ai-insights';
         const bIsAI = b.test_id === 'comprehensive-ai-insights';
-        
+
         // AI insights first
         if (aIsAI && !bIsAI) return -1;
         if (!aIsAI && bIsAI) return 1;
-        
+
         // For non-AI tests, sort by completion date (newest first)
         const dateA = new Date(a.completed_at || 0).getTime();
         const dateB = new Date(b.completed_at || 0).getTime();
         return dateB - dateA;
       });
-      
+
       setResults(sortedResults);
       setAiInsights(aiInsightsHistory);
       setPagination({
@@ -141,15 +141,15 @@ export const useTestResults = (userId?: string) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch results';
       setError(errorMessage);
-      
+
       // No fallback data - show empty results
-      const emptyResponse = { 
-        results: [], 
-        total: 0, 
-        page: 1, 
-        total_pages: 0 
+      const emptyResponse = {
+        results: [],
+        total: 0,
+        page: 1,
+        total_pages: 0
       };
-      
+
       console.log('🔄 useTestResults: Setting empty results due to error');
       setResults([]);
       setPagination({ page: 1, total: 0, total_pages: 0 });
@@ -185,7 +185,7 @@ export const useUserStats = (userId?: string) => {
 
   const fetchStats = useCallback(async () => {
     if (!userId) return;
-    
+
     setLoading(true);
     setError(null);
     try {
@@ -222,40 +222,42 @@ export const useUserProfile = (userId?: string) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
+  const isFetching = useRef(false);
 
   const fetchProfile = useCallback(async () => {
-    if (!userId) return;
-    
+    if (!userId || isFetching.current) return;
+
+    isFetching.current = true;
     setLoading(true);
     setError(null);
     try {
       const userProfile = await resultsService.getUserProfileCached(userId);
       setProfile(userProfile);
-      setError(null); // Clear error on success
+      setError(null);
+      hasFetched.current = true;
       return userProfile;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch profile';
       setError(errorMessage);
-      
-      // No fallback data - let error propagate to force proper API usage
       setProfile(null);
       return null;
     } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   }, [userId]);
 
   const updateProfile = useCallback(async (profileData: Partial<UserProfile>) => {
     if (!userId) return;
-    
+
     setLoading(true);
     setError(null);
     try {
       const updatedProfile = await resultsService.updateUserProfile(userId, profileData);
       setProfile(updatedProfile);
-      // Clear cache to ensure fresh data
       resultsService.clearUserCache(userId);
-      setError(null); // Clear error on success
+      setError(null);
       return updatedProfile;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
@@ -267,10 +269,10 @@ export const useUserProfile = (userId?: string) => {
   }, [userId]);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && !hasFetched.current && !isFetching.current) {
       fetchProfile();
     }
-  }, [userId, fetchProfile]);
+  }, [userId]);
 
   return {
     profile,
@@ -282,12 +284,11 @@ export const useUserProfile = (userId?: string) => {
   };
 };
 
-// Hook for analytics data
 // ⚡ NEW OPTIMIZED HOOK: Combined profile dashboard data
 export const useProfileDashboard = (userId?: string) => {
   const [dashboardData, setDashboardData] = useState<{
     results: TestResult[];
-    ai_insights?: any[];  // ✅ Added AI insights field
+    ai_insights?: any[];
     analytics: {
       total_tests: number;
       completed_tests: number;
@@ -297,17 +298,18 @@ export const useProfileDashboard = (userId?: string) => {
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
+  const isFetching = useRef(false);
 
   const fetchDashboard = useCallback(async () => {
-    if (!userId) return;
-    
+    if (!userId || isFetching.current) return;
+
+    isFetching.current = true;
     setLoading(true);
     setError(null);
     try {
       console.log('📊 [useProfileDashboard] Fetching combined dashboard data for user:', userId);
-      
-      // ⚡ NEW: Use combined endpoint instead of 2 separate calls
-      // ✅ CRITICAL: Add cache-busting query parameter to force fresh data
+
       const timestamp = Date.now();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/results_service/optimized/profile-dashboard/${userId}?t=${timestamp}`, {
         method: 'GET',
@@ -325,11 +327,10 @@ export const useProfileDashboard = (userId?: string) => {
 
       const data = await response.json();
       console.log('✅ [useProfileDashboard] Full response:', data);
-      console.log('✅ [useProfileDashboard] Extracted data.data:', data.data);
-      console.log('✅ [useProfileDashboard] AI insights in response:', data.data?.ai_insights);
-      
+
       setDashboardData(data.data);
       setError(null);
+      hasFetched.current = true;
       return data.data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch dashboard';
@@ -339,14 +340,15 @@ export const useProfileDashboard = (userId?: string) => {
       return null;
     } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   }, [userId]);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && !hasFetched.current && !isFetching.current) {
       fetchDashboard();
     }
-  }, [userId, fetchDashboard]);
+  }, [userId]);
 
   return {
     dashboardData,
@@ -369,7 +371,7 @@ export const useAnalytics = (userId?: string) => {
 
   const fetchAnalytics = useCallback(async () => {
     if (!userId) return;
-    
+
     setLoading(true);
     setError(null);
     try {
@@ -380,26 +382,26 @@ export const useAnalytics = (userId?: string) => {
       } catch (analyticsError) {
         console.log('🔄 Analytics endpoint failed, using user results as fallback');
         console.log('Analytics error:', analyticsError);
-        
+
         // Fallback: Use user results to calculate stats
         const userResults = await resultsService.getUserResults(userId, 1, 100);
         console.log('📊 Fallback - User Results:', userResults);
-        
+
         // Calculate stats from user results
         const completedTests = userResults.results?.filter(r => (r as any).completion_percentage >= 100 || r.percentage_score >= 80) || [];
         const totalTests = completedTests.length;
-        
+
         console.log('📈 Fallback - Calculated Stats:', {
           totalResults: userResults.results?.length || 0,
           completedTests: completedTests.length,
           completedTestsData: completedTests
         });
-        
+
         // Calculate average score (using percentage_score)
-        const avgScore = completedTests.length > 0 
+        const avgScore = completedTests.length > 0
           ? completedTests.reduce((sum, r) => sum + (r.percentage_score || (r as any).completion_percentage || 0), 0) / completedTests.length
           : 0;
-        
+
         // Create analytics data from results
         data = {
           stats: {
@@ -415,10 +417,10 @@ export const useAnalytics = (userId?: string) => {
           progressOverTime: [],
           goals: []
         };
-        
+
         console.log('✅ Fallback - Final Analytics Data:', data);
       }
-      
+
       setAnalyticsData(data);
       setError(null);
       return data;
@@ -437,7 +439,7 @@ export const useAnalytics = (userId?: string) => {
       fetchAnalytics();
     }
   }, [userId, fetchAnalytics]);
-  
+
   // Also refresh when page becomes visible (e.g., when navigating back from profile)
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -446,7 +448,7 @@ export const useAnalytics = (userId?: string) => {
         fetchAnalytics();
       }
     };
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [userId, fetchAnalytics]);
@@ -484,7 +486,7 @@ export const useQuizSubmission = () => {
     setSubmitting(true);
     setError(null);
     setLastSubmissionTime(now);
-    
+
     try {
       // Convert answers to the expected format
       const formattedAnswers = answers.map((answer, index) => ({
@@ -524,11 +526,11 @@ export const useQuizSubmission = () => {
 
       const submittedResult = await resultsService.submitTestResult(result);
       setLastSubmittedResult(submittedResult);
-      
+
       // Clear relevant caches
       resultsService.clearUserCache(userId);
       setError(null); // Clear error on success
-      
+
       return submittedResult;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit quiz result';
@@ -560,7 +562,7 @@ export const useReportDownload = () => {
   ) => {
     setDownloading(true);
     setError(null);
-    
+
     try {
       const response = await resultsService.downloadUserReport(
         userId,
@@ -568,37 +570,37 @@ export const useReportDownload = () => {
         includeAiInsights,
         testId
       );
-      
+
       // Create blob and download
       const blob = new Blob([response], {
-        type: format === 'pdf' ? 'application/pdf' : 
+        type: format === 'pdf' ? 'application/pdf' :
               format === 'json' ? 'application/json' : 'text/csv'
       });
-      
+
       // Check if blob is empty
       if (blob.size === 0) {
         throw new Error('Received empty response from server');
       }
-      
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      
+
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
       link.download = `user_report_${userId}_${timestamp}.${format}`;
-      
+
       // Add some styling to make the link invisible
       link.style.display = 'none';
-      
+
       document.body.appendChild(link);
       link.click();
-      
+
       // Clean up after a short delay
       setTimeout(() => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       }, 100);
-      
+
       setError(null); // Clear error on success
       return true;
     } catch (err) {
