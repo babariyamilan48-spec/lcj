@@ -304,58 +304,124 @@ const TestSelectionAPI: React.FC<TestSelectionProps> = ({ onTestSelect, onBack }
                       🎉 બધા પરીક્ષણો પૂર્ણ! તમારા પરિણામો જુઓ.
                     </span>
 
-                    {/* Counseling Call Banner - HIGHLIGHTED */}
+                    {/* Counseling Call Banner - PREMIUM DESIGN */}
                     <motion.div
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.5, delay: 0.2 }}
-                      className={`p-4 rounded-xl border-3 shadow-lg ${
+                      initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, delay: 0.2, type: "spring", stiffness: 100 }}
+                      className={`relative overflow-hidden rounded-2xl sm:rounded-3xl border-2 shadow-lg sm:shadow-xl ${
                         counselingStatus?.counseling_completed
-                          ? 'bg-gradient-to-r from-green-100 via-emerald-100 to-green-100 border-green-500 shadow-green-200'
-                          : 'bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 border-orange-500 shadow-orange-200'
+                          ? 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 border-emerald-300 shadow-emerald-200/50'
+                          : 'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border-orange-300 shadow-orange-200/50'
                       }`}
                     >
-                      <div className="flex items-center justify-center space-x-3">
-                        <motion.div
-                          animate={{ rotate: counselingStatus?.counseling_completed ? [0] : [0, 10, -10, 0] }}
-                          transition={{ duration: 0.5, delay: 0.5 }}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md ${
-                            counselingStatus?.counseling_completed ? 'bg-green-500' : 'bg-orange-500'
-                          }`}
-                        >
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                          </svg>
-                        </motion.div>
-                        <div className="text-center">
-                          <p className={`font-extrabold text-base leading-tight ${
-                            counselingStatus?.counseling_completed ? 'text-green-900' : 'text-orange-900'
-                          }`}>
-                            {counselingStatus?.counseling_completed
-                              ? '🎉 કાઉન્સેલિંગ પૂર્ણ થઈ ગયું છે'
-                              : '📞 24 કલાકમાં કારકિર્દી કાઉન્સેલિંગ માટે કોલ આવશે'
-                            }
-                          </p>
-                          <p className={`text-xs font-medium mt-1 ${
-                            counselingStatus?.counseling_completed ? 'text-green-700' : 'text-orange-700'
-                          }`}>
-                            {counselingStatus?.counseling_completed
-                              ? '✅ Counseling Completed'
-                              : '⏳ કાઉન્સેલિંગ બાકી છે (Counseling Pending)'
-                            }
-                          </p>
+                      {/* Decorative background elements */}
+                      <div className={`hidden sm:block absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-20 ${
+                        counselingStatus?.counseling_completed ? 'bg-emerald-400' : 'bg-orange-400'
+                      }`} />
+                      <div className={`hidden sm:block absolute -bottom-8 -left-8 w-24 h-24 rounded-full opacity-15 ${
+                        counselingStatus?.counseling_completed ? 'bg-green-400' : 'bg-amber-400'
+                      }`} />
+
+                      <div className="relative p-3 sm:p-5">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          {/* Main Icon with pulse effect */}
+                          <motion.div
+                            animate={counselingStatus?.counseling_completed ? {} : {
+                              scale: [1, 1.05, 1],
+                            }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                            className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center shadow-lg ${
+                              counselingStatus?.counseling_completed
+                                ? 'bg-gradient-to-br from-emerald-500 to-green-600'
+                                : 'bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500'
+                            }`}
+                          >
+                            <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            {/* Pulse ring for pending status */}
+                            {!counselingStatus?.counseling_completed && (
+                              <motion.div
+                                animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="absolute inset-0 rounded-xl bg-orange-400"
+                              />
+                            )}
+                          </motion.div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            {/* Main Title */}
+                            <h3 className={`font-bold text-sm sm:text-base leading-snug ${
+                              counselingStatus?.counseling_completed ? 'text-emerald-900' : 'text-orange-900'
+                            }`}>
+                              {counselingStatus?.counseling_completed
+                                ? 'કાઉન્સેલિંગ પૂર્ણ થઈ ગયું છે'
+                                : '24 કલાકમાં કારકિર્દી કાઉન્સેલિંગ માટે કોલ આવશે'
+                              }
+                            </h3>
+
+                            {/* Status Badge */}
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold ${
+                                counselingStatus?.counseling_completed
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {counselingStatus?.counseling_completed ? (
+                                  <>
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                    કાઉન્સેલિંગ પૂર્ણ
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3 h-3 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                    </svg>
+                                    કાઉન્સેલિંગ પેન્ડિંગ
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Arrow button */}
+                          <motion.button
+                            whileHover={{ scale: 1.1, x: 3 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-md transition-all ${
+                              counselingStatus?.counseling_completed
+                                ? 'bg-emerald-500 hover:bg-emerald-600'
+                                : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600'
+                            }`}
+                          >
+                            <svg className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                          </motion.button>
                         </div>
-                        <motion.div
-                          animate={{ x: counselingStatus?.counseling_completed ? [0] : [0, 5, 0] }}
-                          transition={{ duration: 1, repeat: counselingStatus?.counseling_completed ? 0 : Infinity, repeatDelay: 2 }}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                            counselingStatus?.counseling_completed ? 'bg-green-500' : 'bg-orange-500'
-                          }`}
-                        >
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </motion.div>
+
+                        {/* Report Message Box - Compact & Flat */}
+                        {!counselingStatus?.counseling_completed && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 }}
+                            className="mt-2 flex items-start gap-2 px-2.5 py-1.5 sm:gap-2.5 sm:px-3 sm:py-2 bg-white/85 rounded-lg border border-orange-200/60"
+                          >
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <p className="text-orange-900 font-medium text-xs sm:text-sm leading-snug text-left">
+                              કાઉન્સેલિંગ માટે આવો ત્યારે રિપોર્ટ ની ઝેરોક્ષ કોપી લઈ ને આવવું.
+                            </p>
+                          </motion.div>
+                        )}
                       </div>
                     </motion.div>
 

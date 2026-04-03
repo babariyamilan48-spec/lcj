@@ -78,11 +78,16 @@ class Settings(BaseSettings):
     # Special tester/bypass accounts (CSV of emails)
     BYPASS_PAYMENT_EMAILS: List[str] = []
 
+    # Telegram Admin Notifications
+    TELEGRAM_NOTIFICATIONS_ENABLED: bool = False
+    TELEGRAM_BOT_TOKEN: Optional[str] = None
+    TELEGRAM_ADMIN_CHAT_ID: Optional[str] = None
+
     # Google / Firebase (uses backend/credential.json)
 
     # Pydantic v2 settings config
     model_config = SettingsConfigDict(
-        env_file=".env",
+      env_file=".env",
         case_sensitive=False,
         extra="ignore",
     )

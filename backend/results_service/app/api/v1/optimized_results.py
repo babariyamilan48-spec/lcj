@@ -18,6 +18,7 @@ from core.database_fixed import get_db, get_db_session
 from core.middleware.compression import compress_json_response, optimize_large_response
 from core.rate_limit import limiter
 from core.app_factory import resp
+from core.services.telegram_service import send_admin_message
 from results_service.app.schemas.result import TestResult, TestResultCreate
 from results_service.app.services.optimized_result_service import OptimizedResultService
 from sqlalchemy.orm import Session
@@ -38,7 +39,7 @@ class HealthCheckResponse(BaseModel):
 
 @router.post("/results/fast", response_model=OptimizedResultSubmissionResponse)
 async def submit_result_fast(
-    result: TestResultCreate, 
+    result: TestResultCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
@@ -47,31 +48,31 @@ async def submit_result_fast(
     Target response time: < 500ms
     """
     start_time = time.time()
-    
+
     try:
         logger.info(f"Fast submission for user {result.user_id}, test {result.test_id}")
-        
+
         # Use simple direct database operations instead of complex optimized service
         from sqlalchemy import text
         import json
         from datetime import datetime
-        
+
         # Check for duplicates first
         duplicate_check = text("""
-            SELECT id, created_at 
-            FROM test_results 
-            WHERE user_id = :user_id 
-            AND test_id = :test_id 
+            SELECT id, created_at
+            FROM test_results
+            WHERE user_id = :user_id
+            AND test_id = :test_id
             AND is_completed = true
             AND created_at >= NOW() - INTERVAL '5 minutes'
             LIMIT 1
         """)
-        
+
         existing = db.execute(duplicate_check, {
             "user_id": str(result.user_id),
             "test_id": result.test_id
         }).fetchone()
-        
+
         if existing:
             logger.info(f"Duplicate result found for user {result.user_id}")
             processing_time = (time.time() - start_time) * 1000
@@ -81,12 +82,12 @@ async def submit_result_fast(
                 is_duplicate=True,
                 processing_time_ms=round(processing_time, 2)
             )
-        
+
         # Insert new result
         insert_query = text("""
             INSERT INTO test_results (
-                user_id, test_id, answers, completion_percentage, 
-                time_taken_seconds, calculated_result, primary_result, 
+                user_id, test_id, answers, completion_percentage,
+                time_taken_seconds, calculated_result, primary_result,
                 result_summary, is_completed, created_at, completed_at
             ) VALUES (
                 :user_id, :test_id, :answers, :completion_percentage,
@@ -94,7 +95,7 @@ async def submit_result_fast(
                 :result_summary, :is_completed, :created_at, :completed_at
             ) RETURNING id
         """)
-        
+
         # Prepare data
         calculated_result = {
             "analysis": result.analysis,
@@ -103,7 +104,7 @@ async def submit_result_fast(
             "dimensions_scores": result.dimensions_scores,
             "recommendations": result.recommendations
         }
-        
+
         insert_result = db.execute(insert_query, {
             "user_id": str(result.user_id),
             "test_id": result.test_id,
@@ -117,27 +118,34 @@ async def submit_result_fast(
             "created_at": datetime.now(),
             "completed_at": datetime.now()
         })
-        
+
         db.commit()
         created_result_id = insert_result.fetchone()[0]
-        
+
         # Schedule background tasks (cache warming, analytics updates)
         background_tasks.add_task(
-            _warm_user_cache, 
+            _warm_user_cache,
             str(result.user_id)
         )
-        
+
+        # Check if all tests completed and send Telegram notification
+        background_tasks.add_task(
+            _check_all_tests_completed_and_notify,
+            str(result.user_id),
+            result.test_id
+        )
+
         processing_time = (time.time() - start_time) * 1000
-        
+
         logger.info(f"Fast result created in {processing_time:.2f}ms: {created_result_id}")
-        
+
         return OptimizedResultSubmissionResponse(
             message="Result submitted successfully",
             result_id=str(created_result_id),
             is_duplicate=False,
             processing_time_ms=0
         )
-        
+
     except Exception as e:
         processing_time = (time.time() - start_time) * 1000
         logger.error(f"Fast submission failed in {processing_time:.2f}ms: {str(e)}")
@@ -154,7 +162,7 @@ async def get_profile_dashboard(
 ):
     """
     ⚡ ULTRA-OPTIMIZED: Get combined profile dashboard data - Target: <100ms
-    
+
     Combines results and analytics in a single call to reduce API calls
     Optimizations:
     - Single database query for all data
@@ -165,34 +173,34 @@ async def get_profile_dashboard(
     try:
         from question_service.app.models.test_result import TestResult
         import uuid
-        
+
         logger.info(f"🔍 [profile-dashboard] Fetching fresh data for user: {user_id}")
-        
+
         # Validate user ID
         try:
             user_uuid = uuid.UUID(user_id)
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="Invalid user ID format")
-        
+
         # ✅ FIXED: Get ALL completed results (not just 5) - NOW INCLUDES calculated_result
         latest_results = db.query(
-            TestResult.id, 
-            TestResult.test_id, 
-            TestResult.primary_result, 
+            TestResult.id,
+            TestResult.test_id,
+            TestResult.primary_result,
             TestResult.completed_at,
             TestResult.calculated_result  # ✅ NEW: Include calculated_result for test details
         ).filter(
             TestResult.user_id == user_uuid,
             TestResult.is_completed == True
         ).order_by(TestResult.completed_at.desc()).all()  # ✅ Removed .limit(5)
-        
+
         # ⚡ OPTIMIZED: Get analytics stats in same query
         stats = db.query(
             func.count(TestResult.id).label('total_tests'),
             func.avg(TestResult.completion_percentage).label('avg_score'),
             func.count(TestResult.id).filter(TestResult.is_completed == True).label('completed_tests')
         ).filter(TestResult.user_id == user_uuid).first()
-        
+
         # ✅ FIXED: Build results data with all tests - NOW INCLUDES calculated_result
         results_data = [
             {
@@ -204,17 +212,17 @@ async def get_profile_dashboard(
             }
             for r in latest_results
         ]
-        
+
         logger.info(f"✅ [profile-dashboard] Found {len(results_data)} completed tests for user {user_id}")
-        
+
         # Build analytics data
         total_tests = stats.total_tests or 0
         avg_score = round(stats.avg_score, 2) if stats.avg_score else 0
         completed_tests = stats.completed_tests or 0
         completion_rate = round((completed_tests / total_tests) * 100, 1) if total_tests > 0 else 0
-        
+
         logger.info(f"📊 [profile-dashboard] Analytics - total_tests: {total_tests}, completed: {completed_tests}")
-        
+
         # ✅ NEW: Fetch AI insights for history display
         ai_insights_history = []
         try:
@@ -223,7 +231,7 @@ async def get_profile_dashboard(
         except Exception as e:
             logger.warning(f"Could not fetch AI insights for user {user_id}: {e}")
             # Continue without AI insights if fetch fails
-        
+
         response = {
             "success": True,
             "data": {
@@ -238,14 +246,14 @@ async def get_profile_dashboard(
             },
             "message": "Profile dashboard data retrieved successfully"
         }
-        
+
         # ✅ CRITICAL: Add cache-busting headers to prevent browser caching
         json_response = compress_json_response(response, request)
         json_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         json_response.headers["Pragma"] = "no-cache"
         json_response.headers["Expires"] = "0"
         return json_response
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -256,16 +264,16 @@ async def get_profile_dashboard(
 @limiter.limit("200/minute")  # Higher rate limit for optimized endpoint
 @cache_async_result(ttl=300)  # 5-minute cache
 async def get_user_results_fast(
-    request: Request, 
-    user_id: str, 
-    page: int = 1, 
+    request: Request,
+    user_id: str,
+    page: int = 1,
     size: int = 10,
     use_cache: bool = True,
     db: Session = Depends(get_db)
 ):
     """
     ⚡ ULTRA-OPTIMIZED: Get user results - Target: <100ms
-    
+
     Optimizations:
     - SELECT only essential columns: test_id, primary_result, completed_at
     - Database-level pagination and filtering
@@ -275,29 +283,29 @@ async def get_user_results_fast(
     try:
         from question_service.app.models.test_result import TestResult
         import uuid
-        
+
         # Validate user ID
         try:
             user_uuid = uuid.UUID(user_id)
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="Invalid user ID format")
-        
+
         # ⚡ OPTIMIZED: SELECT only essential columns
         offset = (page - 1) * size
-        
+
         results = db.query(
             TestResult.id, TestResult.test_id, TestResult.primary_result, TestResult.completed_at
         ).filter(
             TestResult.user_id == user_uuid,
             TestResult.is_completed == True
         ).order_by(TestResult.completed_at.desc()).offset(offset).limit(size).all()
-        
+
         # Get total count
         total_count = db.query(func.count(TestResult.id)).filter(
             TestResult.user_id == user_uuid,
             TestResult.is_completed == True
         ).scalar() or 0
-        
+
         # Build minimal response
         results_data = [
             {
@@ -308,7 +316,7 @@ async def get_user_results_fast(
             }
             for r in results
         ]
-        
+
         # Compress response
         response = {
             "success": True,
@@ -320,9 +328,9 @@ async def get_user_results_fast(
             },
             "message": "Results retrieved successfully"
         }
-        
+
         return compress_json_response(response, request)
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -338,15 +346,15 @@ async def get_all_test_results_fast(request: Request, user_id: str):
     Target response time: < 800ms
     """
     start_time = time.time()
-    
+
     try:
         logger.info(f"Fast all-results retrieval for user {user_id}")
-        
+
         # Use optimized service
         organized_results = await OptimizedResultService.get_all_test_results_fast(user_id)
-        
+
         processing_time = (time.time() - start_time) * 1000
-        
+
         # Build response without performance metadata
         response_data = {
             "user_id": user_id,
@@ -354,15 +362,15 @@ async def get_all_test_results_fast(request: Request, user_id: str):
             "test_count": len(organized_results),
             "test_types": list(organized_results.keys())
         }
-        
+
         # Optimize and compress large responses
         if len(organized_results) > 5:
             optimized_response = optimize_large_response(response_data)
             return compress_json_response(optimized_response, request)
-        
+
         logger.info(f"Fast all-results completed in {processing_time:.2f}ms")
         return response_data
-        
+
     except Exception as e:
         processing_time = (time.time() - start_time) * 1000
         logger.error(f"Fast all-results failed in {processing_time:.2f}ms: {str(e)}")
@@ -377,25 +385,25 @@ async def get_batch_user_data(request: Request, user_id: str):
     Target response time: < 400ms
     """
     start_time = time.time()
-    
+
     try:
         logger.info(f"Batch data retrieval for user {user_id}")
-        
+
         # Use batch operation for maximum efficiency
         batch_data = await OptimizedResultService.batch_get_user_data(user_id)
-        
+
         processing_time = (time.time() - start_time) * 1000
-        
+
         # Add performance metadata
         batch_data["performance"] = {
             "processing_time_ms": round(processing_time, 2),
             "batch_optimized": True,
             "queries_executed": 2
         }
-        
+
         logger.info(f"Batch data completed in {processing_time:.2f}ms")
         return batch_data
-        
+
     except Exception as e:
         processing_time = (time.time() - start_time) * 1000
         logger.error(f"Batch data failed in {processing_time:.2f}ms: {str(e)}")
@@ -408,15 +416,15 @@ async def get_latest_result_fast(user_id: str):
     Target response time: < 200ms
     """
     start_time = time.time()
-    
+
     try:
         # Get only the latest result with minimal fields
         results = await OptimizedResultService.get_user_results_fast(user_id, limit=1)
-        
+
         processing_time = (time.time() - start_time) * 1000
-        
+
         latest_result = results[0] if results else None
-        
+
         response = {
             "latest_result": latest_result.dict() if latest_result else None,
             "performance": {
@@ -424,10 +432,10 @@ async def get_latest_result_fast(user_id: str):
                 "optimized": True
             }
         }
-        
+
         logger.debug(f"Latest result retrieved in {processing_time:.2f}ms")
         return response
-        
+
     except Exception as e:
         processing_time = (time.time() - start_time) * 1000
         logger.error(f"Latest result failed in {processing_time:.2f}ms: {str(e)}")
@@ -439,17 +447,17 @@ async def health_check_fast():
     Fast health check for optimized endpoints
     """
     start_time = time.time()
-    
+
     try:
         health_data = await OptimizedResultService.health_check()
         processing_time = (time.time() - start_time) * 1000
-        
+
         return HealthCheckResponse(
             status=health_data["status"],
             response_time_ms=round(processing_time, 2),
             optimizations=health_data.get("optimizations", {})
         )
-        
+
     except Exception as e:
         processing_time = (time.time() - start_time) * 1000
         return HealthCheckResponse(
@@ -470,9 +478,9 @@ async def performance_benchmark(user_id: str, iterations: int = 5):
             start_time = time.time()
             await OptimizedResultService.get_user_results_fast(user_id, limit=10)
             fast_times.append((time.time() - start_time) * 1000)
-        
+
         avg_fast_time = sum(fast_times) / len(fast_times)
-        
+
         return {
             "user_id": user_id,
             "benchmark_results": {
@@ -498,7 +506,7 @@ async def performance_benchmark(user_id: str, iterations: int = 5):
                 "Response compression"
             ]
         }
-        
+
     except Exception as e:
         logger.error(f"Benchmark failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -519,6 +527,53 @@ async def _warm_user_cache(user_id: str):
         logger.debug(f"Cache warmed for user {user_id}")
     except Exception as e:
         logger.debug(f"Cache warming failed for user {user_id}: {e}")
+
+async def _check_all_tests_completed_and_notify(user_id: str, test_id: str):
+    """
+    Check if all tests completed and send Telegram notification in background
+    """
+    try:
+        logger.info(f"[FAST-ALL-TESTS-CHECK] Checking completion for user {user_id}")
+
+        from results_service.app.services.completion_status_service import CompletionStatusService
+        from core.database_fixed import get_db_session
+        from auth_service.app.models.user import User
+        import uuid
+
+        status = await CompletionStatusService.get_completion_status(user_id)
+        logger.info(f"[FAST-ALL-TESTS-CHECK] Status: all_completed={status.get('all_completed')}, completed={len(status.get('completed_tests', []))}/{status.get('total_tests', 'N/A')}")
+
+        if status.get("all_completed"):
+            # Get user contact and name
+            user_name = "N/A"
+            contact = "N/A"
+            try:
+                with get_db_session() as db:
+                    user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
+                    if user:
+                        user_name = user.username or user.email or "N/A"
+                        contact = user.phone_number or user.email or "N/A"
+            except Exception as user_err:
+                logger.warning(f"[FAST-ALL-TESTS-CHECK] Could not fetch user contact: {user_err}")
+
+            logger.info(f"[FAST-ALL-TESTS-CHECK] All tests completed! Sending Telegram notification...")
+            telegram_result = send_admin_message(
+                "\n".join([
+                    "<b> All Tests Completed</b>",
+                    f"User: {user_name}",
+                    f"Contact: {contact}",
+                    f"Last Test: <code>{test_id}</code>",
+                    f"Completed: {len(status.get('completed_tests', []))}/{status.get('total_tests', 'N/A')}",
+                ]),
+                dedupe_key=f"tests:all_completed:{user_id}",
+            )
+            logger.info(f"[FAST-ALL-TESTS-CHECK] Telegram notification result: {telegram_result}")
+        else:
+            logger.info(f"[FAST-ALL-TESTS-CHECK] Not all tests completed yet, skipping notification")
+    except Exception as e:
+        logger.error(f"[FAST-ALL-TESTS-CHECK] Error checking completion: {e}")
+        import traceback
+        logger.error(f"[FAST-ALL-TESTS-CHECK] Traceback: {traceback.format_exc()}")
 
 @router.post("/cache/warm/{user_id}")
 async def warm_user_cache(user_id: str, background_tasks: BackgroundTasks):
@@ -552,16 +607,16 @@ async def get_batch_user_data_fast(
     Target response time: < 400ms
     """
     start_time = time.time()
-    
+
     try:
         logger.debug(f"Fast batch user data: user_id={user_id}")
-        
+
         with OptimizedResultService(db) as service:
             # Get all user data in one batch
             batch_data = await service.get_batch_user_data_fast(user_id)
-        
+
         processing_time = (time.time() - start_time) * 1000
-        
+
         result = {
             **batch_data,
             "performance": {
@@ -570,10 +625,10 @@ async def get_batch_user_data_fast(
                 "endpoint": "fast_batch_user_data"
             }
         }
-        
+
         logger.info(f"Fast batch user data completed in {processing_time:.2f}ms")
         return resp(result, True, "Batch user data retrieved successfully", "success")
-        
+
     except Exception as e:
         processing_time = (time.time() - start_time) * 1000
         logger.error(f"Fast batch user data failed in {processing_time:.2f}ms: {str(e)}")
@@ -608,12 +663,12 @@ async def update_batch_user_data(
     Update batch user data (placeholder for frontend compatibility)
     """
     start_time = time.time()
-    
+
     try:
         # For now, just return the current data
         # In the future, this could handle updates
         return await get_batch_user_data_fast(request, user_id, db)
-        
+
     except Exception as e:
         processing_time = (time.time() - start_time) * 1000
         logger.error(f"Batch user data update failed in {processing_time:.2f}ms: {str(e)}")

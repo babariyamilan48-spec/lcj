@@ -209,7 +209,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-        
+
         const workerResponse = await fetch('https://lcj-celery-worker.onrender.com/health', {
           method: 'GET',
           headers: {
@@ -309,6 +309,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
   // Calculate dynamic result when component mounts or testResults change
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout | null = null; // Declare timeoutId at function scope
 
     const processResults = async () => {
       if (!testResults || hasProcessed) return;
@@ -318,7 +319,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
         console.log('🔄 Starting test result calculation...');
 
         // Timeout fallback to prevent stuck loading state
-        const timeoutId = setTimeout(() => {
+        timeoutId = setTimeout(() => {
           if (isMounted) {
             console.warn('⚠️ Calculation timeout - resetting loading state');
             setIsCalculating(false);
@@ -346,7 +347,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
           setCalculatedResult(enhancedResult);
           setHasProcessed(true);
           setIsCalculating(false); // Reset loading state immediately when we have results
-          clearTimeout(timeoutId); // Clear timeout since we got results
+          if (timeoutId) clearTimeout(timeoutId); // Clear timeout since we got results
 
           // Auto-save the result
           await autoSaveResult(enhancedResult);
@@ -363,7 +364,7 @@ const ModernResults: React.FC<ModernResultsProps> = ({ onBack, onRetake }) => {
         if (isMounted) {
           setIsCalculating(false);
           setIsInitialLoad(false);
-          clearTimeout(timeoutId); // Ensure timeout is cleared
+          if (timeoutId) clearTimeout(timeoutId); // Ensure timeout is cleared
           console.log('✅ Test result calculation completed');
         }
       }

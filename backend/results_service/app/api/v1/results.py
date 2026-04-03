@@ -15,10 +15,11 @@ from results_service.app.services.result_service import ResultService
 from results_service.app.services.markdown_report_service import MarkdownReportService
 from results_service.app.services.pdf_generator import PDFGeneratorService
 from core.services.ai_service import AIInsightService
+from core.services.telegram_service import send_admin_message
 import logging
 
 from auth_service.app.deps.auth import get_current_user
-from auth_service.app.models.user import User
+from auth_service.app.models.user import User, Payment
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ async def submit_result(result: TestResultCreate, db: Session = Depends(get_db))
     try:
         logger.info(f"Submitting result for user {result.user_id}, test {result.test_id}")
 
-        # ✅ OPTIMIZED: Single targeted query instead of fetching all results
+        # OPTIMIZED: Single targeted query instead of fetching all results
         import uuid
         from sqlalchemy import and_
         from question_service.app.models.test_result import TestResult as DBTestResult
@@ -100,13 +101,51 @@ async def submit_result(result: TestResultCreate, db: Session = Depends(get_db))
             cache_cleared = await CompletionStatusService.invalidate_user_cache(str(result.user_id))
 
             if cache_cleared:
-                logger.info(f"✅ Successfully invalidated completion status cache for user {result.user_id} after test submission")
+                logger.info(f"Successfully invalidated completion status cache for user {result.user_id} after test submission")
             else:
-                logger.warning(f"⚠️ Cache invalidation returned False for user {result.user_id}")
+                logger.warning(f"Cache invalidation returned False for user {result.user_id}")
 
             # Also mark the test as completed in the completion service
             await CompletionStatusService.mark_test_completed(str(result.user_id), result.test_id)
-            logger.info(f"✅ Marked test {result.test_id} as completed for user {result.user_id}")
+            logger.info(f"Marked test {result.test_id} as completed for user {result.user_id}")
+
+            # If this submission makes the user complete all required tests, notify admin (Telegram)
+            try:
+                logger.info(f"[ALL-TESTS-CHECK] Checking completion status for user {result.user_id}")
+
+                # Get user contact and name
+                user_name = "N/A"
+                contact = "N/A"
+                try:
+                    user = db.query(User).filter(User.id == result.user_id).first()
+                    if user:
+                        user_name = user.username or user.email or "N/A"
+                        contact = user.phone_number or user.email or "N/A"
+                except Exception as user_err:
+                    logger.warning(f"[ALL-TESTS-CHECK] Could not fetch user contact: {user_err}")
+
+                status = await CompletionStatusService.get_completion_status(str(result.user_id))
+                logger.info(f"[ALL-TESTS-CHECK] Status: all_completed={status.get('all_completed')}, completed={len(status.get('completed_tests', []))}/{status.get('total_tests', 'N/A')}")
+
+                if status.get("all_completed"):
+                    logger.info(f"[ALL-TESTS-CHECK] All tests completed! Sending Telegram notification...")
+                    telegram_result = send_admin_message(
+                        "\n".join([
+                            "<b> All Tests Completed</b>",
+                            f"User: {user_name}",
+                            f"Contact: {contact}",
+                            f"Last Test: <code>{result.test_id}</code>",
+                            f"Completed: {len(status.get('completed_tests', []))}/{status.get('total_tests', 'N/A')}",
+                        ]),
+                        dedupe_key=f"tests:all_completed:{result.user_id}",
+                    )
+                    logger.info(f"[ALL-TESTS-CHECK] Telegram notification result: {telegram_result}")
+                else:
+                    logger.info(f"[ALL-TESTS-CHECK] Not all tests completed yet, skipping notification")
+            except Exception as notify_err:
+                logger.error(f"[ALL-TESTS-CHECK] Telegram all-tests-completed notify failed: {notify_err}")
+                import traceback
+                logger.error(f"[ALL-TESTS-CHECK] Traceback: {traceback.format_exc()}")
 
         except Exception as e:
             logger.error(f"❌ Failed to invalidate completion status cache: {e}")

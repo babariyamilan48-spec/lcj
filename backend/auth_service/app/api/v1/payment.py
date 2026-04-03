@@ -4,6 +4,7 @@ Handles order creation, payment verification, and status checks
 """
 
 import logging
+import sys
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
@@ -11,9 +12,15 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Re
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
+# DEBUG: Verify this file is being loaded
+print("="*60, file=sys.stderr)
+print("[PAYMENT.PY] FILE LOADED WITH TELEGRAM NOTIFICATIONS", file=sys.stderr)
+print("="*60, file=sys.stderr)
+
 from core.config.settings import settings
 from core.database_fixed import get_db, get_db_session
 from core.services.razorpay_service import get_razorpay_service
+from core.services.telegram_service import send_admin_message
 from auth_service.app.models.user import User, Payment
 from auth_service.app.deps.auth import get_current_user
 from auth_service.app.schemas.payment import (
@@ -256,17 +263,20 @@ async def verify_payment(
 
     Requires: Authentication token (user must be logged in)
     """
+    # IMMEDIATE DEBUG LOG
+    logger.info(f"[VERIFY_PAYMENT] Endpoint called with order={request.order_id}, payment={request.payment_id}")
+
     try:
         # ✅ Use authenticated user
         if not current_user:
-            logger.warning("Unauthorized payment verification - no authenticated user")
+            logger.warning("[VERIFY_PAYMENT] Unauthorized - no authenticated user")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not authenticated. Please log in first."
             )
 
         user = current_user
-        logger.info(f"Payment verification from authenticated user: {user.id}")
+        logger.info(f"[VERIFY_PAYMENT] User authenticated: {user.id}")
 
         # Get Razorpay service
         razorpay_service = get_razorpay_service()
@@ -320,6 +330,21 @@ async def verify_payment(
         # Idempotent verify: if already paid with same payment_id, return success
         if payment.status == "paid" and payment.payment_id == request.payment_id:
             logger.info(f"Payment already verified for order {request.order_id}, payment {request.payment_id}")
+            # Still send notification (idempotent - won't duplicate due to dedupe key)
+            try:
+                logger.info(f"[IDEMPOTENT] Sending Telegram notification for already-verified payment {request.payment_id}")
+                result = send_admin_message(
+                    "\n".join([
+                        "<b>✅ Payment Success</b>",
+                        f"User: {user.username or user.email or 'N/A'}",
+                        f"Contact: {payment.contact or user.phone_number or user.email or 'N/A'}",
+                        f"Amount: ₹{(payment.amount or 0) / 100:.2f}",
+                    ]),
+                    dedupe_key=f"payment:verify:{payment.order_id}:{request.payment_id}",
+                )
+                logger.info(f"[IDEMPOTENT] Telegram notification result: {result}")
+            except Exception as notify_err:
+                logger.error(f"[IDEMPOTENT] Telegram payment notify failed: {notify_err}")
             return VerifyPaymentResponse(
                 success=True,
                 message="Payment already verified",
@@ -341,7 +366,32 @@ async def verify_payment(
         if contact_number:
             user.phone_number = contact_number
 
+        # ✅ CRITICAL: Commit database changes before sending notification
+        db.add(payment)
+        db.add(user)
+        db.commit()
+        db.refresh(payment)
+        db.refresh(user)
+
         logger.info(f"✅ Payment verified for user {user.id}: {request.payment_id}")
+
+        # Send Telegram notification
+        try:
+            logger.info(f"Attempting Telegram notification for payment {request.payment_id}")
+            result = send_admin_message(
+                "\n".join([
+                    "<b>✅ Payment Success</b>",
+                    f"User: {user.username or user.email or 'N/A'}",
+                    f"Contact: {payment.contact or user.phone_number or user.email or 'N/A'}",
+                    f"Amount: ₹{(payment.amount or 0) / 100:.2f}",
+                ]),
+                dedupe_key=f"payment:verify:{payment.order_id}:{request.payment_id}",
+            )
+            logger.info(f"Telegram notification result: {result}")
+        except Exception as notify_err:
+            logger.error(f"Telegram payment notify failed: {notify_err}")
+            import traceback
+            logger.error(f"Telegram error traceback: {traceback.format_exc()}")
 
         return VerifyPaymentResponse(
             success=True,
@@ -563,6 +613,19 @@ async def razorpay_webhook(
         logger.info(
             f"✅ Webhook marked payment paid for user {user.id}, order {order_id}, event {event_id or 'unknown'}"
         )
+
+        try:
+            send_admin_message(
+                "\n".join([
+                    "<b>✅ Payment Success (Webhook)</b>",
+                    f"User: {user.username or user.email or 'N/A'}",
+                    f"Contact: {payment.contact or user.phone_number or user.email or 'N/A'}",
+                    f"Amount: ₹{(payment.amount or 0) / 100:.2f}",
+                ]),
+                dedupe_key=f"payment:webhook:{order_id}:{payment_id}",
+            )
+        except Exception as notify_err:
+            logger.warning(f"Telegram webhook payment notify failed: {notify_err}")
 
         return {"status": "ok", "event_id": event_id}
 
