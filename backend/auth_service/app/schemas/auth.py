@@ -28,6 +28,9 @@ class UserResponse(BaseModel):
     avatar: Optional[str] = None
     providers: Optional[list] = ["password"]
     phone_number: Optional[str] = None
+    school_id: Optional[str] = None
+    school_name: Optional[str] = None
+    access_reason: Optional[str] = None  # paid | school | none
 
 
 class PhoneUpdateInput(BaseModel):

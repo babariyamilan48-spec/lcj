@@ -3,17 +3,23 @@ Optimized Admin Service with proper database session management
 Handles all admin operations with caching and error handling
 """
 import logging
+import random
+import re
+import string
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, text
 
-from auth_service.app.models.user import User
+from auth_service.app.models.user import User, School
 from auth_service.app.utils.jwt import get_password_hash
 from question_service.app.models.test_result import TestResult
 from core.cache import cache
 
 logger = logging.getLogger(__name__)
+
+# Sentinel for update_user: distinguishes "field not provided" from explicit None (unlink school)
+_UNSET = object()
 
 
 class AdminService:
@@ -49,6 +55,7 @@ class AdminService:
         payment_completed: Optional[bool] = None,
         has_completed_test: Optional[bool] = None,
         counseling_completed: Optional[bool] = None,
+        school_id: Optional[str] = None,
     ) -> tuple[List[Dict[str, Any]], int]:
         """
         Get all users with pagination and filtering
@@ -93,6 +100,12 @@ class AdminService:
             if counseling_completed is not None:
                 query = query.filter(User.counseling_completed == counseling_completed)
 
+            if school_id is not None:
+                if school_id == "none":
+                    query = query.filter(User.school_id.is_(None))
+                else:
+                    query = query.filter(User.school_id == school_id)
+
             # Get total count before pagination
             total_count = query.count()
 
@@ -100,8 +113,21 @@ class AdminService:
             offset = (page - 1) * per_page
             users = query.order_by(desc(User.created_at)).offset(offset).limit(per_page).all()
 
+            # ✅ Batch-fetch school names for the page (avoids N+1 queries)
+            school_ids = {u.school_id for u in users if u.school_id}
+            school_names: Dict[str, str] = {}
+            if school_ids:
+                for s in db.query(School).filter(School.id.in_(school_ids)).all():
+                    school_names[str(s.id)] = s.name
+
             # Convert to response format
-            users_data = [AdminService._user_to_dict(user) for user in users]
+            users_data = [
+                AdminService._user_to_dict(
+                    user,
+                    school_name=school_names.get(str(user.school_id)) if user.school_id else None,
+                )
+                for user in users
+            ]
 
             return users_data, total_count
 
@@ -168,7 +194,8 @@ class AdminService:
         user_id: str,
         is_active: Optional[bool] = None,
         role: Optional[str] = None,
-        password: Optional[str] = None
+        password: Optional[str] = None,
+        school_id: Any = _UNSET,
     ) -> Dict[str, Any]:
         """Update user status, role, or password"""
         try:
@@ -190,13 +217,25 @@ class AdminService:
             if password and password.strip():
                 user.password_hash = get_password_hash(password)
 
+            # Update school link (school_id=None unlinks, sentinel = don't touch)
+            if school_id is not _UNSET:
+                if school_id is not None:
+                    school = db.query(School).filter(School.id == school_id).first()
+                    if not school:
+                        raise ValueError(f"School {school_id} not found")
+                user.school_id = school_id
+
             db.commit()
             db.refresh(user)
 
             AdminService._invalidate_user_cache(str(user.id))
 
             logger.info(f"User updated: {user.email}")
-            return AdminService._user_to_dict(user)
+            school_name = None
+            if user.school_id:
+                linked_school = db.query(School).filter(School.id == user.school_id).first()
+                school_name = linked_school.name if linked_school else None
+            return AdminService._user_to_dict(user, school_name=school_name)
 
         except Exception as e:
             logger.error(f"Error updating user: {e}")
@@ -305,7 +344,7 @@ class AdminService:
             raise
 
     @staticmethod
-    def _user_to_dict(user: User) -> Dict[str, Any]:
+    def _user_to_dict(user: User, school_name: Optional[str] = None) -> Dict[str, Any]:
         """Convert User model to dictionary"""
         return {
             "id": str(user.id),
@@ -320,9 +359,136 @@ class AdminService:
             "counseling_completed": user.counseling_completed,
             "counseling_completed_at": user.counseling_completed_at.isoformat() if user.counseling_completed_at else None,
             "phone_number": user.phone_number,
+            "school_id": str(user.school_id) if user.school_id else None,
+            "school_name": school_name,
             "created_at": user.created_at.isoformat() if user.created_at else None,
             "updated_at": user.updated_at.isoformat() if user.updated_at else None,
             "last_login": None,
             "avatar": user.avatar,
             "providers": user.providers
         }
+
+    # ------------------------------------------------------------------
+    # Partner schools (free access for linked students)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _generate_school_code(db: Session, name: str) -> str:
+        """Generate a unique uppercase access code from the school name."""
+        slug = re.sub(r"[^A-Za-z0-9]", "", name).upper()[:20] or "SCHOOL"
+        for _ in range(50):
+            suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            code = f"{slug}-{suffix}"
+            if not db.query(School).filter(School.code == code).first():
+                return code
+        raise ValueError("Could not generate a unique school code — try a different name")
+
+    @staticmethod
+    def school_to_dict(school: School, student_count: int = 0) -> Dict[str, Any]:
+        return {
+            "id": str(school.id),
+            "name": school.name,
+            "code": school.code,
+            "is_active": school.is_active,
+            "contact_email": school.contact_email,
+            "student_count": student_count,
+            "created_at": school.created_at.isoformat() if school.created_at else None,
+            "updated_at": school.updated_at.isoformat() if school.updated_at else None,
+        }
+
+    @staticmethod
+    def get_schools(db: Session) -> List[Dict[str, Any]]:
+        """List all schools (active + inactive) with linked student counts."""
+        rows = (
+            db.query(School, func.count(User.id).label("student_count"))
+            .outerjoin(User, User.school_id == School.id)
+            .group_by(School.id)
+            .order_by(desc(School.created_at))
+            .all()
+        )
+        return [AdminService.school_to_dict(school, count) for school, count in rows]
+
+    @staticmethod
+    def create_school(db: Session, name: str, contact_email: Optional[str] = None) -> Dict[str, Any]:
+        """Create a partner school with an auto-generated unique code."""
+        try:
+            name = (name or "").strip()
+            if not name:
+                raise ValueError("School name is required")
+
+            code = AdminService._generate_school_code(db, name)
+            school = School(name=name, code=code, contact_email=contact_email or None)
+            db.add(school)
+            db.commit()
+            db.refresh(school)
+            logger.info(f"School created: {name} ({code})")
+            return AdminService.school_to_dict(school)
+        except Exception as e:
+            db.rollback()
+            raise
+
+    @staticmethod
+    def update_school(db: Session, school_id: str, changes: Dict[str, Any]) -> Dict[str, Any]:
+        """Update a school — only fields present in `changes` are modified."""
+        try:
+            school = db.query(School).filter(School.id == school_id).first()
+            if not school:
+                raise ValueError(f"School {school_id} not found")
+
+            if "name" in changes and changes["name"] is not None:
+                new_name = changes["name"].strip()
+                if not new_name:
+                    raise ValueError("School name cannot be empty")
+                school.name = new_name
+
+            if "code" in changes and changes["code"] is not None:
+                new_code = changes["code"].strip().upper()
+                if not re.fullmatch(r"[A-Z0-9-]{4,40}", new_code):
+                    raise ValueError("Code must be 4-40 characters: letters, digits, hyphens")
+                existing = db.query(School).filter(School.code == new_code, School.id != school.id).first()
+                if existing:
+                    raise ValueError(f"Code {new_code} is already used by another school")
+                school.code = new_code
+
+            if "contact_email" in changes:
+                school.contact_email = changes["contact_email"] or None
+
+            if "is_active" in changes and changes["is_active"] is not None:
+                school.is_active = bool(changes["is_active"])
+
+            db.commit()
+            db.refresh(school)
+            logger.info(f"School updated: {school.name} ({school.code})")
+
+            count = db.query(User).filter(User.school_id == school.id).count()
+            return AdminService.school_to_dict(school, count)
+        except Exception as e:
+            db.rollback()
+            raise
+
+    @staticmethod
+    def delete_school(db: Session, school_id: str, force: bool = False) -> Dict[str, Any]:
+        """Delete a school. Blocked (ValueError) while students are linked unless force=True."""
+        try:
+            school = db.query(School).filter(School.id == school_id).first()
+            if not school:
+                raise ValueError(f"School {school_id} not found")
+
+            student_count = db.query(User).filter(User.school_id == school.id).count()
+            if student_count > 0 and not force:
+                raise ValueError(
+                    f"School has {student_count} linked students. "
+                    f"Deactivate it instead, or retry with force=true to unlink them."
+                )
+
+            # Unlink students first (FK is ON DELETE SET NULL, but be explicit)
+            db.query(User).filter(User.school_id == school.id).update(
+                {User.school_id: None}, synchronize_session=False
+            )
+            db.delete(school)
+            db.commit()
+            logger.info(f"School deleted: {school.name} (students unlinked: {student_count})")
+            return {"deleted": True, "unlinked_students": student_count}
+        except Exception:
+            db.rollback()
+            raise

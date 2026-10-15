@@ -98,13 +98,26 @@ class PaymentStatusResponse(BaseModel):
     plan_type: Optional[str] = Field(None, description="User's current plan type")
     last_payment_date: Optional[datetime] = Field(None, description="Date of last successful payment")
     payment_id: Optional[str] = Field(None, description="Last successful payment ID")
+    access_reason: str = Field(
+        "none",
+        description="Why the user has access: paid | school | none",
+    )
+    school_name: Optional[str] = Field(
+        None, description="Partner school name when access_reason == 'school'"
+    )
+    school_access_enabled: bool = Field(
+        True,
+        description="Master switch (PARTNER_SCHOOL_ENABLED): false = hide the school code screen for new users",
+    )
 
     class Config:
         json_schema_extra = {
             "example": {
                 "payment_completed": True,
                 "last_payment_date": "2024-01-15T10:30:00Z",
-                "payment_id": "pay_1234567890"
+                "payment_id": "pay_1234567890",
+                "access_reason": "paid",
+                "school_name": None
             }
         }
 

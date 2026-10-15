@@ -21,7 +21,7 @@ from core.config.settings import settings
 from core.database_fixed import get_db, get_db_session
 from core.services.razorpay_service import get_razorpay_service
 from core.services.telegram_service import send_admin_message
-from auth_service.app.models.user import User, Payment
+from auth_service.app.models.user import User, Payment, School
 from auth_service.app.deps.auth import get_current_user
 from auth_service.app.schemas.payment import (
     CreateOrderRequest,
@@ -441,8 +441,24 @@ async def check_payment_status(
                 payment_completed=True,
                 plan_type=user.plan_type or "bypass",
                 last_payment_date=None,
-                payment_id="bypass"
+                payment_id="bypass",
+                access_reason="paid",
+                school_name=None,
+                school_access_enabled=settings.PARTNER_SCHOOL_ENABLED,
             )
+
+        # ✅ Entitlement resolution: paid → active school → none
+        # (school students keep users.payment_completed=False in the DB so
+        #  revenue analytics stay honest — the response reports access instead)
+        access_reason = "none"
+        school_name = None
+        if user.payment_completed:
+            access_reason = "paid"
+        elif user.school_id:
+            school = db.query(School).filter(School.id == user.school_id).first()
+            if school and school.is_active:
+                access_reason = "school"
+                school_name = school.name
 
         # ✅ OPTIMIZED: Get last successful payment with single targeted query
         last_payment = db.query(Payment).filter(
@@ -452,10 +468,14 @@ async def check_payment_status(
 
         # Build response with minimal data
         response = PaymentStatusResponse(
-            payment_completed=user.payment_completed,
+            payment_completed=user.payment_completed or access_reason == "school",
             plan_type=user.plan_type,
             last_payment_date=last_payment.updated_at if last_payment else None,
-            payment_id=last_payment.payment_id if last_payment else None
+            payment_id=last_payment.payment_id if last_payment else None,
+            access_reason=access_reason,
+            school_name=school_name,
+            # Toggle only hides the screen for NEW users — entitlement above is unchanged
+            school_access_enabled=settings.PARTNER_SCHOOL_ENABLED,
         )
 
         return response

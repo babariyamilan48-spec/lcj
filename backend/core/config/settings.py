@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     DATABASE_POOL_SIZE: int = 10  # Base pool size for Neon
     DATABASE_MAX_OVERFLOW: int = 20  # Additional overflow connections
 
+    # Partner-school free access master switch (env: PARTNER_SCHOOL_ENABLED)
+    # false = hide the school dropdown/code screen for NEW users (regular payment page),
+    #         but students who already redeemed a code keep their access.
+    PARTNER_SCHOOL_ENABLED: bool = True
+
     # Redis Cache Configuration
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_TTL_DEFAULT: int = 300  # 5 minutes default TTL

@@ -285,10 +285,11 @@ async def get_current_user_optimized_v2(
             raise HTTPException(status_code=401, detail="Invalid token format")
 
         # ⚡ OPTIMIZED: SELECT only essential columns
-        from ...models.user import User
+        from ...models.user import User, School
         user = db.query(
             User.id, User.email, User.username, User.is_active,
-            User.is_verified, User.role, User.avatar, User.providers, User.phone_number
+            User.is_verified, User.role, User.avatar, User.providers, User.phone_number,
+            User.school_id, User.payment_completed
         ).filter(User.id == user_uuid).first()
 
         if not user:
@@ -296,6 +297,18 @@ async def get_current_user_optimized_v2(
 
         if not user[3]:  # is_active is at index 3
             raise HTTPException(status_code=403, detail="User account is inactive")
+
+        # ✅ School entitlement (only queried when the user is linked to a school)
+        school_id = user[9]
+        school_name = None
+        access_reason = "none"
+        if user[10]:  # payment_completed
+            access_reason = "paid"
+        elif school_id:
+            school = db.query(School).filter(School.id == school_id).first()
+            if school and school.is_active:
+                access_reason = "school"
+                school_name = school.name
 
         # Return minimal response
         return UserResponse(
@@ -308,6 +321,9 @@ async def get_current_user_optimized_v2(
             avatar=user[6],
             providers=user[7] or ["password"],
             phone_number=user[8],
+            school_id=str(school_id) if school_id else None,
+            school_name=school_name,
+            access_reason=access_reason,
         )
 
     except HTTPException:

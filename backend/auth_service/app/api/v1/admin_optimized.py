@@ -31,6 +31,7 @@ async def get_all_users(
     payment_completed: Optional[bool] = Query(None, description="Filter by payment status"),
     has_completed_test: Optional[bool] = Query(None, description="Filter by test completion status"),
     counseling_completed: Optional[bool] = Query(None, description="Filter by counseling completion status"),
+    school_id: Optional[str] = Query(None, description="Filter by school UUID, or 'none' for unlinked users"),
 ):
     """
     Get all users with pagination and filtering (Admin only)
@@ -56,6 +57,7 @@ async def get_all_users(
             payment_completed=payment_completed,
             has_completed_test=has_completed_test,
             counseling_completed=counseling_completed,
+            school_id=school_id,
         )
 
         return users_data
@@ -154,7 +156,8 @@ async def update_user(
     {
         "is_active": true,
         "role": "admin",  # or "user"
-        "password": "newpassword"  # optional
+        "password": "newpassword",  # optional
+        "school_id": "uuid-or-null"  # optional: link to school, null = unlink
     }
     """
     try:
@@ -162,6 +165,10 @@ async def update_user(
         is_active = user_data.get('is_active')
         role = user_data.get('role')
         password = user_data.get('password')
+        # school_id: only pass when the key is present so null = unlink, absent = unchanged
+        school_kwargs = {}
+        if 'school_id' in user_data:
+            school_kwargs['school_id'] = user_data.get('school_id')
 
         # Update user
         updated_user = AdminService.update_user(
@@ -169,7 +176,8 @@ async def update_user(
             user_id=user_id,
             is_active=is_active,
             role=role,
-            password=password
+            password=password,
+            **school_kwargs
         )
 
         return resp(updated_user, message="User updated successfully")
@@ -374,4 +382,141 @@ async def get_counseling_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch counseling status"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Partner schools management (free access for linked students)
+# ---------------------------------------------------------------------------
+
+@router.get("/schools", response_model=dict)
+async def list_schools(
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    List all partner schools with linked student counts (Admin only)
+    """
+    try:
+        schools = AdminService.get_schools(db=db)
+        return resp(schools, message="Schools retrieved successfully")
+    except Exception as e:
+        logger.error(f"Error listing schools: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch schools"
+        )
+
+
+@router.post("/schools", response_model=dict)
+async def create_school(
+    school_data: dict,
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a partner school (Admin only)
+
+    Request Body:
+    {
+        "name": "Greenfield High School",
+        "contact_email": "coordinator@greenfield.edu"  # optional
+    }
+
+    Response includes the auto-generated access code to share with the school.
+    """
+    try:
+        name = (school_data.get('name') or '').strip()
+        contact_email = (school_data.get('contact_email') or '').strip() or None
+
+        if not name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="School name is required"
+            )
+
+        new_school = AdminService.create_school(db=db, name=name, contact_email=contact_email)
+        return resp(new_school, message="School created successfully")
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating school: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create school"
+        )
+
+
+@router.put("/schools/{school_id}", response_model=dict)
+async def update_school(
+    school_id: str,
+    school_data: dict,
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Modify a school (Admin only) — all fields optional:
+
+    {
+        "name": "New Name",
+        "code": "NEWCODE123",      # regenerate/share a different code
+        "contact_email": "x@y.z",
+        "is_active": false         # deactivate = revoke access for ALL linked students
+    }
+    """
+    try:
+        if not school_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields to update"
+            )
+
+        updated = AdminService.update_school(db=db, school_id=school_id, changes=school_data)
+        return resp(updated, message="School updated successfully")
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND if "not found" in str(e).lower() else status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating school: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update school"
+        )
+
+
+@router.delete("/schools/{school_id}", response_model=dict)
+async def delete_school(
+    school_id: str,
+    force: bool = Query(False, description="Unlink students and delete even if students are linked"),
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a school (Admin only).
+
+    - With linked students and force=false → 409 with guidance (deactivate instead).
+    - With force=true → unlinks students first, then deletes.
+    """
+    try:
+        result = AdminService.delete_school(db=db, school_id=school_id, force=force)
+        return resp(result, message="School deleted successfully")
+
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+    except Exception as e:
+        logger.error(f"Error deleting school: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete school"
         )

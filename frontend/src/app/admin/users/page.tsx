@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Loader2, Filter, Mail, Shield, UserCheck, Users, Eye, Download, Phone, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Loader2, Filter, Mail, Shield, UserCheck, Users, Eye, Download, Phone, FileSpreadsheet, Unlink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,8 @@ interface User {
   payment_completed?: boolean;
   counseling_completed?: boolean;
   counseling_completed_at?: string | null;
+  school_id?: string | null;
+  school_name?: string | null;
 }
 
 interface LatestTestResult {
@@ -58,6 +60,7 @@ export default function UsersPage() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
+  const [unlinkingSchool, setUnlinkingSchool] = useState(false);
 
   const getAuthHeaders = () => {
     const raw =
@@ -181,7 +184,8 @@ export default function UsersPage() {
     has_completed_test: '',
     counseling_completed: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    school_id: ''
   });
 
   // Pagination state
@@ -208,6 +212,28 @@ export default function UsersPage() {
   // Separate useEffect to fetch overall stats once on mount
   useEffect(() => {
     fetchOverallStats();
+  }, []);
+
+  // Schools for the School filter dropdown (non-critical — silently skip on failure)
+  const [schoolOptions, setSchoolOptions] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    const loadSchools = async () => {
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/schools`, {
+          cache: 'no-store',
+          headers: getAuthHeaders()
+        });
+        if (!response.ok) return;
+        const body = await response.json();
+        const list = Array.isArray(body) ? body : body?.data || [];
+        // Only active schools in the filter — deactivated ones are hidden
+        setSchoolOptions(list.filter((s: any) => s.is_active).map((s: any) => ({ id: s.id, name: s.name })));
+      } catch {
+        // school filter just stays empty
+      }
+    };
+    loadSchools();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchOverallStats = async () => {
@@ -262,7 +288,7 @@ export default function UsersPage() {
           filters.payment_completed ? `&payment_completed=${filters.payment_completed === 'true'}` : ''
         }${filters.has_completed_test ? `&has_completed_test=${filters.has_completed_test === 'true'}` : ''}${
           filters.counseling_completed ? `&counseling_completed=${filters.counseling_completed === 'true'}` : ''
-        }`,
+        }${filters.school_id ? `&school_id=${encodeURIComponent(filters.school_id)}` : ''}`,
         {
           cache: 'no-store',
           headers: {
@@ -456,6 +482,31 @@ export default function UsersPage() {
     setShowUserModal(true);
   };
 
+  // Unlink a user from their school (revoke free school access)
+  const unlinkSchool = async () => {
+    if (!selectedUser?.school_id || unlinkingSchool) return;
+    const ok = window.confirm(
+      `Unlink ${selectedUser.email} from "${selectedUser.school_name}"? They will lose free school access and see the payment page again.`
+    );
+    if (!ok) return;
+    try {
+      setUnlinkingSchool(true);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth_service/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ school_id: null })
+      });
+      if (!response.ok) throw new Error('Failed to unlink student');
+      setSelectedUser(prev => (prev ? { ...prev, school_id: null, school_name: null } : prev));
+      setSuccess(`Unlinked ${selectedUser.email} from ${selectedUser.school_name}`);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message || 'Failed to unlink student');
+    } finally {
+      setUnlinkingSchool(false);
+    }
+  };
+
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     // Reset to page 1 when any filter changes
@@ -472,7 +523,8 @@ export default function UsersPage() {
       has_completed_test: '',
       counseling_completed: '',
       start_date: '',
-      end_date: ''
+      end_date: '',
+      school_id: ''
     });
     setPagination(prev => ({ ...prev, page: 1 }));
   };
@@ -495,6 +547,7 @@ export default function UsersPage() {
       'Status',
       'Verified',
       'Payment Completed',
+      'School',
       'Counseling Completed',
       'Counseling Date',
       'Providers',
@@ -513,6 +566,7 @@ export default function UsersPage() {
       user.is_active ? 'Active' : 'Inactive',
       user.is_verified ? 'Yes' : 'No',
       user.payment_completed ? 'Yes' : 'No',
+      user.school_name || '',
       user.counseling_completed ? 'Yes' : 'No',
       user.counseling_completed_at ? new Date(user.counseling_completed_at).toLocaleString() : '',
       user.providers?.join(', ') || '',
@@ -527,6 +581,7 @@ export default function UsersPage() {
     if (filters.is_active) appliedFilters.push(`Status: ${filters.is_active === 'true' ? 'Active' : 'Inactive'}`);
     if (filters.is_verified) appliedFilters.push(`Verified: ${filters.is_verified === 'true' ? 'Yes' : 'No'}`);
     if (filters.payment_completed) appliedFilters.push(`Payment: ${filters.payment_completed === 'true' ? 'Paid' : 'Unpaid'}`);
+    if (filters.school_id) appliedFilters.push(`School: ${filters.school_id === 'none' ? 'Not linked' : (schoolOptions.find(s => s.id === filters.school_id)?.name || filters.school_id)}`);
     if (filters.has_completed_test) appliedFilters.push(`Tests: ${filters.has_completed_test === 'true' ? 'Completed' : 'No Tests'}`);
     if (filters.counseling_completed) appliedFilters.push(`Counseling: ${filters.counseling_completed === 'true' ? 'Completed' : 'Pending'}`);
     if (filters.start_date) appliedFilters.push(`Start Date: ${filters.start_date}`);
@@ -726,6 +781,18 @@ export default function UsersPage() {
             </select>
 
             <select
+              value={filters.school_id}
+              onChange={(e) => handleFilterChange('school_id', e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="">All Schools</option>
+              <option value="none">Not Linked</option>
+              {schoolOptions.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+
+            <select
               value={filters.has_completed_test}
               onChange={(e) => handleFilterChange('has_completed_test', e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -823,6 +890,11 @@ export default function UsersPage() {
                         ) : (
                           <Badge variant="outline" className="text-gray-500 border-gray-300">
                             Unpaid
+                          </Badge>
+                        )}
+                        {user.school_name && (
+                          <Badge variant="outline" className="text-blue-600 border-blue-400 bg-blue-50">
+                            🏫 {user.school_name}
                           </Badge>
                         )}
                         {user.counseling_completed ? (
@@ -1059,6 +1131,10 @@ export default function UsersPage() {
                   <p><strong>Status:</strong> {selectedUser.is_active ? 'Active' : 'Inactive'}</p>
                   <p><strong>Verified:</strong> {selectedUser.is_verified ? 'Yes' : 'No'}</p>
                   <p><strong>Payment:</strong> {selectedUser.payment_completed ? 'Paid' : 'Unpaid'}</p>
+                  <p>
+                    <strong>School:</strong>{' '}
+                    {selectedUser.school_name ? `🏫 ${selectedUser.school_name}` : 'Not linked'}
+                  </p>
                   <p><strong>Counseling:</strong> {selectedUser.counseling_completed ? '✅ Completed' : '⏳ Pending'}</p>
                   {selectedUser.counseling_completed_at && (
                     <p><strong>Counseling Date:</strong> {new Date(selectedUser.counseling_completed_at).toLocaleString()}</p>
@@ -1113,6 +1189,28 @@ export default function UsersPage() {
                     </>
                   )}
                 </Button>
+
+                {/* Unlink from school (only when linked) */}
+                {selectedUser.school_id && (
+                  <Button
+                    onClick={unlinkSchool}
+                    disabled={unlinkingSchool}
+                    variant="outline"
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    {unlinkingSchool ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Unlinking...
+                      </>
+                    ) : (
+                      <>
+                        <Unlink className="h-4 w-4 mr-2" />
+                        Unlink from School
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
 
               <div className="border rounded-lg p-4">

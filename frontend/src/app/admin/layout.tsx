@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BarChart3, BarChart2, Users, CreditCard, HelpCircle, Mail, Menu, X, LogOut } from 'lucide-react';
+import { BarChart3, BarChart2, Users, CreditCard, HelpCircle, Mail, Menu, X, LogOut, School } from 'lucide-react';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
 import { clearAllUserData, forceSessionClear } from '@/utils/clearUserData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,7 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: BarChart3 },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
+  { name: 'Schools', href: '/admin/schools', icon: School },
   { name: 'Questions', href: '/admin/questions', icon: HelpCircle },
   { name: 'Contacts', href: '/admin/contacts', icon: Mail },
 ];

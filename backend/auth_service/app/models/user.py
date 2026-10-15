@@ -39,6 +39,7 @@ class User(Base):
     plan_type = Column(VARCHAR(32), nullable=True, index=True)  # ✅ test or counseling
     counseling_completed = Column(Boolean, nullable=False, default=False, index=True)  # ✅ Track if counseling call is done
     counseling_completed_at = Column(DateTime(timezone=True), nullable=True)  # ✅ When counseling was completed
+    school_id = Column(UUID(as_uuid=True), ForeignKey("schools.id", ondelete="SET NULL"), nullable=True, index=True)  # ✅ Partner school (free access); SET NULL so deleting a school never deletes users
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)  # ✅ Added index
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -123,4 +124,27 @@ class Payment(Base):
         Index("ix_payments_user_status_created", "user_id", "status", desc("created_at")),  # ✅ CRITICAL
         Index("ix_payments_status_created", "status", desc("created_at")),  # Analytics
         CheckConstraint("status IN ('created','paid','failed')", name="ck_payments_status"),
+    )
+
+
+class School(Base):
+    """
+    ✅ OPTIMIZED: Partner schools — students of an active school get free test access
+    (users.school_id -> schools.id). Access is revoked for ALL linked students when
+    is_active is set to False.
+    """
+    __tablename__ = "schools"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(VARCHAR(120), nullable=False)  # ✅ "Greenfield High School"
+    code = Column(VARCHAR(40), nullable=False, unique=True, index=True)  # ✅ Student access code, stored uppercase (e.g. "GREENFIELD26")
+    is_active = Column(Boolean, nullable=False, default=True, index=True)  # ✅ Deactivate = revoke free access for all linked students
+    contact_email = Column(VARCHAR(120), nullable=True)  # ✅ School coordinator (optional)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    # ✅ OPTIMIZED: Indexes for common query patterns
+    __table_args__ = (
+        Index("ix_schools_active_name", "is_active", "name"),  # ✅ Student dropdown: active schools ordered by name
+        CheckConstraint("code = upper(code)", name="ck_schools_code_uppercase"),  # ✅ Codes must be stored uppercase
     )

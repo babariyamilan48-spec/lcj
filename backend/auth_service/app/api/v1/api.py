@@ -6,6 +6,7 @@ from auth_service.app.api.v1.optimized_auth import router as optimized_auth_rout
 from auth_service.app.api.v1.optimized_auth_v2 import router as optimized_auth_v2_router
 from auth_service.app.api.v1.payment import router as payment_router
 from auth_service.app.api.v1.payment_analytics import router as payment_analytics_router
+from auth_service.app.api.v1.schools import router as schools_router
 
 api_router = APIRouter()
 
@@ -29,6 +30,9 @@ api_router.include_router(payment_router, prefix="", tags=["payment"])  # Paymen
 
 # Payment Analytics endpoints
 api_router.include_router(payment_analytics_router, prefix="", tags=["payment-analytics"])  # Payment analytics endpoints
+
+# Partner schools (public dropdown + student code redemption)
+api_router.include_router(schools_router, prefix="", tags=["schools"])  # /schools/active, /school-code/redeem
 
 # Optimized Admin endpoints (primary)
 api_router.include_router(admin_optimized_router, prefix="", tags=["admin-optimized"])  # Optimized admin endpoints

@@ -47,6 +47,9 @@ export interface PaymentStatusResponse {
   plan_type?: string;
   last_payment_date?: string;
   payment_id?: string;
+  access_reason?: 'paid' | 'school' | 'none';
+  school_name?: string | null;
+  school_access_enabled?: boolean;
 }
 
 export interface PaymentRecord {

@@ -169,3 +169,4 @@ backend/credential.json
 
 emergency.txt
 backend/create_admin_user.py
+docs/

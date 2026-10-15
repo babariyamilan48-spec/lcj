@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, CheckCircle, Zap, Award, TrendingUp, Shield, BarChart3, MessageSquare, Star, Lock } from 'lucide-react';
 import RazorpayCheckout from './RazorpayCheckout';
+import SchoolAccessScreen from './SchoolAccessScreen';
 import { getCurrentUserId, getCurrentUserEmail } from '@/utils/userUtils';
 import { paymentService } from '@/services/paymentService';
 import { getApiBaseUrl } from '@/config/api';
@@ -14,6 +15,22 @@ interface PaymentGateProps {
   children?: React.ReactNode;
 }
 
+// Shared animated background (used by both the school screen and payment views)
+const AnimatedBackground: React.FC = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <motion.div
+      animate={{ y: [0, -20, 0] }}
+      transition={{ duration: 8, repeat: Infinity }}
+      className="absolute top-10 right-10 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-15"
+    />
+    <motion.div
+      animate={{ y: [0, 20, 0] }}
+      transition={{ duration: 10, repeat: Infinity }}
+      className="absolute bottom-10 left-10 w-72 h-72 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-15"
+    />
+  </div>
+);
+
 const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }) => {
   const [paymentCompleted, setPaymentCompleted] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,6 +40,11 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
   const [isBypass, setIsBypass] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  // Partner-school free access
+  const [schoolAccessEnabled, setSchoolAccessEnabled] = useState(true);
+  // Unpaid view: payment page is FIRST (default, same as today);
+  // school code screen opens from the partner-school banner on it
+  const [view, setView] = useState<'school' | 'pay'>('pay');
 
   // Check payment status on mount
   useEffect(() => {
@@ -60,6 +82,7 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
         console.log('✅ Payment status response:', status);
 
         setPaymentCompleted(status.payment_completed);
+        setSchoolAccessEnabled(status.school_access_enabled !== false); // default true if absent
         setError(null);
         setLoading(false);
       } catch (err: any) {
@@ -123,6 +146,31 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
       paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
   };
+
+  // After a successful redemption: re-check status server-side, then unlock.
+  // (Stays on this screen — children render immediately; no navigation like payment has.)
+  const handleSchoolRedeemSuccess = async () => {
+    const unlock = () => {
+      setPaymentCompleted(true);
+      setError(null);
+    };
+    try {
+      const userId = getCurrentUserId();
+      if (userId) {
+        const status = await paymentService.checkPaymentStatus(userId);
+        setPaymentCompleted(!!status.payment_completed);
+        if (!status.payment_completed) unlock();
+        return;
+      }
+    } catch {
+      // fall through to optimistic unlock
+    }
+    unlock();
+  };
+
+  // School screen is the primary unpaid view — but only when the feature is
+  // enabled server-side AND the user explicitly wants it (view toggle).
+  const showSchoolScreen = view === 'school' && schoolAccessEnabled;
 
   if (loading) {
     return (
@@ -191,21 +239,30 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
     }
   ];
 
+  // ── School view: dropdown + access-code screen replaces the payment page ──
+  if (showSchoolScreen) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4 relative overflow-hidden">
+        <AnimatedBackground />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-6xl relative z-10 py-8 md:py-12"
+        >
+          <SchoolAccessScreen
+            onRedeemSuccess={handleSchoolRedeemSuccess}
+            onSwitchToPayment={() => setView('pay')}
+          />
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4 relative overflow-hidden">
       {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{ y: [0, -20, 0] }}
-          transition={{ duration: 8, repeat: Infinity }}
-          className="absolute top-10 right-10 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-15"
-        />
-        <motion.div
-          animate={{ y: [0, 20, 0] }}
-          transition={{ duration: 10, repeat: Infinity }}
-          className="absolute bottom-10 left-10 w-72 h-72 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-15"
-        />
-      </div>
+      <AnimatedBackground />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -232,6 +289,45 @@ const PaymentGate: React.FC<PaymentGateProps> = ({ onPaymentComplete, children }
             વ્યક્તિગત અંતર્દૃષ્ટિ અને નિષ્ણાત માર્ગદર્શન સાથે તમારી સફળતાની સફર શરૂ કરો
           </motion.p>
         </div>
+
+        {/* Partner-school entry banner — opens the school code screen */}
+        {schoolAccessEnabled && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55 }}
+            className="max-w-4xl mx-auto mb-10"
+          >
+            <button
+              onClick={() => setView('school')}
+              className="group w-full text-left bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-2 border-orange-200 hover:border-orange-400 rounded-2xl px-5 py-4 sm:px-6 sm:py-5 transition-all hover:shadow-lg flex flex-col sm:flex-row items-center gap-4"
+            >
+              <div className="flex items-center gap-3 flex-1 text-center sm:text-left">
+                <div className="p-3 rounded-2xl bg-white text-orange-600 shadow-sm border border-orange-100 group-hover:scale-105 transition-transform">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                    <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 text-sm sm:text-base">
+                    શાળાના વિદ્યાર્થી છો? <span className="text-orange-600">મફતમાં શરૂ કરો</span>
+                  </p>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
+                    From a partner school? Enter your school access code — no payment needed
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 inline-flex items-center gap-1.5 bg-orange-500 group-hover:bg-orange-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-md transition-all">
+                કોડ દાખલ કરો / Enter code
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </span>
+            </button>
+          </motion.div>
+        )}
+
 
         {/* Plans Grid */}
         <div className="grid grid-cols-1 gap-8 max-w-4xl mx-auto mb-12">
